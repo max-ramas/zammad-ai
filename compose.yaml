@@ -1,20 +1,102 @@
-version: '3.8'
+name: dbs-ticketing-eventing-stack
 
 services:
-  kafka:
-    image: docker.io/bitnami/kafka:3.5.0
-    container_name: test-mq
-    ports:
-      - "9092:9092"
+  #
+  # ============= Kafka =============
+  #
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.9.2@sha256:c03f6fe4af97d57c42518b8deaf2753ed338ee414812f258f9cf32c977fe0a53
     environment:
-      KAFKA_ENABLE_KRAFT: "yes"
-      KAFKA_CFG_NODE_ID: "1"
-      KAFKA_CFG_PROCESS_ROLES: "broker,controller"
-      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
-      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
-      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://127.0.0.1:9092"
-      KAFKA_BROKER_ID: "1"
-      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@localhost:9093"
-      ALLOW_PLAINTEXT_LISTENER: "yes"
-    restart: unless-stopped
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - '22181:2181'
+    networks:
+      - internal
+    healthcheck: &healthcheck
+      test: nc -z localhost 2181 || exit -1
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    security_opt: &security_settings
+      - no-new-privileges:true
+
+  kafka:
+    image: confluentinc/cp-kafka:7.8.4@sha256:830817add88259709ad3271a2e4dfc38423cdedefe641cf6b9a01b712a2ebbbb
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - '9092:9092'
+      - '29092:29092'
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - internal
+    healthcheck:
+      <<: *healthcheck
+      test: nc -z localhost 9092 || exit -1
+    security_opt: *security_settings
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui@sha256:8f2ff02d64b0a7a2b71b6b3b3148b85f66d00ec20ad40c30bdcd415d46d31818
+    ports:
+      - '8089:8080'
+    depends_on:
+      - kafka
+      - zookeeper
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      DYNAMIC_CONFIG_ENABLED: 'true'
+    networks:
+      - internal
+    healthcheck:
+      <<: *healthcheck
+      test: [ "CMD-SHELL", "wget --spider --timeout=1 http://localhost:8080/actuator/health" ]
+    security_opt: *security_settings
+
+  init-kafka:
+    image: confluentinc/cp-kafka:latest@sha256:9cdc8119cb39c45f0efa6da8e2220058020c7433e3ba3a3ce11a8006a18cb336
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: [ '/bin/bash', '-c' ]
+    networks:
+      - internal
+    command: |
+      "
+      # blocks until kafka is reachable
+      echo -e 'Currently available topics:'
+      kafka-topics --bootstrap-server kafka:9092 --list
+      
+      echo -e 'Creating kafka topics...'
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic swim-finished-local --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic swim-dispatch-dlq-local --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic swim-dms-local --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic swim-invoice-local --replication-factor 1 --partitions 1
+
+      echo -e 'Resulting topics:'
+      kafka-topics --bootstrap-server kafka:9092 --list
+      "
+    security_opt: *security_settings
+
+  #
+  # ============= Mail =============
+  #
+  mailpit:
+    image: axllent/mailpit:v1.20.7@sha256:7eef0f38dbc85e4e264f2edf5d70fbb694826791e05cb2cae4fc9e3282f968f5
+    ports:
+      - '1025:1025' # SMTP Server
+      - '8025:8025' # UI
+    security_opt: *security_settings
+
+networks:
+  internal:
