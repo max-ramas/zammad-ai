@@ -15,7 +15,7 @@ maintainers = [
 ]
 
 dependencies = [
-    "faststream[cli,kafka]==0.6.1",
+    "faststream[cli,kafka]==0.6.2",
     "pydantic-settings==2.11.0",
     "pydantic==2.11.9",
     "python-dotenv==1.1.1",
@@ -29,7 +29,7 @@ dev = [
     "pre-commit==4.3.0",
     "pytest-asyncio==1.2.0",
     "pytest==8.4.2",
-    "ruff==0.14.1",
+    "ruff==0.14.2",
 ]
 
 [tool.uv]
