@@ -6,6 +6,7 @@ If you don't know if you should create an ADR, the answer is probably "yes".
 ## ADR List
 
 - [ADR 01: System Architecture](01-system-architecture.md)
+- [ADR 03: Vector Database Selection](03-vector-database.md)
 
 ## Background
 
