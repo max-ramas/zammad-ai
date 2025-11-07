@@ -1,7 +1,7 @@
 from logging import Logger
 from typing import Annotated
 
-from faststream import Depends, FastStream
+from faststream import AckPolicy, Depends, FastStream
 from faststream.exceptions import AckMessage, NackMessage
 from faststream.kafka import KafkaBroker
 from faststream.kafka.annotations import KafkaMessage
@@ -14,7 +14,7 @@ logger: Logger = getLogger("zammad-ai.kafka")
 settings: Settings = get_settings()
 
 broker = KafkaBroker(bootstrap_servers=settings.kafka.broker_url)
-app = FastStream(broker=broker)
+app = FastStream(broker)
 
 
 class Event(BaseModel):
@@ -53,7 +53,7 @@ class Event(BaseModel):
 @broker.subscriber(
     settings.kafka.topic,
     group_id=settings.kafka.group_id,
-    auto_commit=False,  # To ensure exactly-once processing
+    ack_policy=AckPolicy.ACK_FIRST,  # To ensure exactly-once processing
 )
 async def event_handler(
     event: Event,
