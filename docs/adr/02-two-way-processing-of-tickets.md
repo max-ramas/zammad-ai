@@ -1,11 +1,11 @@
 # ADR 02: Two-way processing of tickets
 
-| Status   | proposed   |
-| -------- | ---------- |
-| Author   | @freinold  |
-| Voters   | -          |
-| Drafted  | 2025-10-27 |
-| Timeline | tbd        |
+| Status   | accepted             |
+| -------- | -------------------- |
+| Author   | @freinold            |
+| Voters   | @lenabMUC, @freinold |
+| Drafted  | 2025-10-27           |
+| Accepted | 2026-11-07           |
 
 related to:
 
