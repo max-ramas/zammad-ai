@@ -1,8 +1,10 @@
 from unittest.mock import patch
 
 import pytest
+from faststream.exceptions import AckMessage
 from faststream.kafka import TestKafkaBroker
 from pydantic import ValidationError
+
 from src.kafka import broker
 from src.settings import Settings
 
@@ -21,10 +23,11 @@ async def test_event_handler_valid_message() -> None:
         }
         with patch("src.kafka.get_settings") as mock_settings:
             mock_settings.return_value = Settings(valid_request_types=["technischer Bürgersupport"])
-            await test_broker.publish(
-                topic="ticket-events",
-                message=message,
-            )
+            with pytest.raises(AckMessage):
+                await test_broker.publish(
+                    topic="ticket-events",
+                    message=message,
+                )
 
 
 @pytest.mark.asyncio
@@ -41,10 +44,11 @@ async def test_event_handler_with_requestType_alias() -> None:
         }
         with patch("src.kafka.get_settings") as mock_settings:
             mock_settings.return_value = Settings(valid_request_types=["technischer Bürgersupport"])
-            await test_broker.publish(
-                topic="ticket-events",
-                message=message,
-            )
+            with pytest.raises(AckMessage):
+                await test_broker.publish(
+                    topic="ticket-events",
+                    message=message,
+                )
 
 
 @pytest.mark.asyncio
@@ -62,10 +66,11 @@ async def test_event_handler_invalid_request_type() -> None:
         with patch("src.kafka.get_settings") as mock_settings:
             mock_settings.return_value = Settings(valid_request_types=["technischer Bürgersupport"])
             # Message should be processed and acked (with warning logged)
-            await test_broker.publish(
-                topic="ticket-events",
-                message=message,
-            )
+            with pytest.raises(AckMessage):
+                await test_broker.publish(
+                    topic="ticket-events",
+                    message=message,
+                )
 
 
 @pytest.mark.asyncio
@@ -83,10 +88,11 @@ async def test_event_handler_empty_valid_request_types() -> None:
         with patch("src.kafka.get_settings") as mock_settings:
             mock_settings.return_value = Settings(valid_request_types=[])
             # Message should be processed and acked (with warning logged)
-            await test_broker.publish(
-                topic="ticket-events",
-                message=message,
-            )
+            with pytest.raises(AckMessage):
+                await test_broker.publish(
+                    topic="ticket-events",
+                    message=message,
+                )
 
 
 @pytest.mark.asyncio
@@ -122,10 +128,11 @@ async def test_event_handler_with_multiple_valid_request_types() -> None:
         }
         with patch("src.kafka.get_settings") as mock_settings:
             mock_settings.return_value = Settings(valid_request_types=["technischer Bürgersupport", "general support", "other"])
-            await test_broker.publish(
-                topic="ticket-events",
-                message=message,
-            )
+            with pytest.raises(AckMessage):
+                await test_broker.publish(
+                    topic="ticket-events",
+                    message=message,
+                )
 
 
 @pytest.mark.asyncio
@@ -145,7 +152,8 @@ async def test_event_handler_case_sensitive_request_type() -> None:
                 valid_request_types=["technischer Bürgersupport"]  # lowercase
             )
             # Message should be processed and acked (with warning logged)
-            await test_broker.publish(
-                topic="ticket-events",
-                message=message,
-            )
+            with pytest.raises(AckMessage):
+                await test_broker.publish(
+                    topic="ticket-events",
+                    message=message,
+                )
