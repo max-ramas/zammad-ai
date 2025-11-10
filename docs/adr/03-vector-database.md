@@ -1,15 +1,16 @@
 # ADR 03: Vector Database Selection
 
-| Status   | proposed   |
-| -------- | ---------- |
-| Author   | @freinold  |
-| Voters   | -          |
-| Drafted  | 2025-11-07 |
-| Timeline | tbd        |
+| Status   | accepted                       |
+| -------- | ------------------------------ |
+| Author   | @freinold                      |
+| Voters   | @l0renor, @lenabMUC, @freinold |
+| Drafted  | 2025-11-07                     |
+| Accepted | 2025-11-10                     |
 
 ## Context and Problem Statement
 
-Vector databases are specialized systems designed to efficiently store, index, and search high-dimensional vector representations of data, such as text embeddings. They are essential for semantic search and retrieval-augmented generation (RAG) scenarios, where finding similar documents or context based on vector similarity is required.
+Vector databases are specialized systems designed to efficiently store, index, and search high-dimensional vector representations of data, such as text embeddings.
+They are essential for semantic search and retrieval-augmented generation (RAG) scenarios, where finding similar documents or context based on vector similarity is required.
 
 For our use case, the vector database must meet the following criteria:
 
@@ -51,4 +52,5 @@ For our use case, the vector database must meet the following criteria:
 ## Decision Made
 
 We choose **Qdrant** as our vector database.
-It offers a slim footprint, excellent document and filtering support, and integrates seamlessly with LangChain. While pgVector is a solid option for Postgres-centric stacks, Qdrant is better suited for our requirements.
+It offers a slim footprint, excellent document and filtering support, and integrates seamlessly with LangChain.
+While pgVector is a solid option for Postgres-centric stacks, Qdrant is better suited for our requirements.
