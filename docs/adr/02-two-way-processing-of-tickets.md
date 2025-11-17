@@ -37,4 +37,5 @@ Additionally, we can define specific categories where an AI answer could be auto
 
 ## Decision Made
 
-tbd
+We will implement a two-way processing system for tickets in Zammad, allowing for both fully automated and semi-automated handling based on ticket categories.
+This approach balances efficiency with the need for human oversight in complex situations, ensuring high-quality customer service.
