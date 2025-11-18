@@ -10,7 +10,7 @@ from pydantic import AliasChoices, BaseModel, Field
 from .logtools import getLogger
 from .settings import Settings, get_settings
 
-logger: Logger = getLogger("zammad-ai.kafka")
+logger: Logger = getLogger("zammad-ai.app.kafka")
 settings: Settings = get_settings()
 
 broker = KafkaBroker(bootstrap_servers=settings.kafka.broker_url)
