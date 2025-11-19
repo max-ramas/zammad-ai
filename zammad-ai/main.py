@@ -12,6 +12,7 @@ from app.core.settings import Settings, get_settings
 
 
 async def main() -> None:
+    """Runs the application."""
     _: Settings = get_settings()
     await app.run()  # blocking method
 

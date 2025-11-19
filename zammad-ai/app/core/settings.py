@@ -5,8 +5,18 @@ from pydantic_settings import BaseSettings, CliSettingsSource, PydanticBaseSetti
 
 
 class Settings(BaseSettings):
-    kafka: "KafkaSettings" = Field(default_factory=lambda: KafkaSettings(), description="Kafka related settings")
-    valid_request_types: list[str] = Field(default_factory=list, description="List of valid request types to be processed")
+    """
+    Application settings for Zammad AI integration.
+    """
+
+    kafka: "KafkaSettings" = Field(
+        default_factory=lambda: KafkaSettings(),
+        description="Kafka related settings",
+    )
+    valid_request_types: list[str] = Field(
+        default_factory=list,
+        description="List of valid request types to be processed",
+    )
 
     model_config = SettingsConfigDict(
         env_prefix="ZAMMAD_AI_",
@@ -42,6 +52,10 @@ class Settings(BaseSettings):
 
 
 class KafkaSettings(BaseModel):
+    """
+    Settings related to Kafka integration.
+    """
+
     broker_url: str = Field(
         description="URL of the Kafka message broker notifying ticket events",
         default="localhost:9092",
@@ -58,4 +72,9 @@ class KafkaSettings(BaseModel):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    """Get cached application settings.
+
+    Returns:
+        Settings: The application settings.
+    """
     return Settings()

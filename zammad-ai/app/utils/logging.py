@@ -10,10 +10,10 @@ def getLogger(name: str = "zammad-ai") -> logging.Logger:
     """Configures logging and returns a logger with the specified name.
 
     Parameters:
-    name (str): The name of the logger.
+        name (str): The name of the logger.
 
     Returns:
-    logging.Logger: The logger with the specified name.
+        logging.Logger: The logger with the specified name.
     """
     with open("logconf.yaml", "r", encoding="utf-8") as file:
         log_config = safe_load(file)
@@ -29,10 +29,10 @@ class JsonFormatter(logging.Formatter):
         """Formats the log record as a JSON string.
 
         Parameters:
-        record (logging.LogRecord): The log record to format.
+            record (logging.LogRecord): The log record to format.
 
         Returns:
-        str: The log record as a JSON string.
+            str: The log record as a JSON string.
         """
         #
         log_data = {

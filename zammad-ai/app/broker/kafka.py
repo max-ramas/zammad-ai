@@ -27,6 +27,17 @@ async def event_handler(
     msg: KafkaMessage,
     injected_settings: Annotated[Settings, Depends(get_settings)],
 ) -> None:
+    """Handle incoming Kafka events for ticket processing.
+
+    Args:
+        event (Event): The Kafka event to process.
+        msg (KafkaMessage): The Kafka message metadata.
+        injected_settings (Annotated[Settings, Depends]): The application settings, injected via dependency injection.
+
+    Raises:
+        AckMessage: If the event is processed successfully.
+        NackMessage: If the event processing fails.
+    """
     logger.debug(f"Received event: {event}")
 
     # Filter here because information from body is needed
