@@ -7,8 +7,8 @@ inject_into_ssl()
 
 import asyncio
 
-from src.kafka import app
-from src.settings import Settings, get_settings
+from app.broker.kafka import app
+from app.core.settings import Settings, get_settings
 
 
 async def main() -> None:
