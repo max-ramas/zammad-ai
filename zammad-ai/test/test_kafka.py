@@ -5,8 +5,8 @@ from faststream.exceptions import AckMessage
 from faststream.kafka import TestKafkaBroker
 from pydantic import ValidationError
 
-from src.kafka import broker
-from src.settings import Settings
+from app.broker.kafka import broker
+from app.core.settings import Settings
 
 
 @pytest.mark.asyncio
@@ -21,7 +21,7 @@ async def test_event_handler_valid_message() -> None:
             "anliegenart": "technischer Bürgersupport",
             "lhmExtId": None,
         }
-        with patch("src.kafka.get_settings") as mock_settings:
+        with patch("app.broker.kafka.get_settings") as mock_settings:
             mock_settings.return_value = Settings(valid_request_types=["technischer Bürgersupport"])
             with pytest.raises(AckMessage):
                 await test_broker.publish(
@@ -42,7 +42,7 @@ async def test_event_handler_with_requestType_alias() -> None:
             "requestType": "technischer Bürgersupport",  # Using alias
             "lhmExtId": None,
         }
-        with patch("src.kafka.get_settings") as mock_settings:
+        with patch("app.broker.kafka.get_settings") as mock_settings:
             mock_settings.return_value = Settings(valid_request_types=["technischer Bürgersupport"])
             with pytest.raises(AckMessage):
                 await test_broker.publish(
@@ -63,7 +63,7 @@ async def test_event_handler_invalid_request_type() -> None:
             "anliegenart": "invalid_request_type",
             "lhmExtId": None,
         }
-        with patch("src.kafka.get_settings") as mock_settings:
+        with patch("app.broker.kafka.get_settings") as mock_settings:
             mock_settings.return_value = Settings(valid_request_types=["technischer Bürgersupport"])
             # Message should be processed and acked (with warning logged)
             with pytest.raises(AckMessage):
@@ -85,7 +85,7 @@ async def test_event_handler_empty_valid_request_types() -> None:
             "anliegenart": "any_request_type",
             "lhmExtId": None,
         }
-        with patch("src.kafka.get_settings") as mock_settings:
+        with patch("app.broker.kafka.get_settings") as mock_settings:
             mock_settings.return_value = Settings(valid_request_types=[])
             # Message should be processed and acked (with warning logged)
             with pytest.raises(AckMessage):
@@ -104,7 +104,7 @@ async def test_event_handler_invalid_message_format() -> None:
             "action": "created",
             # Missing required fields: ticket, status, statusId, request_type
         }
-        with patch("src.kafka.get_settings") as mock_settings:
+        with patch("app.broker.kafka.get_settings") as mock_settings:
             mock_settings.return_value = Settings(valid_request_types=["technischer Bürgersupport"])
             # Should raise ValidationError during message processing
             with pytest.raises(ValidationError):
@@ -126,7 +126,7 @@ async def test_event_handler_with_multiple_valid_request_types() -> None:
             "anliegenart": "general support",
             "lhmExtId": None,
         }
-        with patch("src.kafka.get_settings") as mock_settings:
+        with patch("app.broker.kafka.get_settings") as mock_settings:
             mock_settings.return_value = Settings(valid_request_types=["technischer Bürgersupport", "general support", "other"])
             with pytest.raises(AckMessage):
                 await test_broker.publish(
@@ -147,7 +147,7 @@ async def test_event_handler_case_sensitive_request_type() -> None:
             "anliegenart": "TECHNISCHER BÜRGERSUPPORT",  # Different case
             "lhmExtId": None,
         }
-        with patch("src.kafka.get_settings") as mock_settings:
+        with patch("app.broker.kafka.get_settings") as mock_settings:
             mock_settings.return_value = Settings(
                 valid_request_types=["technischer Bürgersupport"]  # lowercase
             )
