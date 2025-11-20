@@ -19,16 +19,52 @@ Events have the following structure:
 
 The structure is defined in the dbs/ticketing-eventing service and can be found in its [GitHub repository](https://github.com/it-at-m/dbs/blob/main/ticketing-eventing/handler-core/src/main/java/de/muenchen/oss/dbs/ticketing/eventing/handlercore/domain/model/Event.java).
 
-## TLS / mTLS configuration
+## Kafka Configuration & Security
 
-Kafka connections can be secured either via classic PEM files or via PKCS#12 blobs that are delivered through environment variables. The relevant settings live under `kafka.mtls` in `config.yaml` (or the corresponding `ZAMMAD_AI_KAFKA__MTLS__*` env vars).
+Kafka settings are nested under the `kafka` key in `config.yaml` and support environment variable overrides using the prefix `ZAMMAD_AI_KAFKA__`. Security settings are further nested under `security`.
 
-| Setting                   | Description                                                                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `ca_file`                 | Path to a CA bundle on disk that should be trusted for the broker certificate.                                                       |
-| `ca_env_var`              | Name of an environment variable that contains the CA certificate text. The helper accepts raw PEM or base64-encoded PEM.             |
-| `cert_file` / `key_file`  | Paths to the client certificate/key in PEM format. Use when files are available on the filesystem.                                   |
-| `pkcs12_env_var`          | Name of an environment variable with a base64-encoded PKCS#12 archive holding client key, certificate, and optionally intermediates. |
-| `pkcs12_password_env_var` | Optional env var name that contains the password for the PKCS#12 archive.                                                            |
+### Example YAML
 
-When `pkcs12_env_var` is configured, the broker security layer decodes the secret in-memory, converts it to PEM, and feeds it into aiokafka's SSL context. The CA material is taken from `ca_file` and/or `ca_env_var`, so you can point to the CA that signs the Kafka cluster itself even if it is only available through secrets.
+```yaml
+kafka:
+  broker_url: "localhost:9092"
+  topic: "ticket-events"
+  group_id: "zammad-ai"
+  security:
+    # Choose one of the following security schemas:
+    # For mTLS via environment variables:
+    ca_file_base64_env: "CA_CERT_ENV"
+    pkcs12_base64_env: "PKCS12_ENV"
+    pkcs12_pw_base64_env: "PKCS12_PW_ENV"
+    # For mTLS via file paths:
+    # ca_file_path: "/path/to/ca.pem"
+    # client_cert_path: "/path/to/client.crt"
+    # client_key_path: "/path/to/client.key"
+```
+
+### Environment Variable Overrides
+
+Use double underscores for nesting:
+
+- `ZAMMAD_AI_KAFKA__BROKER_URL`
+- `ZAMMAD_AI_KAFKA__SECURITY__CA_FILE_BASE64_ENV`
+- `ZAMMAD_AI_KAFKA__SECURITY__PKCS12_BASE64_ENV`
+- `ZAMMAD_AI_KAFKA__SECURITY__PKCS12_PW_BASE64_ENV`
+
+### Security Schemas
+
+Kafka connections can be secured either via classic PEM files or via PKCS#12 blobs delivered through environment variables. Choose one of the following schemas:
+
+#### 1. KafkaMTLSEnvSecurity (Environment Variables)
+
+- `ca_file_base64_env`: Name of env var with CA certificate (PEM or base64)
+- `pkcs12_base64_env`: Name of env var with base64 PKCS#12 payload
+- `pkcs12_pw_base64_env`: Name of env var with PKCS#12 password
+
+#### 2. KafkaMTLSFileSecurity (File Paths)
+
+- `ca_file_path`: Path to CA certificate file (PEM)
+- `client_cert_path`: Path to client certificate file (PEM)
+- `client_key_path`: Path to client private key file (PEM)
+
+When using PKCS#12, the broker security layer decodes the secret in-memory, converts it to PEM, and feeds it into aiokafka's SSL context. The CA material is taken from the configured file or environment variable.
