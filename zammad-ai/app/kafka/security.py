@@ -1,0 +1,98 @@
+"""Security helpers for configuring Kafka TLS/mTLS."""
+
+from base64 import b64decode
+from os import getenv
+from pathlib import Path
+from ssl import SSLContext, create_default_context
+from tempfile import TemporaryDirectory
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.serialization import pkcs12
+from faststream.security import BaseSecurity
+
+from app.core.settings import KafkaMTLSEnvSecurity, KafkaMTLSFileSecurity, Settings, get_settings
+
+
+def setup_security() -> BaseSecurity:
+    """Set up Kafka security configuration based on application settings.
+
+    Returns:
+        BaseSecurity: The configured security object for Kafka.
+
+    Raises:
+        ValueError: If required environment variables are not set or if there are issues
+            loading the PKCS#12 file.
+    """
+    settings: Settings = get_settings()
+
+    if settings.kafka.security is None:
+        return BaseSecurity()
+
+    if isinstance(settings.kafka.security, KafkaMTLSEnvSecurity):
+        # Unpack CA file
+        ca_data: str | None = getenv(settings.kafka.security.ca_file_base64_env)
+        if ca_data is None:
+            raise ValueError(f"Environment variable {settings.kafka.security.ca_file_base64_env} is not set.")
+        ca_data = b64decode(s=ca_data).decode(encoding="utf-8")
+
+        # Unpack PKCS#12 file
+        pkcs12_data: str | None = getenv(settings.kafka.security.pkcs12_base64_env)
+        if pkcs12_data is None:
+            raise ValueError(f"Environment variable {settings.kafka.security.pkcs12_base64_env} is not set.")
+        pkcs12_bytes = b64decode(s=pkcs12_data)
+
+        # Unpack PKCS#12 password
+        pkcs12_pw: str | None = getenv(settings.kafka.security.pkcs12_pw_base64_env)
+        if pkcs12_pw is None:
+            raise ValueError(f"Environment variable {settings.kafka.security.pkcs12_pw_base64_env} is not set.")
+        pkcs12_pw_bytes: bytes = b64decode(s=pkcs12_pw)
+
+        # Extract the private key and certificate from the PKCS#12 file
+        try:
+            private_key, certificate, _ = pkcs12.load_key_and_certificates(
+                data=pkcs12_bytes,
+                password=pkcs12_pw_bytes,
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to load PKCS#12 file: {e}")
+
+        if private_key is None or certificate is None:
+            raise ValueError("PKCS#12 file does not contain a private key and certificate.")
+
+        # Write cert and key to temporary files
+        tempdir: Path = Path(TemporaryDirectory(delete=False).name)
+        cert_file: Path = tempdir / "kafka.cert"
+        key_file: Path = tempdir / "kafka.key"
+        with open(file=cert_file, mode="wb") as f:
+            f.write(certificate.public_bytes(encoding=serialization.Encoding.PEM))
+        with open(file=key_file, mode="wb") as f:
+            f.write(
+                private_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.NoEncryption(),
+                )
+            )
+    elif isinstance(settings.kafka.security, KafkaMTLSFileSecurity):
+        # Load CA data from file
+        with open(file=settings.kafka.security.ca_file_path, mode="r") as f:
+            ca_data = f.read()
+
+        # Use provided cert and key files
+        cert_file: Path = settings.kafka.security.client_cert_path
+        key_file: Path = settings.kafka.security.client_key_path
+    else:
+        raise ValueError("Unsupported Kafka security configuration.")
+
+    # Create SSL context
+    ssl_context: SSLContext = create_default_context(
+        cadata=ca_data,
+    )
+
+    # Load client cert and key
+    ssl_context.load_cert_chain(
+        certfile=cert_file,
+        keyfile=key_file,
+    )
+
+    return BaseSecurity(ssl_context=ssl_context, use_ssl=True)

@@ -1,6 +1,7 @@
+from abc import ABC
 from functools import lru_cache
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, FilePath
 from pydantic_settings import BaseSettings, CliSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict, YamlConfigSettingsSource
 
 
@@ -36,7 +37,7 @@ class Settings(BaseSettings):
     @classmethod
     def settings_customise_sources(
         cls,
-        settings_cls: type[BaseSettings],
+        settings_cls: type[BaseSettings],  # type: ignore
         init_settings: PydanticBaseSettingsSource,
         env_settings: PydanticBaseSettingsSource,
         dotenv_settings: PydanticBaseSettingsSource,
@@ -57,7 +58,7 @@ class KafkaSettings(BaseModel):
     """
 
     broker_url: str = Field(
-        description="URL of the Kafka message broker notifying ticket events",
+        description="URL of the Kafka message broker notifying ticket events.",
         default="localhost:9092",
     )
     topic: str = Field(
@@ -67,6 +68,44 @@ class KafkaSettings(BaseModel):
     group_id: str = Field(
         description="Kafka consumer group ID",
         default="zammad-ai",
+    )
+    security: "KafkaSecurity | None" = Field(
+        default=None,
+        description="Security configuration for Kafka connection.",
+    )
+
+
+class KafkaSecurity(BaseModel, ABC):
+    """Base class for Kafka security configurations."""
+
+    pass
+
+
+class KafkaMTLSEnvSecurity(KafkaSecurity):
+    """mTLS configuration for Kafka connection using environment variables only."""
+
+    ca_file_base64_env: str = Field(
+        description="Environment variable name containing the CA certificate (PEM text or base64).",
+    )
+    pkcs12_base64_env: str = Field(
+        description="Environment variable name with base64-encoded PKCS#12 payload.",
+    )
+    pkcs12_pw_base64_env: str = Field(
+        description="Environment variable name containing the PKCS#12 password",
+    )
+
+
+class KafkaMTLSFileSecurity(KafkaSecurity):
+    """mTLS configuration for Kafka connection using file paths."""
+
+    ca_file_path: FilePath = Field(
+        description="Path to the CA certificate file (PEM format).",
+    )
+    client_cert_path: FilePath = Field(
+        description="Path to the client certificate file (PEM format).",
+    )
+    client_key_path: FilePath = Field(
+        description="Path to the client private key file (PEM format).",
     )
 
 

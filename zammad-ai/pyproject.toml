@@ -17,6 +17,7 @@ maintainers = [
 dependencies = [
     "faststream[cli,kafka]==0.6.2",
     "httpx==0.28.1",
+    "cryptography==44.0.1",
     "pydantic-settings==2.11.0",
     "pydantic==2.11.9",
     "python-dotenv==1.1.1",
@@ -38,4 +39,4 @@ add-bounds = "exact"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-testpaths  = ["test"]
+testpaths = ["test"]
