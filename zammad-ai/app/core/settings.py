@@ -15,7 +15,7 @@ class Settings(BaseSettings):
         description="Kafka related settings",
     )
     valid_request_types: list[str] = Field(
-        default_factory=list,
+        min_length=1,
         description="List of valid request types to be processed",
     )
 
@@ -116,4 +116,4 @@ def get_settings() -> Settings:
     Returns:
         Settings: The application settings.
     """
-    return Settings()
+    return Settings()  # type: ignore
