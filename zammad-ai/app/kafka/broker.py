@@ -10,10 +10,19 @@ from app.core.settings import Settings, get_settings
 from app.models.kafka import Event
 from app.utils.logging import getLogger
 
+from .security import setup_security
+
 logger: Logger = getLogger("zammad-ai.app.kafka")
 settings: Settings = get_settings()
 
-broker = KafkaBroker(bootstrap_servers=settings.kafka.broker_url)
+# Security setup
+security = setup_security()
+
+# Kafka Broker and FastStream app setup
+broker = KafkaBroker(
+    bootstrap_servers=settings.kafka.broker_url,
+    security=security,
+)
 app = FastStream(broker)
 
 
