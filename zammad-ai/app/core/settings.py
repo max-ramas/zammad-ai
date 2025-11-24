@@ -65,9 +65,9 @@ class KafkaSettings(BaseModel):
         description="Kafka topic for ticket events",
         default="ticket-events",
     )
-    group_id: str = Field(
+    group_id: str | None = Field(
         description="Kafka consumer group ID",
-        default="zammad-ai",
+        default=None,
     )
     security: "KafkaSecurity | None" = Field(
         default=None,
