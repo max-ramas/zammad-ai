@@ -85,13 +85,13 @@ class KafkaMTLSEnvSecurity(KafkaSecurity):
     """mTLS configuration for Kafka connection using environment variables only."""
 
     ca_file_base64_env: str = Field(
-        description="Environment variable name containing the CA certificate (PEM text or base64).",
+        description="Environment variable name containing the base64-encoded CA certificate.",
     )
     pkcs12_base64_env: str = Field(
         description="Environment variable name with base64-encoded PKCS#12 payload.",
     )
     pkcs12_pw_base64_env: str = Field(
-        description="Environment variable name containing the PKCS#12 password",
+        description="Environment variable name containing the base64-encoded PKCS#12 password",
     )
 
 

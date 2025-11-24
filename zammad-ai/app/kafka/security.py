@@ -11,13 +11,13 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import pkcs12
 from faststream.security import BaseSecurity
 
-from app.core.settings import KafkaMTLSEnvSecurity, KafkaMTLSFileSecurity, Settings, get_settings
+from app.core.settings import KafkaMTLSEnvSecurity, KafkaMTLSFileSecurity, Settings
 from app.utils.logging import getLogger
 
 logger = getLogger(__name__)
 
 
-def setup_security() -> BaseSecurity:
+def setup_security(settings: Settings) -> BaseSecurity:
     """Set up Kafka security configuration based on application settings.
 
     Returns:
@@ -28,8 +28,6 @@ def setup_security() -> BaseSecurity:
             variable contents are not valid base64, or if there are issues
             loading the PKCS#12 file.
     """
-    settings: Settings = get_settings()
-
     if settings.kafka.security is None:
         logger.debug("No Kafka security configuration provided; using no security.")
         return BaseSecurity()
