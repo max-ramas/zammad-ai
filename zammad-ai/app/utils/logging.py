@@ -1,7 +1,7 @@
 import json
 import logging
 import logging.config
-from datetime import datetime
+from datetime import datetime, timezone
 
 from yaml import safe_load
 
@@ -36,7 +36,7 @@ class JsonFormatter(logging.Formatter):
         """
         #
         log_data = {
-            "time": datetime.fromtimestamp(record.created).strftime("%Y-%m-%d %H:%M:%S"),
+            "time": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
             "level": record.levelname,
             "message": record.getMessage(),
             "name": record.name,
