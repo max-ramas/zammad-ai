@@ -25,6 +25,32 @@ def getLogger(name: str = "zammad-ai") -> logging.Logger:
 class JsonFormatter(logging.Formatter):
     """A custom JSON formatter for logging."""
 
+    # Standard LogRecord attributes to exclude
+    STANDARD_ATTRIBUTES: set[str] = {
+        "name",
+        "msg",
+        "args",
+        "levelname",
+        "levelno",
+        "pathname",
+        "filename",
+        "module",
+        "exc_info",
+        "exc_text",
+        "stack_info",
+        "lineno",
+        "funcName",
+        "created",
+        "msecs",
+        "relativeCreated",
+        "thread",
+        "threadName",
+        "processName",
+        "process",
+        "getMessage",
+        "message",
+    }
+
     def format(self, record: logging.LogRecord) -> str:
         """Formats the log record as a JSON string.
 
@@ -44,38 +70,13 @@ class JsonFormatter(logging.Formatter):
 
         # Add exception information if present
         if record.exc_info:
-            log_data["exception"] = str(record.exc_info)
+            log_data["exception"] = self.formatException(record.exc_info)
 
         # Add any extra fields that were passed via the extra parameter
-        # Standard LogRecord attributes to exclude
-        standard_attrs: set[str] = {
-            "name",
-            "msg",
-            "args",
-            "levelname",
-            "levelno",
-            "pathname",
-            "filename",
-            "module",
-            "exc_info",
-            "exc_text",
-            "stack_info",
-            "lineno",
-            "funcName",
-            "created",
-            "msecs",
-            "relativeCreated",
-            "thread",
-            "threadName",
-            "processName",
-            "process",
-            "getMessage",
-            "message",
-        }
 
         # Add any attributes that aren't standard LogRecord attributes
         for key, value in record.__dict__.items():
-            if key not in standard_attrs and not key.startswith("_"):
+            if key not in self.STANDARD_ATTRIBUTES and not key.startswith("_"):
                 log_data[key] = value
 
         return json.dumps(log_data)
