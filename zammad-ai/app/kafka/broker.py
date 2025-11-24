@@ -59,7 +59,7 @@ def build_broker(settings: Settings) -> tuple[KafkaBroker, Callable]:
 
         # Filter here because information from body is needed
         if event.request_type not in settings.valid_request_types:
-            logger.warning(f"Skipping event with request type: {event.request_type}")
+            logger.info(f"Skipping event with request type: {event.request_type}")
             raise AckMessage()
 
         if False:  # Replace with error handlers

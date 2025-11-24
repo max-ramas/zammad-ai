@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 import pytest
-from faststream.exceptions import AckMessage
 from faststream.kafka import TestKafkaBroker
 from pydantic import ValidationError
 
@@ -56,7 +55,7 @@ async def test_event_handler_with_requestType_alias() -> None:
 
 
 @pytest.mark.asyncio
-async def test_event_handler_invalid_request_type() -> None:
+async def test_event_handler_invalid_request_type(caplog) -> None:
     """Test event handler skips messages with invalid request types."""
     with patch("app.core.settings.get_settings") as mock_settings:
         mock_settings.return_value = Settings(valid_request_types=["technischer Bürgersupport"])
@@ -70,11 +69,12 @@ async def test_event_handler_invalid_request_type() -> None:
                 "anliegenart": "invalid_request_type",
                 "lhmExtId": None,
             }
-            with pytest.raises(expected_exception=AckMessage):
+            with caplog.at_level("INFO"):
                 await test_broker.publish(
                     topic=mock_settings.return_value.kafka.topic,
                     message=message,
                 )
+            assert "Skipping" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -119,7 +119,7 @@ async def test_event_handler_with_multiple_valid_request_types() -> None:
 
 
 @pytest.mark.asyncio
-async def test_event_handler_case_sensitive_request_type() -> None:
+async def test_event_handler_case_sensitive_request_type(caplog) -> None:
     """Test that request type validation is case sensitive."""
     with patch("app.core.settings.get_settings") as mock_settings:
         mock_settings.return_value = Settings(
@@ -135,8 +135,9 @@ async def test_event_handler_case_sensitive_request_type() -> None:
                 "anliegenart": "TECHNISCHER BÜRGERSUPPORT",  # Different case
                 "lhmExtId": None,
             }
-            with pytest.raises(expected_exception=AckMessage):
+            with caplog.at_level("INFO"):
                 await test_broker.publish(
                     topic=mock_settings.return_value.kafka.topic,
                     message=message,
                 )
+            assert "Skipping event" in caplog.text

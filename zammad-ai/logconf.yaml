@@ -29,7 +29,7 @@ loggers:
   zammad-ai:
     level: INFO
     handlers: [console]
-    propagate: no
+    propagate: yes
   httpx:
     level: WARNING
     handlers: [httpx]
