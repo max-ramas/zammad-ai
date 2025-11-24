@@ -38,7 +38,7 @@ def build_broker(settings: Settings) -> tuple[KafkaBroker, Callable]:
     @broker.subscriber(
         settings.kafka.topic,
         # group_id=settings.kafka.group_id,
-        ack_policy=AckPolicy.ACK_FIRST,  # To ensure exactly-once processing
+        ack_policy=AckPolicy.NACK_ON_ERROR,
     )
     async def event_handler(
         event: Event,
