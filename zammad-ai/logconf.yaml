@@ -1,10 +1,10 @@
 version: 1
 formatters:
   simple:
-    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   http:
-    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    datefmt: '%Y-%m-%d %H:%M:%S'
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    datefmt: "%Y-%m-%d %H:%M:%S"
   json:
     class: app.utils.logging.JsonFormatter
 handlers:
@@ -20,24 +20,24 @@ handlers:
 loggers:
   uvicorn.error:
     level: INFO
-    handlers: [ console ]
+    handlers: [console]
     propagate: no
   dev:
     level: DEBUG
-    handlers: [ console ]
+    handlers: [console]
     propagate: no
   zammad-ai:
     level: INFO
-    handlers: [ console ]
+    handlers: [console]
     propagate: no
   httpx:
-    level: WARN
-    handlers: [ httpx ]
+    level: WARNING
+    handlers: [httpx]
     propagate: no
   httpcore:
-    level: WARN
-    handlers: [ httpx ]
+    level: WARNING
+    handlers: [httpx]
     propagate: no
 root:
   level: DEBUG
-  handlers: [ console ]
+  handlers: [console]
