@@ -40,3 +40,4 @@ add-bounds = "exact"
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["test"]
+asyncio_mode = "auto"
