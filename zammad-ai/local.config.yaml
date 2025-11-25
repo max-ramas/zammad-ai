@@ -1,0 +1,8 @@
+# This is a local configuration file for Zammad AI service.
+# Copy this file and rename it to config.yaml to override default settings.
+kafka:
+  broker_url: localhost:29092
+  group_id: zammad-ai
+  topic: ticket-events
+valid_request_types:
+  - fahrerlaubnis

@@ -4,3 +4,4 @@ __pycache__/
 certs/
 test/
 config.yaml
+local.config.yaml
