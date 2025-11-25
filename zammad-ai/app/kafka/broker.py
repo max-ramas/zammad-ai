@@ -13,7 +13,7 @@ from app.utils.logging import getLogger
 
 from .security import setup_security
 
-logger: Logger = getLogger("zammad-ai.app.kafka.broker")
+logger: Logger = getLogger("zammad-ai")
 
 
 def build_broker(settings: Settings) -> tuple[KafkaBroker, Callable]:
@@ -25,6 +25,7 @@ def build_broker(settings: Settings) -> tuple[KafkaBroker, Callable]:
     Returns:
         tuple[KafkaBroker, Callable]: The configured KafkaBroker and its event handler.
     """
+    logger.info("Building Kafka broker")
 
     # Security setup
     security: BaseSecurity = setup_security(settings=settings)
