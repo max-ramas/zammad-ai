@@ -5,11 +5,14 @@ layout: home
 hero:
   name: "Zammad-AI"
   text: "GenAI-powered agent for Zammad"
-  tagline: My great project tagline
+  tagline: "Enhance your Zammad helpdesk with AI-driven ticket processing and responses."
   actions:
     - theme: brand
       text: ADR
       link: /adr
+    - theme: secondary
+      text: Components
+      link: /components
 
 features:
   - title: Integrate Easily
