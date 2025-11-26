@@ -15,7 +15,15 @@ maintainers = [
 ]
 
 dependencies = [
+    "aiofiles==24.1.0",
     "faststream[cli,kafka]==0.5.48",
+    "feedparser==6.0.12",
+    "langchain==0.3.27",
+    "langchain-core==0.3.78",
+    "langchain-openai==0.3.34",
+    "langfuse==3.10.1",
+    "logtools==0.8.7",
+    "openai==2.1.0",
     "pydantic-settings==2.10.1",
     "python-dotenv==1.1.1",
     "truststore==0.10.4",
