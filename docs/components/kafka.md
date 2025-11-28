@@ -32,11 +32,13 @@ kafka:
   group_id: "zammad-ai"
   security:
     # Choose one of the following security schemas:
-    # For mTLS via environment variables:
-    ca_file_base64_env: "CA_CERT_ENV"
-    pkcs12_base64_env: "PKCS12_ENV"
-    pkcs12_pw_base64_env: "PKCS12_PW_ENV"
-    # For mTLS via file paths:
+    # A: For mTLS via environment variables:
+    ca_file_base64: "QkFTRTY0X0NBX0NFUlQ=" # use actual base64-encoded CA cert
+    pkcs12_base64: "QkFTRTY0X1BLQ1MxMl9CTE9C" # use actual base64-encoded PKCS#12 blob
+    pkcs12_pw_base64: "QkFTRTY0X1BBU1NXT1JE" # use actual base64-encoded PKCS#12 password
+
+
+    # B: For mTLS via file paths:
     # ca_file_path: "/path/to/ca.pem"
     # client_cert_path: "/path/to/client.crt"
     # client_key_path: "/path/to/client.key"
@@ -47,9 +49,9 @@ kafka:
 Use double underscores for nesting:
 
 - `ZAMMAD_AI_KAFKA__BROKER_URL`
-- `ZAMMAD_AI_KAFKA__SECURITY__CA_FILE_BASE64_ENV`
-- `ZAMMAD_AI_KAFKA__SECURITY__PKCS12_BASE64_ENV`
-- `ZAMMAD_AI_KAFKA__SECURITY__PKCS12_PW_BASE64_ENV`
+- `ZAMMAD_AI_KAFKA__SECURITY__CA_FILE_BASE64`
+- `ZAMMAD_AI_KAFKA__SECURITY__PKCS12_BASE64`
+- `ZAMMAD_AI_KAFKA__SECURITY__PKCS12_PW_BASE64`
 
 ### Security Schemas
 
@@ -57,9 +59,9 @@ Kafka connections can be secured either via classic PEM files or via PKCS#12 blo
 
 #### 1. KafkaMTLSEnvSecurity (Environment Variables)
 
-- `ca_file_base64_env`: Name of env var with CA certificate (PEM or base64)
-- `pkcs12_base64_env`: Name of env var with base64 PKCS#12 payload
-- `pkcs12_pw_base64_env`: Name of env var with PKCS#12 password
+- `ca_file_base64`: Base64-encoded CA certificate
+- `pkcs12_base64`: Base64-encoded PKCS#12 payload
+- `pkcs12_pw_base64`: Base64-encoded PKCS#12 password
 
 #### 2. KafkaMTLSFileSecurity (File Paths)
 
