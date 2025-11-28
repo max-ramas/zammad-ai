@@ -25,7 +25,7 @@ Zammad-AI is a Python-based service that integrates GenAI capabilities into the 
 ### Running the Application
 
 - **Local Dev Stack**: `docker compose up -d` starts Kafka, Zookeeper, Kafka UI (port 8089), and Mailpit.
-- **Start Service**: Run `python zammad-ai/main.py`.
+- **Start Service**: Run `uv run python zammad-ai/main.py`.
   - Loads environment variables from `.env`.
   - Connects to Kafka broker (default `localhost:9092`).
 
