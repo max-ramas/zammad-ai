@@ -2,7 +2,6 @@
 
 import binascii
 from base64 import b64decode
-from os import getenv
 from pathlib import Path
 from ssl import SSLContext, create_default_context
 from tempfile import TemporaryDirectory
@@ -37,31 +36,22 @@ def setup_security(settings: Settings) -> BaseSecurity:
         if isinstance(settings.kafka.security, KafkaMTLSEnvSecurity):
             logger.debug("Setting up Kafka mTLS security using environment variables.")
             # Unpack CA file
-            ca_data: str | None = getenv(settings.kafka.security.ca_file_base64_env)
-            if ca_data is None:
-                raise ValueError(f"Environment variable {settings.kafka.security.ca_file_base64_env} is not set.")
             try:
-                ca_data = b64decode(s=ca_data).decode(encoding="utf-8")
+                ca_data = b64decode(s=settings.kafka.security.ca_file_base64).decode(encoding="utf-8")
             except binascii.Error as e:  # Malformed base64 raises binascii.Error
-                raise ValueError(f"Environment variable {settings.kafka.security.ca_file_base64_env} contains invalid base64 data: {e}")
+                raise ValueError(f"Setting 'settings.kafka.security.ca_file_base64' contains invalid base64 data: {e}") from e
 
             # Unpack PKCS#12 file
-            pkcs12_data: str | None = getenv(settings.kafka.security.pkcs12_base64_env)
-            if pkcs12_data is None:
-                raise ValueError(f"Environment variable {settings.kafka.security.pkcs12_base64_env} is not set.")
             try:
-                pkcs12_bytes = b64decode(s=pkcs12_data)
+                pkcs12_bytes = b64decode(s=settings.kafka.security.pkcs12_base64)
             except binascii.Error as e:
-                raise ValueError(f"Environment variable {settings.kafka.security.pkcs12_base64_env} contains invalid base64 data: {e}")
+                raise ValueError(f"Setting 'settings.kafka.security.pkcs12_base64' contains invalid base64 data: {e}") from e
 
             # Unpack PKCS#12 password
-            pkcs12_pw: str | None = getenv(settings.kafka.security.pkcs12_pw_base64_env)
-            if pkcs12_pw is None:
-                raise ValueError(f"Environment variable {settings.kafka.security.pkcs12_pw_base64_env} is not set.")
             try:
-                pkcs12_pw_bytes: bytes = b64decode(s=pkcs12_pw)
+                pkcs12_pw_bytes: bytes = b64decode(s=settings.kafka.security.pkcs12_pw_base64)
             except binascii.Error as e:
-                raise ValueError(f"Environment variable {settings.kafka.security.pkcs12_pw_base64_env} contains invalid base64 data: {e}")
+                raise ValueError(f"Setting 'settings.kafka.security.pkcs12_pw_base64' contains invalid base64 data: {e}") from e
 
             # Extract the private key and certificate from the PKCS#12 file
             try:
