@@ -1,54 +1,115 @@
-## Customize this file after creating the new REPO and remove this lines.
-What to adjust:  
-* Add the your project or repo name direct under the logo.
-* Add a short and long desciption.
-* Add links for your final repo to report a bug or request a feature.
-* Add list of used technologies.
-* If you have, add a roadmap or remove this section.
-* Fill up the section for set up and documentation.
- * Start in this file only with documentation and link to the docs folder.
-* Add more project shields. Use [shields.io](https://shields.io/) with style `for-the-badge`.
-
-## ------- end to remove -------
-<!-- add Project Logo, if existing -->
-
-# repo or project name
+# Zammad-AI
 
 [![Made with love by it@M][made-with-love-shield]][itm-opensource]
-<!-- feel free to add more shields, style 'for-the-badge' -> see https://shields.io/badges -->
 
-*Add a description from your project here.*
+**GenAI-powered agent for Zammad**
 
+Zammad-AI is a Python-based microservice that integrates Generative AI capabilities into the Zammad ticketing system. It operates as an event-driven service, listening to ticket events via Kafka and generating AI-assisted responses.
 
-### Built With
+## 🚀 Features
 
-The documentation project is built with technologies we use in our projects:
+- **Event-Driven Architecture**: Built with [FastStream](https://faststream.airt.ai/) and Kafka for robust message processing.
+- **Smart Filtering**: Configurable filtering of ticket events based on request types.
+- **Secure Communication**: Supports mTLS for secure Kafka connections using `truststore`.
+- **Modern Stack**: Powered by Python 3.13, Pydantic, and uv.
+- **Configurable**: Flexible configuration via YAML, `.env`, and environment variables.
 
-* *write here the list of used technologies*
+## 🛠️ Architecture
 
-## Roadmap
+1.  **Ingest**: Listens to the `ticket-events` Kafka topic.
+2.  **Filter**: Validates events based on configured `valid_request_types`.
+3.  **Process**: Fetches ticket details and generates an AI response (GenAI integration).
+4.  **Output**: Posts the draft response back to Zammad.
 
-*if you have a ROADMAP for your project add this here*
+## 📋 Prerequisites
 
+- **Python**: 3.13+
+- **Package Manager**: [uv](https://github.com/astral-sh/uv)
+- **Docker**: For running the local development stack.
 
-See the [open issues](#) for a full list of proposed features (and known issues).
+## ⚙️ Configuration
 
+Configuration is managed via `pydantic-settings`. The application looks for configuration in the following order (highest priority first):
 
-## Set up
-*how can i start and fly this project*
+1.  Environment Variables (prefix `ZAMMAD_AI_`)
+2.  `config.yaml`
+3.  `.env` file
+4.  Defaults
 
-## Documentation
-*what insights do you have to tell*
+### Key Settings
 
-```mermaid
-graph TD;
-    A-->B;
-    A-->C;
-    B-->D;
-    C-->D;
+| Setting               | Env Variable                    | Description                 | Default          |
+| :-------------------- | :------------------------------ | :-------------------------- | :--------------- |
+| `kafka.broker_url`    | `ZAMMAD_AI_KAFKA__BROKER_URL`   | Kafka broker URL            | `localhost:9092` |
+| `kafka.topic`         | `ZAMMAD_AI_KAFKA__TOPIC`        | Kafka topic to listen to    | `ticket-events`  |
+| `valid_request_types` | `ZAMMAD_AI_VALID_REQUEST_TYPES` | List of valid request types | _Required_       |
+
+Example `config.yaml`:
+
+```yaml
+kafka:
+  broker_url: "localhost:9092"
+  topic: "ticket-events"
+
+valid_request_types:
+  - "general_inquiry"
+  - "support"
 ```
 
-use [diagrams](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams).
+## 🏃‍♂️ Running Locally
+
+### 1. Start Infrastructure
+
+Start the local Kafka broker, Zookeeper, and Mailpit using Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+- **Kafka UI**: http://localhost:8089
+- **Mailpit**: http://localhost:8025
+
+### 2. Install Dependencies
+
+Use `uv` to install the project dependencies:
+
+```bash
+uv sync
+```
+
+### 3. Run the Service
+
+Run the application:
+
+```bash
+uv run python zammad-ai/main.py
+```
+
+## 🧪 Testing
+
+Run the test suite using `pytest`:
+
+```bash
+uv run pytest
+```
+
+## 💻 Development
+
+### Linting & Formatting
+
+The project uses `ruff` for linting and formatting.
+
+Check for issues:
+
+```bash
+uv run ruff check .
+```
+
+Format code:
+
+```bash
+uv run ruff format .
+```
 
 ## Contributing
 
@@ -66,16 +127,15 @@ Don't forget to give the project a star! Thanks again!
 
 More about this in the [CODE_OF_CONDUCT](/CODE_OF_CONDUCT.md) file.
 
-
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) file for more information.
-
 
 ## Contact
 
 it@M - opensource@muenchen.de
 
 <!-- project shields / links -->
+
 [made-with-love-shield]: https://img.shields.io/badge/made%20with%20%E2%9D%A4%20by-it%40M-yellow?style=for-the-badge
 [itm-opensource]: https://opensource.muenchen.de/
