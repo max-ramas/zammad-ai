@@ -79,4 +79,4 @@ class JsonFormatter(logging.Formatter):
             if key not in self.STANDARD_ATTRIBUTES and not key.startswith("_"):
                 log_data[key] = value
 
-        return json.dumps(log_data)
+        return json.dumps(log_data, ensure_ascii=False)
