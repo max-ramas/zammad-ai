@@ -1,40 +1,32 @@
-from time import perf_counter
+# ruff: noqa: E402
+from logging import Logger
 
-from app.models.triage import TriageResult
-from app.triage.rss_feed import get_ids, get_kb_answer_by_id, parse_rss_feed
-from app.triage.triage import perform_triage
-from app.utils.logging import getLogger
 from dotenv import load_dotenv
+from faststream import FastStream
+from faststream.kafka import KafkaBroker
 from truststore import inject_into_ssl
 
 load_dotenv()
-
 inject_into_ssl()
 
-logger = getLogger("zammad-ai.main")
+import asyncio
+
+from app.core.settings import Settings, get_settings
+from app.kafka.broker import build_broker
+from app.utils.logging import getLogger
 
 
-async def main():
-    ticket_id = "3735"
-    start = perf_counter()
-    result: TriageResult = await perform_triage(ticket_id)
-    elapsed = perf_counter() - start
-
-    logger.info("Triage result: %s", result)
-    logger.info("perform_triage duration: %.3f s", elapsed)
-
-
-def test_rss_feed_parsing():
-    feed = parse_rss_feed()
-    if feed is None:
-        logger.error("Failed to parse RSS feed.")
-    else:
-        ids = get_ids(feed)
-        for answer_id in ids:
-            logger.info("Fetched KB answer: %s", get_kb_answer_by_id(answer_id))
+async def main() -> None:
+    """Runs the application."""
+    logger: Logger = getLogger("zammad-ai")
+    logger.info("Starting application")
+    settings: Settings = get_settings()
+    broker: KafkaBroker
+    broker, _ = build_broker(settings=settings)
+    app = FastStream(broker)
+    logger.info("Running FastStream application")
+    await app.run()  # blocking method
 
 
 if __name__ == "__main__":
-    import asyncio
-
     asyncio.run(main())
