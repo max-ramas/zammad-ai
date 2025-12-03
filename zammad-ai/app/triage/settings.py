@@ -1,14 +1,16 @@
 import operator as op
 import os
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
+import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
-    YamlConfigSettingsSource,
 )
 
 load_dotenv()
@@ -23,7 +25,6 @@ class Usecase(BaseModel):
 
 class Category(BaseModel):
     name: str
-    description: str
     id: int
 
 
@@ -86,16 +87,58 @@ class PromptConfig(BaseModel):
     role_prompt: str = "role.md"
 
 
+def id_to_category(category_id: int) -> Category:
+    for category in ZammadAISettings().categories:  # type: ignore
+        if category.id == category_id:
+            return category
+    no_category = next((c for c in ZammadAISettings().categories if c.id == ZammadAISettings().no_category_id), None)  # type: ignore
+    return no_category if no_category else Category(id=-1, name="no_category")
+
+
+def id_to_action(action_id: int) -> Action:
+    for action in ZammadAISettings().actions:  # type: ignore
+        if action.id == action_id:
+            return action
+    no_action = next((a for a in ZammadAISettings().actions if a.id == ZammadAISettings().no_action_id), None)  # type: ignore
+    return no_action if no_action else Action(id=-1, name="no_action", description="No action")
+
+
+class UTF8YamlConfigSettingsSource(PydanticBaseSettingsSource):
+    """Custom YAML config source that explicitly uses UTF-8 encoding."""
+
+    def __init__(self, settings_cls: type[BaseSettings], yaml_file: str | Path | None):
+        super().__init__(settings_cls)
+        self.yaml_file = yaml_file
+
+    def get_field_value(self, field: Any, field_name: str) -> tuple[Any, str, bool]:
+        # Not used for this source
+        return None, field_name, False
+
+    def __call__(self) -> dict[str, Any]:
+        if not self.yaml_file:
+            return {}
+
+        yaml_path = Path(self.yaml_file)
+        if not yaml_path.exists():
+            return {}
+
+        with open(yaml_path, encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+
+
 class ZammadAISettings(BaseSettings):
     usecase: Usecase
     categories: list[Category]
-    no_category: Category
+    no_category_id: int
     actions: list[Action]
-    no_action: Action
+    no_action_id: int
     action_rules: list[ActionRule]
     prompt_config: PromptConfig
 
-    model_config = SettingsConfigDict(yaml_file=PATH_TO_YAML_CONFIG, env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+    )
 
     @classmethod
     def settings_customise_sources(
@@ -108,7 +151,7 @@ class ZammadAISettings(BaseSettings):
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         return (
             init_settings,
-            YamlConfigSettingsSource(settings_cls, yaml_file=PATH_TO_YAML_CONFIG),
+            UTF8YamlConfigSettingsSource(settings_cls, yaml_file=PATH_TO_YAML_CONFIG),
             env_settings,
             dotenv_settings,
             file_secret_settings,

@@ -5,10 +5,11 @@ from typing import Any
 
 import feedparser
 import httpx
-from app.models.triage import KnowledgeBaseAnswer
-from app.utils.logging import getLogger
 from dotenv import load_dotenv
 from truststore import inject_into_ssl
+
+from app.models.triage import KnowledgeBaseAnswer
+from app.utils.logging import getLogger
 
 from .helper import strip_html
 

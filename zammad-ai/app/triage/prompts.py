@@ -16,13 +16,12 @@ Follow these steps IN THIS ORDER:
    - Recognize auto notifications and DO NOT treat them as staff replies or as the user's intent.
 
 2. CHECK CATEGORY LIST
-   - Review ALL categories and subcategories carefully
+   - Review ALL categories carefully
    - Eliminate any that are clearly not relevant
 
 3. CATEGORY MATCHING
    - Compare against ALL categories and pick the MOST SPECIFIC match to the main concern
    - Use the EDGE CASE RULES as needed
-   - Refer to subcategories where applicable
 
 4. CATEGORY SELECTION
    - If several apply, choose the MORE SPECIFIC one.
@@ -41,7 +40,10 @@ Follow these steps IN THIS ORDER:
 </task>
 
 <categories>
+# Definitions of available categories:
 {categories}
+# Descriptions for available categories:
+{categories_prompt}
 </categories>
 
 <edge_cases>

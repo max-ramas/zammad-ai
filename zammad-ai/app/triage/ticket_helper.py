@@ -1,10 +1,11 @@
 import os
 
 import httpx
-from app.models.triage import Attachment, ZammadArticleModel
-from app.utils.logging import getLogger
 from dotenv import load_dotenv
 from truststore import inject_into_ssl
+
+from app.models.triage import Attachment, ZammadArticleModel, ZammadTicketModel
+from app.utils.logging import getLogger
 
 from .helper import strip_html
 
@@ -16,6 +17,15 @@ ZAMMAD_API_TOKEN = os.getenv("ZAMMAD_AUTH_TOKEN")
 HTTP_TIMEOUT_SECONDS = 30
 
 logger = getLogger("zammad-ai.triage.ticket_helper")
+
+
+async def get_data_from_zammad(id: str) -> ZammadTicketModel:
+    articles = await get_articles_by_id(id)
+    ticket = ZammadTicketModel(
+        id=id,
+        articles=articles if articles else [],
+    )
+    return ticket
 
 
 async def get_articles_by_id(ticket_id: str) -> list[ZammadArticleModel] | None:

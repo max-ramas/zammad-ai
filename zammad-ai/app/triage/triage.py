@@ -1,7 +1,15 @@
 import datetime
 import os
 from typing import TypeVar
-from uuid import uuid4
+
+from dotenv import load_dotenv
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableSequence
+from langchain_openai import ChatOpenAI
+from langfuse import observe
+from openai import BadRequestError
+from pydantic import SecretStr
+from truststore import inject_into_ssl
 
 from app.models.triage import (
     CategorizationResult,
@@ -11,41 +19,32 @@ from app.models.triage import (
     ZammadTicketModel,
 )
 from app.utils.logging import getLogger
-from dotenv import load_dotenv
-from langchain_core.callbacks import Callbacks
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import Runnable, RunnableConfig, RunnableSequence
-from langchain_openai import ChatOpenAI
-from langfuse import Langfuse, observe
-from langfuse.langchain import CallbackHandler
-from openai import BadRequestError
-from pydantic import SecretStr
-from truststore import inject_into_ssl
 
+from .observer import _build_config, _get_session_id, setup_langfuse
 from .prompts import SYSTEM_PROMPT_CATEGORIES, SYSTEM_PROMPT_DAYS_SINCE_REQUEST
-from .settings import ConditionField, ZammadAISettings, get_operator_function
-from .ticket_helper import get_articles_by_id
-
-T = TypeVar("T")
+from .settings import Action, Category, Condition, ConditionField, ZammadAISettings, get_operator_function, id_to_action, id_to_category
+from .ticket_helper import get_data_from_zammad
 
 load_dotenv()
 inject_into_ssl()
 logger = getLogger("zammad-ai.triage")
 
+T = TypeVar("T")
 
-class TriageConfig:
-    """Configuration settings for the triage system."""
+# LLM Configuration
+LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "")
+LITELLM_URL = os.getenv("LITELLM_URL", "")
+LITELLM_MODEL = os.getenv("LITELLM_MODEL", "gpt-4o-mini")
 
-    # LLM Configuration
-    LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "")
-    LITELLM_URL = os.getenv("LITELLM_URL", "")
-    LITELLM_MODEL = os.getenv("LITELLM_MODEL", "gpt-4o-mini")
+# Model Parameters
+TEMPERATURE = 0.0
+MAX_RETRIES = 5
 
-    # Model Parameters
-    TEMPERATURE = 0.0
-    MAX_RETRIES = 5
 
+class Triage:
     settings = ZammadAISettings()  # type: ignore
+    no_category: Category = id_to_category(settings.no_category_id)
+    no_action: Action = id_to_action(settings.no_action_id)
     chat_model = ChatOpenAI(
         model=LITELLM_MODEL,
         temperature=TEMPERATURE,
@@ -53,275 +52,177 @@ class TriageConfig:
         api_key=SecretStr(LITELLM_API_KEY),
         base_url=LITELLM_URL,
     )
+    langfuse_handler, langfuse, ROLE_DESCRIPTION_PROMPT, EDGE_CASES_PROMPT, EXAMPLES_PROMPT, CATEGORIES_PROMPT = setup_langfuse()
 
-    # Langfuse
-    LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")
-    LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")
-    LANGFUSE_BASE_URL = os.getenv("LANGFUSE_BASE_URL", "")
-    langfuse_handler = CallbackHandler()
-    langfuse = Langfuse(public_key=LANGFUSE_PUBLIC_KEY, secret_key=LANGFUSE_SECRET_KEY, base_url=LANGFUSE_BASE_URL)
-    ROLE_DESCRIPTION = langfuse.get_prompt("drivers-licence/role", label="latest").prompt
-    EDGE_CASES = langfuse.get_prompt("drivers-licence/edge_cases", label="latest").prompt
-    EXAMPLES = langfuse.get_prompt("drivers-licence/examples", label="latest").prompt
-    CATEGORIES = langfuse.get_prompt("drivers-licence/categories", label="latest").prompt
-
-
-async def get_data_from_zammad(id: str) -> ZammadTicketModel:
-    """
-    Fetch ticket data from Zammad by ticket ID.
-
-    Args:
-        id: The ticket ID to fetch
-    Returns:
-        ZammadTicketModel containing ticket data
-    """
-
-    articles = await get_articles_by_id(id)
-    ticket = ZammadTicketModel(
-        id=id,
-        articles=articles if articles else [],
-    )
-    return ticket
-
-
-# Cache for the categorization chain to avoid recreation
-_categorize_chain: RunnableSequence | None = None
-
-
-async def _get_categorize_chain() -> RunnableSequence:
-    """Get or create the categorization chain with caching."""
-    global _categorize_chain
-
-    if _categorize_chain is None:
+    @observe(name="Zammad-AI Triage", as_type="span")
+    async def call_llm(
+        self,
+        input: dict,
+        system_prompt: str,
+        output: None | type[T],
+        session_id: str = _get_session_id(),
+    ) -> T:
         categorize_template = ChatPromptTemplate(
             messages=[
-                ("system", SYSTEM_PROMPT_CATEGORIES),
+                ("system", system_prompt),
                 ("user", "{text}"),
             ]
         )
+        self.langfuse.update_current_trace(session_id=session_id)
+        config = _build_config(session_id=session_id, langfuse_handler=self.langfuse_handler)  # type: ignore
 
-        chat_model = TriageConfig.chat_model
+        chat_model = self.chat_model if output is None else self.chat_model.with_structured_output(schema=output, strict=True)
 
-        structured_chat_model: Runnable = chat_model.with_structured_output(schema=CategorizationResult, strict=True)
-        _categorize_chain = RunnableSequence(categorize_template, structured_chat_model)
-
-        logger.debug("Categorization chain initialized")
-
-    return _categorize_chain
-
-
-def _build_config(session_id: str, langfuse_handler: Callbacks | None) -> RunnableConfig:
-    config = RunnableConfig(callbacks=[langfuse_handler], metadata={"langfuse_session_id": session_id})  # type: ignore
-    return config
-
-
-def _get_session_id() -> str:
-    """Extracts the session id from the request
-
-    Args:
-        request (Request): the request
-
-    Returns:
-        str: either an existing session_id or creates a new one
-    """
-
-    session_id = str(uuid4())
-    return session_id
-
-
-@observe(name="Zammad-AI", as_type="span")
-async def category_observer(input, session_id) -> CategorizationResult:
-    categorize_chain = await _get_categorize_chain()
-    # set session in langfuse trace
-    TriageConfig.langfuse.update_current_trace(session_id=session_id)
-    config = _build_config(session_id=session_id, langfuse_handler=TriageConfig.langfuse_handler)  # type: ignore
-    cat_result: CategorizationResult = await categorize_chain.ainvoke(
-        {
-            "text": input["text"],
-            "role_description": TriageConfig.ROLE_DESCRIPTION,
-            "categories": TriageConfig.CATEGORIES,
-            "edge_cases": TriageConfig.EDGE_CASES,
-            "examples": TriageConfig.EXAMPLES,
-        },
-        config=config,
-    )
-    return cat_result
-
-
-async def predict_category(text: str) -> CategorizationResult:
-    """
-    Predict the category for the given text using LLM.
-
-    Args:
-        text: The text to categorize
-
-    Returns:
-        Complete categorization result with category, reasoning, and confidence
-
-    Raises:
-        BadRequestError: If the LLM request fails due to content policy
-    """
-    if not isinstance(text, str) or not text.strip():
-        logger.warning("Empty text provided for categorization")
-        return CategorizationResult(
-            category=None,
-            reasoning="Leerer Text kann nicht kategorisiert werden",
-            confidence=1.0,
+        chain = RunnableSequence(categorize_template, chat_model)
+        response = await chain.ainvoke(
+            input=input,
+            config=config,
         )
+        return response
 
-    try:
-        cat_result: CategorizationResult = await category_observer(input={"text": text}, session_id=_get_session_id())
+    async def predict_category(self, text: str = "") -> CategorizationResult:
+        """Predict the category of the given text.
+        Args:
+            text (str): The text to categorize.
+        Returns:
+            CategorizationResult: The result of the categorization.
+        """
+        if text.strip() == "":
+            logger.warning("Empty text provided for categorization")
+            return CategorizationResult(
+                category=self.no_category,
+                reasoning="Leerer Text kann nicht kategorisiert werden",
+                confidence=1.0,
+            )
 
-        # Log the results
-        logger.debug("Text to categorize: %s", text[:100] + "..." if len(text) > 100 else text)
-        logger.debug("Category: %s", cat_result.category)
-        logger.debug("Reasoning: %s", cat_result.reasoning)
-        logger.debug("Confidence: %f", cat_result.confidence)
+        try:
+            cat_result: CategorizationResult = await self.call_llm(
+                input={
+                    "text": text,
+                    "role_description": self.ROLE_DESCRIPTION_PROMPT,
+                    "categories": self.settings.categories,
+                    "categories_prompt": self.CATEGORIES_PROMPT,
+                    "edge_cases": self.EDGE_CASES_PROMPT,
+                    "examples": self.EXAMPLES_PROMPT,
+                },
+                system_prompt=SYSTEM_PROMPT_CATEGORIES,
+                output=CategorizationResult,
+            )
 
-        # What to do if confidence is low?
+            # Log the results
+            logger.debug("Text to categorize: %s", text[:100] + "..." if len(text) > 100 else text)
+            logger.debug("Category: %s", cat_result.category)
+            logger.debug("Reasoning: %s", cat_result.reasoning)
+            logger.debug("Confidence: %f", cat_result.confidence)
 
-        return cat_result
+            # What to do if confidence is low?
 
-    except BadRequestError as e:
-        logger.error("BadRequestError during categorization: %s", e)
-        return CategorizationResult(
-            category=None,
-            reasoning="Fehler: Request konnte nicht vollendet werden, wahrscheinlich wg. Content-Policy",
-            confidence=1.0,
-        )
-    except Exception as e:
-        logger.error("Unexpected error during categorization: %s", e)
-        return CategorizationResult(
-            category=None,
-            reasoning=f"Unerwarteter Fehler: {str(e)}",
-            confidence=1.0,
-        )
+            return cat_result
 
+        except BadRequestError as e:
+            logger.error("BadRequestError during categorization: %s", e)
+            return CategorizationResult(
+                category=self.no_category,
+                reasoning="Fehler: Request konnte nicht vollendet werden, wahrscheinlich wg. Content-Policy",
+                confidence=1.0,
+            )
+        except Exception as e:
+            logger.error("Unexpected error during categorization: %s", e)
+            return CategorizationResult(
+                category=self.no_category,
+                reasoning=f"Unerwarteter Fehler: {str(e)}",
+                confidence=1.0,
+            )
 
-async def isAttachement(zammad_data: ZammadTicketModel) -> bool:
-    """
-    Check if the current request contains attachments.
+    async def get_action_id(self, categorization_result: CategorizationResult, text: str = "") -> int:
+        """Determine the action ID based on the categorization result and optional text.
+        Args:
+            categorization_result (CategorizationResult): The result of the categorization.
+            text (str, optional): The text to use for evaluating conditions. Defaults to "".
+        Returns:
+            int: The determined action ID.
+        """
 
-    Returns:
-        True if attachments are present, False otherwise
-    """
-    if not zammad_data or not zammad_data.articles:
-        return False
-    for article in zammad_data.articles:
-        if article.attachments and len(article.attachments) > 0:
-            return True
-    return False
+        days_since_request = None
+        processing_id = None
 
+        # If no category or it's the no_category, always return no_action
+        if not categorization_result.category or categorization_result.category.id == self.no_category.id:
+            return self.no_action.id
 
-async def call_llm(input: dict, system_prompt: str, output: None | type[T]) -> T:
-    categorize_template = ChatPromptTemplate(
-        messages=[
-            ("system", system_prompt),
-            ("user", "{text}"),
-        ]
-    )
+        # Find matching action rule
+        for rule in self.settings.action_rules:
+            if rule.category_id == categorization_result.category.id:
+                # If there are conditions, evaluate them
+                if rule.conditions:
+                    conditions: list[Condition] = sorted(rule.conditions, key=lambda c: c.priority)
+                    for condition in conditions:
+                        if condition.field == ConditionField.DAYS_SINCE_REQUEST:
+                            if days_since_request is None:
+                                days_result: DaysSinceRequestResponse = await self.call_llm(
+                                    input={
+                                        "text": text,
+                                        "today": datetime.datetime.now().strftime("%Y-%m-%d"),
+                                    },
+                                    system_prompt=SYSTEM_PROMPT_DAYS_SINCE_REQUEST,
+                                    output=DaysSinceRequestResponse,
+                                )
+                                days_since_request = days_result.days_since_request
+                            if (get_operator_function(operator=condition.operator))(days_since_request, condition.value):
+                                return condition.action_id
 
-    chat_model = TriageConfig.chat_model if output is None else TriageConfig.chat_model.with_structured_output(schema=output, strict=True)
+                        if condition.field == ConditionField.PROCESSING_ID:
+                            if processing_id is None:
+                                condition_str: str = "Processing id " + condition.operator.value + " " + str(condition.value)
+                                processing_result: ProcessingIdResponse = await self.call_llm(
+                                    input={
+                                        "text": text,
+                                        "condition": condition_str,
+                                    },
+                                    system_prompt="",  # TODO: Define system prompt for processing_id
+                                    output=ProcessingIdResponse,
+                                )
+                                processing_id = processing_result.processing_id
+                            if get_operator_function(operator=condition.operator)(processing_id, condition.value):
+                                return condition.action_id
+                return rule.action_id
 
-    chain = RunnableSequence(categorize_template, chat_model)
-    response = await chain.ainvoke(
-        input,
-    )
-    return response
+        # Default action if no rules matched
+        return self.no_action.id
 
+    async def perform_triage(self, id: str) -> TriageResult:
+        """Perform triage on a Zammad ticket by its ID.
 
-async def get_action(triage_result: CategorizationResult, zammad_data: ZammadTicketModel | None) -> int:
-    """
-    Determine the appropriate action based on the categorized text.
+        Args:
+            id (str): The ID of the Zammad ticket.
 
-    Args:
-        category: The predicted category for the text
-        text: The original text content
+        Returns:
+            TriageResult: The result of the triage process.
+        """
+        zammad_data: ZammadTicketModel = await get_data_from_zammad(id)
+        # TODO: Only use the first article or concatenate all articles?
+        # Normally the `0` is the customer message, the rest are internal notes
+        # But what if there are multiple customer messages? -> edge case
+        logger.info("Number of articles in ticket %s: %d", id, len(zammad_data.articles))
+        if not zammad_data.articles:
+            logger.warning("No articles found for ticket %s", id)
+            return TriageResult(
+                category=self.no_category,
+                reasoning="Keine Artikel gefunden",
+                confidence=1.0,
+                action=self.no_action,
+            )
+        text = zammad_data.articles[0].text
 
-    Returns:
-        The recommended action to take
-    """
-    settings = TriageConfig.settings
-    days_since_request = None
-    processing_id = None
-    # Find matching action rule
-    for rule in settings.action_rules:
-        if triage_result.category and rule.category_id == triage_result.category.id:
-            # If there are conditions, evaluate them
-            if rule.conditions:
-                conditions = sorted(rule.conditions, key=lambda c: c.priority)
-                for condition in conditions:
-                    if condition.field == ConditionField.DAYS_SINCE_REQUEST:
-                        if days_since_request is None:
-                            days_result: DaysSinceRequestResponse = await call_llm(
-                                input={
-                                    "text": zammad_data.articles[0].text if zammad_data and zammad_data.articles else "",
-                                    "today": datetime.datetime.now().strftime("%Y-%m-%d"),
-                                },
-                                system_prompt=SYSTEM_PROMPT_DAYS_SINCE_REQUEST,
-                                output=DaysSinceRequestResponse,
-                            )
-                            days_since_request = days_result.days_since_request
-                        if (get_operator_function(condition.operator))(days_since_request, condition.value):
-                            return condition.action_id
+        # Get categorization result
+        categorization: CategorizationResult = await self.predict_category(text)
 
-                    if condition.field == ConditionField.PROCESSING_ID:
-                        if processing_id is None:
-                            condition_str = "Processing id " + condition.operator.value + " " + str(condition.value)
-                            processing_result: ProcessingIdResponse = await call_llm(
-                                input={
-                                    "text": zammad_data.articles[0].text if zammad_data and zammad_data.articles else "",
-                                    "condition": condition_str,
-                                },
-                                system_prompt="",  # TODO: Define system prompt for processing_id
-                                output=ProcessingIdResponse,
-                            )
-                            processing_id = processing_result.processing_id
-                        if get_operator_function(condition.operator)(processing_id, condition.value):
-                            return condition.action_id
-            return rule.action_id
-
-    # Default action if no rules matched
-    return settings.no_action.id
-
-
-async def perform_triage(id: str) -> TriageResult:
-    """
-    Perform complete triage: categorization + action determination.
-
-    Args:
-        text: The text to analyze and triage
-
-    Returns:
-        Complete triage result with category, action, reasoning, and confidence
-    """
-    zammad_data = await get_data_from_zammad(id)
-    # TODO: Only use the first article or concatenate all articles?
-    # Normally the `0` is the customer message, the rest are internal notes
-    # But what if there are multiple customer messages? -> edge case
-    logger.info("Number of articles in ticket %s: %d", id, len(zammad_data.articles))
-    if not zammad_data.articles:
-        logger.warning("No articles found for ticket %s", id)
+        # Determine action based on category
+        action_id = await self.get_action_id(categorization, text=text)
+        action = id_to_action(action_id)
         return TriageResult(
-            category=TriageConfig.settings.no_category,
-            reasoning="Keine Artikel gefunden",
-            confidence=1.0,
-            action=TriageConfig.settings.no_action,
+            category=categorization.category if categorization.category else self.no_category,
+            action=action,
+            reasoning=categorization.reasoning,
+            confidence=categorization.confidence,
         )
-    text = zammad_data.articles[0].text
-
-    # Get categorization result
-    categorization = await predict_category(text)
-
-    # Determine action based on category
-    action_id = await get_action(categorization, zammad_data=zammad_data)
-    action = next((a for a in TriageConfig.settings.actions if a.id == action_id), TriageConfig.settings.no_action)
-
-    return TriageResult(
-        category=categorization.category if categorization.category else TriageConfig.settings.no_category,
-        action=action,
-        reasoning=categorization.reasoning,
-        confidence=categorization.confidence,
-        bearbeitungsstand=categorization.bearbeitungsstand,
-        vorangsnummer=categorization.vorgangsnummer,
-    )

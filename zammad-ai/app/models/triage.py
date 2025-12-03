@@ -15,8 +15,6 @@ class CategorizationResult(BaseModel):
     """
 
     category: Category | None = Field(description=("The predicted category for the text."))
-    bearbeitungsstand: str | None = Field(default=None, description="Optional processing status")
-    vorgangsnummer: str | None = Field(default=None, description="Optional reference number if mentioned in the text")
     reasoning: str = Field(description="A single sentence explaining why the text fits the chosen category.Translate the text in german.")
     confidence: float = Field(
         description="Value from 0.0 to 1.0 on how sure / confident you are in your categorisation",
@@ -32,8 +30,6 @@ class TriageResult(BaseModel):
     action: Action = Field(description="The recommended action")
     reasoning: str = Field(description="Explanation for the categorization")
     confidence: float = Field(description="Confidence score (0.0 to 1.0)")
-    bearbeitungsstand: str | None = Field(default=None, description="Optional processing status")
-    vorangsnummer: str | None = Field(default=None, description="Optional reference number if mentioned in the text")
 
 
 class Attachment(BaseModel):
