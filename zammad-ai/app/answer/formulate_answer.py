@@ -1,16 +1,17 @@
 import os
 
-from app.models.triage import (
-    CategorizationResult,
-)
-from app.triage.prompts import SYSTEM_PROMPT_ANSWER
-from app.utils.logging import getLogger
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable, RunnableSequence
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 from truststore import inject_into_ssl
+
+from app.models.triage import (
+    CategorizationResult,
+)
+from app.triage.prompts import SYSTEM_PROMPT_ANSWER
+from app.utils.logging import getLogger
 
 inject_into_ssl()
 load_dotenv()

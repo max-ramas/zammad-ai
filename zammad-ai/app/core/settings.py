@@ -4,6 +4,8 @@ from functools import lru_cache
 from pydantic import BaseModel, Field, FilePath
 from pydantic_settings import BaseSettings, CliSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict, YamlConfigSettingsSource
 
+from .triage_settings import TriageSettings
+
 
 class Settings(BaseSettings):
     """
@@ -13,6 +15,10 @@ class Settings(BaseSettings):
     kafka: "KafkaSettings" = Field(
         default_factory=lambda: KafkaSettings(),
         description="Kafka related settings",
+    )
+    triage: "TriageSettings" = Field(
+        default_factory=lambda: TriageSettings(),  # type: ignore
+        description="Triage related settings",
     )
     valid_request_types: list[str] = Field(
         min_length=1,
@@ -31,6 +37,7 @@ class Settings(BaseSettings):
         cli_parse_args=True,
         cli_kebab_case=True,
         cli_prog_name="zammad-ai",
+        extra="ignore",
     )
 
     # Reorder settings sources to prioritize YAML config

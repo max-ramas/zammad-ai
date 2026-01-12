@@ -9,6 +9,8 @@ from faststream.security import BaseSecurity
 
 from app.core.settings import Settings
 from app.models.kafka import Event
+from app.models.triage import TriageResult
+from app.triage.triage import Triage
 from app.utils.logging import getLogger
 
 from .security import setup_security
@@ -67,5 +69,10 @@ def build_broker(settings: Settings) -> tuple[KafkaBroker, Callable]:
             raise NackMessage()
 
         await msg.ack()
+        triage = Triage()
+        id = event.ticket
+        result: TriageResult = await triage.perform_triage(id=id)
+        logger.info(f"Triage result for ticket {id}: {result}")
+        raise AckMessage()
 
     return broker, event_handler

@@ -1,5 +1,6 @@
-from app.triage.settings import Action, Category
 from pydantic import BaseModel, Field
+
+from app.core.triage_settings import Action, Category
 
 
 class KnowledgeBaseAnswer(BaseModel):

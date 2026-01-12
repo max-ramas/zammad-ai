@@ -11,6 +11,13 @@ from openai import BadRequestError
 from pydantic import SecretStr
 from truststore import inject_into_ssl
 
+from app.core.settings import get_settings
+from app.core.triage_settings import (
+    Action,
+    Category,
+    Condition,
+    ConditionField,
+)
 from app.models.triage import (
     CategorizationResult,
     DaysSinceRequestResponse,
@@ -20,9 +27,9 @@ from app.models.triage import (
 )
 from app.utils.logging import getLogger
 
+from .helper import get_operator_function, id_to_action, id_to_category
 from .observer import _build_config, _get_session_id, setup_langfuse
 from .prompts import SYSTEM_PROMPT_CATEGORIES, SYSTEM_PROMPT_DAYS_SINCE_REQUEST
-from .settings import Action, Category, Condition, ConditionField, ZammadAISettings, get_operator_function, id_to_action, id_to_category
 from .ticket_helper import get_data_from_zammad
 
 load_dotenv()
@@ -42,17 +49,34 @@ MAX_RETRIES = 5
 
 
 class Triage:
-    settings = ZammadAISettings()  # type: ignore
-    no_category: Category = id_to_category(settings.no_category_id)
-    no_action: Action = id_to_action(settings.no_action_id)
-    chat_model = ChatOpenAI(
-        model=LITELLM_MODEL,
-        temperature=TEMPERATURE,
-        max_retries=MAX_RETRIES,
-        api_key=SecretStr(LITELLM_API_KEY),
-        base_url=LITELLM_URL,
-    )
-    langfuse_handler, langfuse, ROLE_DESCRIPTION_PROMPT, EDGE_CASES_PROMPT, EXAMPLES_PROMPT, CATEGORIES_PROMPT = setup_langfuse()
+    def __init__(self):
+        """Initialize Triage with settings from the global configuration."""
+        app_settings = get_settings()
+        if app_settings.triage is None:
+            raise ValueError("Triage settings not configured in application settings")
+        self.settings = app_settings.triage
+        self.no_category: Category = id_to_category(self.settings.no_category_id, self.settings.categories, self.settings.no_category_id)
+        self.no_action: Action = id_to_action(self.settings.no_action_id, self.settings.actions, self.settings.no_action_id)
+        reasoning_config = {}
+        if os.getenv("LITELLM_MODEL_REASONING_EFFORT") is not None:
+            reasoning_config = {"effort": os.getenv("LITELLM_MODEL_REASONING_EFFORT")}
+
+        self.chat_model = ChatOpenAI(
+            model=LITELLM_MODEL,
+            temperature=TEMPERATURE,
+            max_retries=MAX_RETRIES,
+            api_key=SecretStr(LITELLM_API_KEY),
+            base_url=LITELLM_URL,
+            reasoning=reasoning_config if reasoning_config else None,
+        )
+        (
+            self.langfuse_handler,
+            self.langfuse,
+            self.ROLE_DESCRIPTION_PROMPT,
+            self.EDGE_CASES_PROMPT,
+            self.EXAMPLES_PROMPT,
+            self.CATEGORIES_PROMPT,
+        ) = setup_langfuse()
 
     @observe(name="Zammad-AI Triage", as_type="span")
     async def call_llm(
@@ -219,7 +243,7 @@ class Triage:
 
         # Determine action based on category
         action_id = await self.get_action_id(categorization, text=text)
-        action = id_to_action(action_id)
+        action = id_to_action(action_id, self.settings.actions, self.settings.no_action_id)
         return TriageResult(
             category=categorization.category if categorization.category else self.no_category,
             action=action,
