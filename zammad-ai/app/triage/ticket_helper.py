@@ -1,19 +1,18 @@
-import os
-
 import httpx
-from dotenv import load_dotenv
 from truststore import inject_into_ssl
 
+from app.core.settings import get_settings
 from app.models.triage import Attachment, ZammadArticleModel, ZammadTicketModel
 from app.utils.logging import getLogger
 
 from .helper import strip_html
 
-load_dotenv()
 inject_into_ssl()
 
-ZAMMAD_BASE_URL = os.getenv("ZAMMAD_BASE_URL")
-ZAMMAD_API_TOKEN = os.getenv("ZAMMAD_AUTH_TOKEN")
+settings = get_settings().triage
+
+ZAMMAD_BASE_URL = settings.zammad.base_url
+ZAMMAD_API_TOKEN = settings.zammad.auth_token
 HTTP_TIMEOUT_SECONDS = 30
 
 logger = getLogger("zammad-ai.triage.ticket_helper")

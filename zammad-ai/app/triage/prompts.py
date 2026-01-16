@@ -46,10 +46,6 @@ Follow these steps IN THIS ORDER:
 {categories_prompt}
 </categories>
 
-<edge_cases>
-{edge_cases}
-</edge_cases>
-
 <examples>
 {examples}
 </examples>

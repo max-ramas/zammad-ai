@@ -1,13 +1,12 @@
 import base64
-import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import feedparser
 import httpx
-from dotenv import load_dotenv
 from truststore import inject_into_ssl
 
+from app.core.settings import get_settings
 from app.models.triage import KnowledgeBaseAnswer
 from app.utils.logging import getLogger
 
@@ -16,13 +15,14 @@ from .helper import strip_html
 logger = getLogger("zammad-ai.triage.rss_feed")
 
 inject_into_ssl()
-load_dotenv()
 
-ZAMMAD_BASE_URL = os.getenv("ZAMMAD_BASE_URL", "")
-ZAMMAD_KNOWLEDGE_BASE_ID = os.getenv("ZAMMAD_KB_ID", "1")
+settings = get_settings().triage
+
+ZAMMAD_BASE_URL = settings.zammad.base_url
+ZAMMAD_KNOWLEDGE_BASE_ID = settings.zammad.knowledge_base_id
 KNOWLEDGE_BASE_URL = f"{ZAMMAD_BASE_URL}/api/v1/knowledge_bases/{ZAMMAD_KNOWLEDGE_BASE_ID}"
-RSS_FEED_TOKEN = os.getenv("ZAMMAD_KB_RSS_FEED_TOKEN", "")
-AUTH_TOKEN = os.getenv("ZAMMAD_AUTH_TOKEN", "")
+RSS_FEED_TOKEN = settings.zammad.rss_feed_token
+AUTH_TOKEN = settings.zammad.auth_token
 
 # HTTP client defaults
 HTTP_TIMEOUT_SECONDS = 30
@@ -68,6 +68,9 @@ def get_ids(feed: feedparser.FeedParserDict, last_updated: datetime | None = Non
         # Filter by last_updated if possible
         if last_updated is not None:
             updated = datetime.fromisoformat(entry.get("updated"))
+            # Ensure both datetimes are timezone-aware for comparison
+            if updated.tzinfo is None:
+                updated = updated.replace(tzinfo=timezone.utc)
             if not updated or updated <= last_updated:
                 continue
         raw_id = entry.get("id", "")

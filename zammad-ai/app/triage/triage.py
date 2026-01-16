@@ -1,5 +1,4 @@
 import datetime
-import os
 from typing import TypeVar
 
 from dotenv import load_dotenv
@@ -8,7 +7,6 @@ from langchain_core.runnables import RunnableSequence
 from langchain_openai import ChatOpenAI
 from langfuse import observe
 from openai import BadRequestError
-from pydantic import SecretStr
 from truststore import inject_into_ssl
 
 from app.core.settings import get_settings
@@ -38,11 +36,6 @@ logger = getLogger("zammad-ai.triage")
 
 T = TypeVar("T")
 
-# LLM Configuration
-LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "")
-LITELLM_URL = os.getenv("LITELLM_URL", "")
-LITELLM_MODEL = os.getenv("LITELLM_MODEL", "gpt-4o-mini")
-
 # Model Parameters
 TEMPERATURE = 0.0
 MAX_RETRIES = 5
@@ -58,25 +51,24 @@ class Triage:
         self.no_category: Category = id_to_category(self.settings.no_category_id, self.settings.categories, self.settings.no_category_id)
         self.no_action: Action = id_to_action(self.settings.no_action_id, self.settings.actions, self.settings.no_action_id)
         reasoning_config = {}
-        if os.getenv("LITELLM_MODEL_REASONING_EFFORT") is not None:
-            reasoning_config = {"effort": os.getenv("LITELLM_MODEL_REASONING_EFFORT")}
-
+        if self.settings.openai.reasoning_effort is not None:
+            reasoning_config = {"effort": self.settings.openai.reasoning_effort, "summary": "auto"}
         self.chat_model = ChatOpenAI(
-            model=LITELLM_MODEL,
+            model=self.settings.openai.completions_model,
             temperature=TEMPERATURE,
+            store=False,
             max_retries=MAX_RETRIES,
-            api_key=SecretStr(LITELLM_API_KEY),
-            base_url=LITELLM_URL,
+            api_key=self.settings.openai.api_key,  # type: ignore
+            base_url=self.settings.openai.url,
             reasoning=reasoning_config if reasoning_config else None,
         )
         (
             self.langfuse_handler,
             self.langfuse,
             self.ROLE_DESCRIPTION_PROMPT,
-            self.EDGE_CASES_PROMPT,
             self.EXAMPLES_PROMPT,
             self.CATEGORIES_PROMPT,
-        ) = setup_langfuse()
+        ) = setup_langfuse(app_settings.triage.prompt_config)
 
     @observe(name="Zammad-AI Triage", as_type="span")
     async def call_llm(
@@ -126,7 +118,6 @@ class Triage:
                     "role_description": self.ROLE_DESCRIPTION_PROMPT,
                     "categories": self.settings.categories,
                     "categories_prompt": self.CATEGORIES_PROMPT,
-                    "edge_cases": self.EDGE_CASES_PROMPT,
                     "examples": self.EXAMPLES_PROMPT,
                 },
                 system_prompt=SYSTEM_PROMPT_CATEGORIES,
