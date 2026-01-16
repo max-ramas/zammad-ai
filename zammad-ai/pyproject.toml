@@ -30,6 +30,7 @@ dependencies = [
     "python-dotenv==1.2.1",
     "truststore==0.10.4",
     "pandas==2.3.3",
+    "langchain-qdrant==0.2.1",
 ]
 
 [dependency-groups]

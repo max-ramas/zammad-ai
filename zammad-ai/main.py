@@ -21,6 +21,7 @@ async def main() -> None:
     logger: Logger = getLogger("zammad-ai")
     logger.info("Starting application")
     settings: Settings = get_settings()
+    logger.debug(f"Application settings: {settings.dict()}")
     broker: KafkaBroker
     broker, _ = build_broker(settings=settings)
     app = FastStream(broker)
