@@ -31,6 +31,9 @@ dependencies = [
     "truststore==0.10.4",
     "pandas==2.3.3",
     "langchain-qdrant==0.2.1",
+    "uvicorn==0.40.0",
+    "fastapi>=0.100,<0.116",
+    "gradio==6.3.0",
 ]
 
 [dependency-groups]
