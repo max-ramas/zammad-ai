@@ -27,7 +27,7 @@ def _build_config(session_id: str, langfuse_handler: Callbacks) -> RunnableConfi
     return config
 
 
-def _get_session_id() -> str:
+def get_session_id() -> str:
     """Generate a unique session ID for Langfuse tracking.
     Returns:
         str: A unique session ID.

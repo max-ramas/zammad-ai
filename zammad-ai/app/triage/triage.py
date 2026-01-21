@@ -23,11 +23,11 @@ from app.models.triage import (
     TriageResult,
     ZammadTicketModel,
 )
+from app.observe.observer import _build_config, get_session_id, setup_langfuse
 from app.utils.logging import getLogger
 
 from .helper import get_operator_function, id_to_action, id_to_category
-from .observer import _build_config, _get_session_id, setup_langfuse
-from .prompts import SYSTEM_PROMPT_CATEGORIES, SYSTEM_PROMPT_DAYS_SINCE_REQUEST
+from .prompts import SYSTEM_PROMPT_CATEGORIES, SYSTEM_PROMPT_DAYS_SINCE_REQUEST, SYSTEM_PROMPT_PROCESSING_ID
 from .ticket_helper import get_data_from_zammad
 
 load_dotenv()
@@ -70,13 +70,51 @@ class Triage:
             self.CATEGORIES_PROMPT,
         ) = setup_langfuse(app_settings.triage.prompt_config)
 
-    @observe(name="Zammad-AI Triage", as_type="span")
-    async def call_llm(
+    @observe(name="Zammad-AI Triage Predict Category", as_type="span")
+    async def call_llm_predict_category(
+        self,
+        input: dict,
+        session_id: str = get_session_id(),
+    ) -> CategorizationResult:
+        return await self._call_llm(
+            input=input,
+            system_prompt=SYSTEM_PROMPT_CATEGORIES,
+            output=CategorizationResult,
+            session_id=session_id,
+        )
+
+    @observe(name="Zammad-AI Triage Days Since Request", as_type="span")
+    async def call_llm_days_since_request(
+        self,
+        input: dict,
+        session_id: str = get_session_id(),
+    ) -> DaysSinceRequestResponse:
+        return await self._call_llm(
+            input=input,
+            system_prompt=SYSTEM_PROMPT_DAYS_SINCE_REQUEST,
+            output=DaysSinceRequestResponse,
+            session_id=session_id,
+        )
+
+    @observe(name="Zammad-AI Triage Processing ID", as_type="span")
+    async def call_llm_processing_id(
+        self,
+        input: dict,
+        session_id: str = get_session_id(),
+    ) -> ProcessingIdResponse:
+        return await self._call_llm(
+            input=input,
+            system_prompt=SYSTEM_PROMPT_PROCESSING_ID,
+            output=ProcessingIdResponse,
+            session_id=session_id,
+        )
+
+    async def _call_llm(
         self,
         input: dict,
         system_prompt: str,
         output: None | type[T],
-        session_id: str = _get_session_id(),
+        session_id: str = get_session_id(),
     ) -> T:
         categorize_template = ChatPromptTemplate(
             messages=[
@@ -96,7 +134,7 @@ class Triage:
         )
         return response
 
-    async def predict_category(self, text: str = "") -> CategorizationResult:
+    async def predict_category(self, text: str = "", session_id: str = get_session_id()) -> CategorizationResult:
         """Predict the category of the given text.
         Args:
             text (str): The text to categorize.
@@ -112,7 +150,7 @@ class Triage:
             )
 
         try:
-            cat_result: CategorizationResult = await self.call_llm(
+            cat_result: CategorizationResult = await self.call_llm_predict_category(
                 input={
                     "text": text,
                     "role_description": self.ROLE_DESCRIPTION_PROMPT,
@@ -120,8 +158,7 @@ class Triage:
                     "categories_prompt": self.CATEGORIES_PROMPT,
                     "examples": self.EXAMPLES_PROMPT,
                 },
-                system_prompt=SYSTEM_PROMPT_CATEGORIES,
-                output=CategorizationResult,
+                session_id=session_id,
             )
 
             # Log the results
@@ -149,7 +186,7 @@ class Triage:
                 confidence=1.0,
             )
 
-    async def get_action_id(self, categorization_result: CategorizationResult, text: str = "") -> int:
+    async def get_action_id(self, categorization_result: CategorizationResult, text: str = "", session_id: str = get_session_id()) -> int:
         """Determine the action ID based on the categorization result and optional text.
         Args:
             categorization_result (CategorizationResult): The result of the categorization.
@@ -174,13 +211,12 @@ class Triage:
                     for condition in conditions:
                         if condition.field == ConditionField.DAYS_SINCE_REQUEST:
                             if days_since_request is None:
-                                days_result: DaysSinceRequestResponse = await self.call_llm(
+                                days_result: DaysSinceRequestResponse = await self.call_llm_days_since_request(
                                     input={
                                         "text": text,
                                         "today": datetime.datetime.now().strftime("%Y-%m-%d"),
                                     },
-                                    system_prompt=SYSTEM_PROMPT_DAYS_SINCE_REQUEST,
-                                    output=DaysSinceRequestResponse,
+                                    session_id=session_id,
                                 )
                                 days_since_request = days_result.days_since_request
                             if (get_operator_function(operator=condition.operator))(days_since_request, condition.value):
@@ -189,13 +225,12 @@ class Triage:
                         if condition.field == ConditionField.PROCESSING_ID:
                             if processing_id is None:
                                 condition_str: str = "Processing id " + condition.operator.value + " " + str(condition.value)
-                                processing_result: ProcessingIdResponse = await self.call_llm(
+                                processing_result: ProcessingIdResponse = await self.call_llm_processing_id(
                                     input={
                                         "text": text,
                                         "condition": condition_str,
                                     },
-                                    system_prompt="",  # TODO: Define system prompt for processing_id
-                                    output=ProcessingIdResponse,
+                                    session_id=session_id,
                                 )
                                 processing_id = processing_result.processing_id
                             if get_operator_function(operator=condition.operator)(processing_id, condition.value):

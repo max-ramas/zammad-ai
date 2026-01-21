@@ -61,4 +61,4 @@ class DaysSinceRequestResponse(BaseModel):
 
 class ProcessingIdResponse(BaseModel):
     processing_id: str = Field(description="Extracted processing ID from the text")
-    reason: str = Field(description="Reason for the extraction")
+    condition_met: bool = Field(description="Whether the extracted processing ID meets the specified condition")
