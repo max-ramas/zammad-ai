@@ -4,15 +4,13 @@ from langchain_openai import ChatOpenAI
 from langfuse import observe
 from truststore import inject_into_ssl
 
-from app.core.settings import get_settings
+from app.core.settings import Settings, get_settings
 from app.observe.observer import _build_config, get_session_id, setup_langfuse
 from app.utils.logging import getLogger
 
 inject_into_ssl()
 
-settings = get_settings()
-
-_formulation_chain = None
+settings: Settings = get_settings()
 
 logger = getLogger(__name__)
 (langfusehandler, langfuse, _, _, _) = setup_langfuse(settings.triage.prompt_config)

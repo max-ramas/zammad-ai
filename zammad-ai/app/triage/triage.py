@@ -9,7 +9,7 @@ from langfuse import observe
 from openai import BadRequestError
 from truststore import inject_into_ssl
 
-from app.core.settings import get_settings
+from app.core.settings import TriageSettings, get_settings
 from app.core.triage_settings import (
     Action,
     Category,
@@ -47,12 +47,14 @@ class Triage:
         app_settings = get_settings()
         if app_settings.triage is None:
             raise ValueError("Triage settings not configured in application settings")
-        self.settings = app_settings.triage
+
+        self.settings: TriageSettings = app_settings.triage
         self.no_category: Category = id_to_category(self.settings.no_category_id, self.settings.categories, self.settings.no_category_id)
         self.no_action: Action = id_to_action(self.settings.no_action_id, self.settings.actions, self.settings.no_action_id)
+
         reasoning_config = {}
         if self.settings.openai.reasoning_effort is not None:
-            reasoning_config = {"effort": self.settings.openai.reasoning_effort, "summary": "auto"}
+            reasoning_config = {"effort": self.settings.openai.reasoning_effort, "summary": "detailed"}
         self.chat_model = ChatOpenAI(
             model=self.settings.openai.completions_model,
             temperature=TEMPERATURE,
@@ -62,6 +64,7 @@ class Triage:
             base_url=self.settings.openai.url,
             reasoning=reasoning_config if reasoning_config else None,
         )
+
         (
             self.langfuse_handler,
             self.langfuse,
@@ -161,13 +164,17 @@ class Triage:
                 session_id=session_id,
             )
 
+            if not cat_result.category or cat_result.category.id not in [c.id for c in self.settings.categories]:
+                logger.warning("Predicted category is invalid or not found, assigning no_category")
+                cat_result.category = self.no_category
+                cat_result.reasoning += " (Kategorie ungültig, 'no_category' zugewiesen)"
+                cat_result.confidence = 1.0
+
             # Log the results
             logger.debug("Text to categorize: %s", text[:100] + "..." if len(text) > 100 else text)
             logger.debug("Category: %s", cat_result.category)
             logger.debug("Reasoning: %s", cat_result.reasoning)
             logger.debug("Confidence: %f", cat_result.confidence)
-
-            # What to do if confidence is low?
 
             return cat_result
 

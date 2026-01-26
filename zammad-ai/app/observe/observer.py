@@ -5,10 +5,10 @@ from langchain_core.runnables import RunnableConfig
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 
-from app.core.settings import get_settings
+from app.core.settings import TriageSettings, get_settings
 from app.core.triage_settings import PromptConfig
 
-settings = get_settings().triage
+settings: TriageSettings = get_settings().triage
 
 
 def setup_langfuse(config: PromptConfig) -> tuple[CallbackHandler, Langfuse, str, str, str]:

@@ -7,14 +7,14 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client import AsyncQdrantClient, QdrantClient
 from truststore import inject_into_ssl
 
-from app.core.settings import get_settings
+from app.core.settings import TriageSettings, get_settings
 from app.models.qdrant import QdrantVectorMetadata
 
 load_dotenv()
 inject_into_ssl()
 
 NAMESPACE: UUID = uuid5(NAMESPACE_DNS, "zammad-ai")
-settings = get_settings().triage
+settings: TriageSettings = get_settings().triage
 
 embedding = OpenAIEmbeddings(
     model=settings.openai.embeddings_model,
@@ -45,7 +45,7 @@ async def save_to_qdrant(page_content: str, metadata: QdrantVectorMetadata, id: 
 
 async def get_similar_vectors(query: str, k: int = 5) -> list[Document]:
     """Retrieve similar vectors from Qdrant based on the query."""
-    docs = vectorstore.similarity_search(query, k=k)
+    docs: list[Document] = vectorstore.similarity_search(query, k=k)
     return docs
 
 
