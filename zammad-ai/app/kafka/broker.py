@@ -64,7 +64,7 @@ def build_router(settings: Settings) -> tuple[KafkaRouter, Callable]:
         if False:  # Replace with error handlers
             raise NackMessage()
 
-        triage = Triage()
+        triage = Triage(settings=settings)
         id = event.ticket
         result: TriageResult = await triage.perform_triage(id=id)
         logger.info(f"Triage result for ticket {id}: {result}")

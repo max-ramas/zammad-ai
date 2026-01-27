@@ -9,7 +9,7 @@ from langfuse import observe
 from openai import BadRequestError
 from truststore import inject_into_ssl
 
-from app.core.settings import TriageSettings, get_settings
+from app.core.settings import Settings, TriageSettings, get_settings
 from app.core.triage_settings import (
     Action,
     Category,
@@ -42,13 +42,16 @@ MAX_RETRIES = 5
 
 
 class Triage:
-    def __init__(self):
+    def __init__(self, settings: None | Settings = None) -> None:
         """Initialize Triage with settings from the global configuration."""
-        app_settings = get_settings()
-        if app_settings.triage is None:
-            raise ValueError("Triage settings not configured in application settings")
+        if settings is not None:
+            self.settings: TriageSettings = settings.triage
+        else:
+            app_settings = get_settings()
+            if app_settings.triage is None:
+                raise ValueError("Triage settings not configured in application settings")
 
-        self.settings: TriageSettings = app_settings.triage
+            self.settings: TriageSettings = app_settings.triage
         self.no_category: Category = id_to_category(self.settings.no_category_id, self.settings.categories, self.settings.no_category_id)
         self.no_action: Action = id_to_action(self.settings.no_action_id, self.settings.actions, self.settings.no_action_id)
 
@@ -71,7 +74,7 @@ class Triage:
             self.ROLE_DESCRIPTION_PROMPT,
             self.EXAMPLES_PROMPT,
             self.CATEGORIES_PROMPT,
-        ) = setup_langfuse(app_settings.triage.prompt_config)
+        ) = setup_langfuse(self.settings.prompt_config)
 
     @observe(name="Zammad-AI Triage Predict Category", as_type="span")
     async def call_llm_predict_category(
