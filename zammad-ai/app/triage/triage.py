@@ -15,6 +15,7 @@ from app.core.triage_settings import (
     Category,
     Condition,
     ConditionField,
+    ZammadSettings,
 )
 from app.models.triage import (
     CategorizationResult,
@@ -250,7 +251,7 @@ class Triage:
         # Default action if no rules matched
         return self.no_action.id
 
-    async def perform_triage(self, id: str) -> TriageResult:
+    async def perform_triage(self, id: str, settings: ZammadSettings) -> TriageResult:
         """Perform triage on a Zammad ticket by its ID.
 
         Args:
@@ -259,7 +260,7 @@ class Triage:
         Returns:
             TriageResult: The result of the triage process.
         """
-        zammad_data: ZammadTicketModel = await get_data_from_zammad(id)
+        zammad_data: ZammadTicketModel = await get_data_from_zammad(id, settings=settings)
         # TODO: Only use the first article or concatenate all articles?
         # Normally the `0` is the customer message, the rest are internal notes
         # But what if there are multiple customer messages? -> edge case

@@ -1,7 +1,7 @@
 import httpx
 from truststore import inject_into_ssl
 
-from app.core.settings import get_settings
+from app.core.triage_settings import ZammadSettings
 from app.models.triage import Attachment, ZammadArticleModel, ZammadTicketModel
 from app.utils.logging import getLogger
 
@@ -9,17 +9,13 @@ from .helper import strip_html
 
 inject_into_ssl()
 
-settings = get_settings().triage
-
-ZAMMAD_BASE_URL = settings.zammad.base_url
-ZAMMAD_API_TOKEN = settings.zammad.auth_token
 HTTP_TIMEOUT_SECONDS = 30
 
 logger = getLogger("zammad-ai.triage.ticket_helper")
 
 
-async def get_data_from_zammad(id: str) -> ZammadTicketModel:
-    articles = await get_articles_by_id(id)
+async def get_data_from_zammad(id: str, settings: ZammadSettings) -> ZammadTicketModel:
+    articles = await get_articles_by_id(id, settings=settings)
     ticket = ZammadTicketModel(
         id=id,
         articles=articles if articles else [],
@@ -27,10 +23,10 @@ async def get_data_from_zammad(id: str) -> ZammadTicketModel:
     return ticket
 
 
-async def get_articles_by_id(ticket_id: str) -> list[ZammadArticleModel] | None:
-    url = f"{ZAMMAD_BASE_URL}/api/v1/ticket_articles/by_ticket/{ticket_id}"
+async def get_articles_by_id(ticket_id: str, settings: ZammadSettings) -> list[ZammadArticleModel] | None:
+    url = f"{settings.base_url}/api/v1/ticket_articles/by_ticket/{ticket_id}"
     headers = {
-        "Authorization": f"Bearer {ZAMMAD_API_TOKEN}",
+        "Authorization": f"Bearer {settings.auth_token}",
     }
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
@@ -63,10 +59,10 @@ async def get_articles_by_id(ticket_id: str) -> list[ZammadArticleModel] | None:
         logger.exception("Error fetching articles for ticket %s: %s", ticket_id, e)
 
 
-async def create_zammad_article(ticket_id: str, text: str, internal: bool) -> bool:
-    url = f"{ZAMMAD_BASE_URL}/api/v1/ticket_articles"
+async def create_zammad_article(ticket_id: str, text: str, internal: bool, settings: ZammadSettings) -> bool:
+    url = f"{settings.base_url}/api/v1/ticket_articles"
     headers = {
-        "Authorization": f"Bearer {ZAMMAD_API_TOKEN}",
+        "Authorization": f"Bearer {settings.auth_token}",
     }
     # TODO check payload data fields (ids, types, etc.)
     payload = {
@@ -93,10 +89,10 @@ async def create_zammad_article(ticket_id: str, text: str, internal: bool) -> bo
         return False
 
 
-async def create_zammad_shared_draft(ticket_id: str, text: str) -> bool:
-    url = f"{ZAMMAD_BASE_URL}/api/v1/tickets/{ticket_id}/shared_draft"
+async def create_zammad_shared_draft(ticket_id: str, text: str, settings: ZammadSettings) -> bool:
+    url = f"{settings.base_url}/api/v1/tickets/{ticket_id}/shared_draft"
     headers = {
-        "Authorization": f"Bearer {ZAMMAD_API_TOKEN}",
+        "Authorization": f"Bearer {settings.auth_token}",
     }
     # TODO check payload data fields (ids, types, etc.)
     payload = {
@@ -129,10 +125,10 @@ async def create_zammad_shared_draft(ticket_id: str, text: str) -> bool:
         return False
 
 
-async def set_ticket_tag(ticket_id: str, tag: str) -> bool:
-    url = f"{ZAMMAD_BASE_URL}/api/v1/tags/add"
+async def set_ticket_tag(ticket_id: str, tag: str, settings: ZammadSettings) -> bool:
+    url = f"{settings.base_url}/api/v1/tags/add"
     headers = {
-        "Authorization": f"Bearer {ZAMMAD_API_TOKEN}",
+        "Authorization": f"Bearer {settings.auth_token}",
     }
     payload = {"item": tag, "object": "Ticket", "o_id": ticket_id}
 
