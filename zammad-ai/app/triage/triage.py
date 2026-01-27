@@ -74,7 +74,7 @@ class Triage:
             self.ROLE_DESCRIPTION_PROMPT,
             self.EXAMPLES_PROMPT,
             self.CATEGORIES_PROMPT,
-        ) = setup_langfuse(self.settings.prompt_config)
+        ) = setup_langfuse(self.settings)
 
     @observe(name="Zammad-AI Triage Predict Category", as_type="span")
     async def call_llm_predict_category(
