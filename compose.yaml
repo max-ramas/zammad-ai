@@ -68,7 +68,7 @@ services:
     security_opt: *security_settings
 
   init-kafka:
-    image: confluentinc/cp-kafka:latest@sha256:9cdc8119cb39c45f0efa6da8e2220058020c7433e3ba3a3ce11a8006a18cb336
+    image: confluentinc/cp-kafka:7.8.6@sha256:778f64413532f180148569116b3f5d734e7f1c0cdee650b984f88fd97a20a4f9
     depends_on:
       kafka:
         condition: service_healthy
