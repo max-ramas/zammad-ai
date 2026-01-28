@@ -63,11 +63,13 @@ def build_router(settings: Settings) -> tuple[KafkaRouter, Callable]:
 
         if False:  # Replace with error handlers
             raise NackMessage()
-
-        triage = Triage(settings=settings)
-        id = event.ticket
-        result: TriageResult = await triage.perform_triage(id=id, settings=settings.triage.zammad)
-        logger.debug(f"Triage result for ticket {id}: {result}")
+        try:
+            triage = Triage(settings=settings)
+            id = event.ticket
+            result: TriageResult = await triage.perform_triage(id=id, settings=settings.triage.zammad)
+            logger.debug(f"Triage result for ticket {id}: {result}")
+        except Exception as e:
+            logger.error(f"Error processing event for ticket {event.ticket}: {e}")
         raise AckMessage()
 
     return router, event_handler
