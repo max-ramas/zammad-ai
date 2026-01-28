@@ -81,7 +81,7 @@ class Triage:
     async def call_llm_predict_category(
         self,
         input: dict,
-        session_id: str = get_session_id(),
+        session_id: str | None = None,
     ) -> CategorizationResult:
         return await self._call_llm(
             input=input,
@@ -94,7 +94,7 @@ class Triage:
     async def call_llm_days_since_request(
         self,
         input: dict,
-        session_id: str = get_session_id(),
+        session_id: str | None = None,
     ) -> DaysSinceRequestResponse:
         return await self._call_llm(
             input=input,
@@ -107,7 +107,7 @@ class Triage:
     async def call_llm_processing_id(
         self,
         input: dict,
-        session_id: str = get_session_id(),
+        session_id: str | None = None,
     ) -> ProcessingIdResponse:
         return await self._call_llm(
             input=input,
@@ -121,8 +121,10 @@ class Triage:
         input: dict,
         system_prompt: str,
         output: None | type[T],
-        session_id: str = get_session_id(),
+        session_id: str | None = None,
     ) -> T:
+        if session_id is None:
+            session_id = get_session_id()
         categorize_template = ChatPromptTemplate(
             messages=[
                 ("system", system_prompt),
@@ -141,7 +143,7 @@ class Triage:
         )
         return response
 
-    async def predict_category(self, text: str = "", session_id: str = get_session_id()) -> CategorizationResult:
+    async def predict_category(self, text: str = "", session_id: str | None = None) -> CategorizationResult:
         """Predict the category of the given text.
         Args:
             text (str): The text to categorize.
@@ -197,7 +199,7 @@ class Triage:
                 confidence=1.0,
             )
 
-    async def get_action_id(self, categorization_result: CategorizationResult, text: str = "", session_id: str = get_session_id()) -> int:
+    async def get_action_id(self, categorization_result: CategorizationResult, text: str = "", session_id: str | None = None) -> int:
         """Determine the action ID based on the categorization result and optional text.
         Args:
             categorization_result (CategorizationResult): The result of the categorization.
@@ -274,12 +276,13 @@ class Triage:
                 action=self.no_action,
             )
         text = zammad_data.articles[0].text
+        session_id = get_session_id()
 
         # Get categorization result
-        categorization: CategorizationResult = await self.predict_category(text)
+        categorization: CategorizationResult = await self.predict_category(text, session_id=session_id)
 
         # Determine action based on category
-        action_id = await self.get_action_id(categorization, text=text)
+        action_id = await self.get_action_id(categorization, text=text, session_id=session_id)
         action = id_to_action(action_id, self.settings.actions, self.settings.no_action_id)
         return TriageResult(
             category=categorization.category if categorization.category else self.no_category,

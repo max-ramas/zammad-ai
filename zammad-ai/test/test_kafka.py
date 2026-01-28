@@ -92,7 +92,7 @@ def valid_message() -> dict:
 @pytest.mark.asyncio
 async def test_event_handler_valid_message(valid_message: dict) -> None:
     """Test event handler with a valid message."""
-    settings = Settings(valid_request_types=["technischer Bürgersupport"])
+    settings = mock_settings
     router, event_handler = build_router(settings=settings)
     async with TestKafkaBroker(router.broker) as test_broker:
         # copy fixture to avoid mutating the shared dict if a test modifies it
@@ -104,7 +104,7 @@ async def test_event_handler_valid_message(valid_message: dict) -> None:
 @pytest.mark.asyncio
 async def test_event_handler_with_requestType_alias(valid_message: dict) -> None:
     """Test event handler accepts requestType as alias for anliegenart."""
-    settings = Settings(valid_request_types=["technischer Bürgersupport"])
+    settings = mock_settings
     router, event_handler = build_router(settings=settings)
     async with TestKafkaBroker(router.broker) as test_broker:
         message = dict(valid_message)
@@ -118,7 +118,7 @@ async def test_event_handler_with_requestType_alias(valid_message: dict) -> None
 @pytest.mark.asyncio
 async def test_event_handler_invalid_request_type(valid_message: dict, caplog) -> None:
     """Test event handler skips messages with invalid request types."""
-    settings = Settings(valid_request_types=["technischer Bürgersupport"])
+    settings = mock_settings
     router, event_handler = build_router(settings=settings)
     async with TestKafkaBroker(router.broker) as test_broker:
         message = dict(valid_message)
@@ -131,7 +131,7 @@ async def test_event_handler_invalid_request_type(valid_message: dict, caplog) -
 @pytest.mark.asyncio
 async def test_event_handler_invalid_message_format() -> None:
     """Test event handler with malformed message that fails Pydantic validation."""
-    settings = Settings(valid_request_types=["technischer Bürgersupport"])
+    settings = mock_settings
     router, event_handler = build_router(settings=settings)
     async with TestKafkaBroker(router.broker) as test_broker:
         # Missing required fields
@@ -146,7 +146,8 @@ async def test_event_handler_invalid_message_format() -> None:
 @pytest.mark.asyncio
 async def test_event_handler_with_multiple_valid_request_types(valid_message: dict) -> None:
     """Test event handler with multiple valid request types configured."""
-    settings = Settings(valid_request_types=["technischer Bürgersupport", "general support", "other"])
+    settings = mock_settings
+    settings.valid_request_types = ["technischer Bürgersupport", "general support", "other"]
     router, event_handler = build_router(settings=settings)
     async with TestKafkaBroker(router.broker) as test_broker:
         message = dict(valid_message)
@@ -158,9 +159,8 @@ async def test_event_handler_with_multiple_valid_request_types(valid_message: di
 @pytest.mark.asyncio
 async def test_event_handler_case_sensitive_request_type(valid_message: dict, caplog) -> None:
     """Test that request type validation is case sensitive."""
-    settings = Settings(
-        valid_request_types=["technischer Bürgersupport"]  # exact case
-    )
+    settings = mock_settings
+    settings.valid_request_types = ["technischer Bürgersupport"]  # exact case
     router, event_handler = build_router(settings=settings)
     async with TestKafkaBroker(router.broker) as test_broker:
         message = dict(valid_message)

@@ -70,7 +70,7 @@ async def create_zammad_article(ticket_id: str, text: str, internal: bool, setti
         "subject": "Call note",
         "body": text,
         "content_type": "text/html",
-        "seder": "KI Agent",
+        "sender": "KI Agent",
         "type": "phone",
         "internal": internal,
         "time_unit": "15",

@@ -39,7 +39,7 @@ def parse_rss_feed() -> feedparser.FeedParserDict | None:
     """
     feed_url = f"{KNOWLEDGE_BASE_URL}/de-de/feed?token={RSS_FEED_TOKEN}"
     try:
-        logger.info("Fetching RSS feed from: %s", feed_url)
+        logger.debug("Fetching RSS feed from: %s", feed_url)
         feed = feedparser.parse(feed_url)
 
         # Check if feed was successfully parsed

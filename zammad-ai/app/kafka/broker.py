@@ -67,7 +67,7 @@ def build_router(settings: Settings) -> tuple[KafkaRouter, Callable]:
         triage = Triage(settings=settings)
         id = event.ticket
         result: TriageResult = await triage.perform_triage(id=id, settings=settings.triage.zammad)
-        logger.info(f"Triage result for ticket {id}: {result}")
+        logger.debug(f"Triage result for ticket {id}: {result}")
         raise AckMessage()
 
     return router, event_handler

@@ -34,18 +34,18 @@ vectorstore = QdrantVectorStore(
 
 async def create_snapshot() -> None:
     """Create a snapshot of the Qdrant collection."""
-    qdrant_client.create_snapshot(collection_name=settings.qdrant.collection_name)
+    await aqdrant_client.create_snapshot(collection_name=settings.qdrant.collection_name)
 
 
 async def save_to_qdrant(page_content: str, metadata: QdrantVectorMetadata, id: str) -> None:
     id = str(uuid5(NAMESPACE, id))
     doc: Document = Document(page_content=page_content, metadata=metadata.model_dump(), id=id)
-    vectorstore.add_documents([doc], ids=[id])
+    await vectorstore.aadd_documents([doc], ids=[id])
 
 
 async def get_similar_vectors(query: str, k: int = 5) -> list[Document]:
     """Retrieve similar vectors from Qdrant based on the query."""
-    docs: list[Document] = vectorstore.similarity_search(query, k=k)
+    docs: list[Document] = await vectorstore.asimilarity_search(query, k=k)
     return docs
 
 

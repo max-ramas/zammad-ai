@@ -13,15 +13,17 @@ inject_into_ssl()
 settings: Settings = get_settings()
 
 logger = getLogger(__name__)
-(langfusehandler, langfuse, _, _, _) = setup_langfuse(settings.triage.prompt_config)
+(langfusehandler, langfuse, _, _, _) = setup_langfuse(settings.triage)
 
 
 @observe(name="Zammad-AI Formulate Answer", as_type="span")
 async def call_llm(
     input: dict,
     system_prompt: str,
-    session_id: str = get_session_id(),
+    session_id: str | None = None,
 ):
+    if session_id is None:
+        session_id = get_session_id()
     reasoning_config = None
     if settings.triage.openai.reasoning_effort is not None:
         reasoning_config = {"effort": settings.triage.openai.reasoning_effort, "summary": "auto"}
@@ -60,8 +62,10 @@ def _get_data_from_vector_db(question: str) -> str:
 async def formulate_answer(
     question: str,
     category: str,
-    session_id: str = get_session_id(),
+    session_id: str | None = None,
 ) -> str:
+    if session_id is None:
+        session_id = get_session_id()
     text = f"Kategorie: {category}\n {question}"
     # data = _get_data_from_vector_db(text)
 
@@ -71,4 +75,4 @@ async def formulate_answer(
         session_id=session_id,
     )
 
-    return result
+    return result.content

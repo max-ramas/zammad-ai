@@ -1,13 +1,10 @@
 from abc import ABC
 from functools import lru_cache
 
-from dotenv import load_dotenv
 from pydantic import BaseModel, Field, FilePath
 from pydantic_settings import BaseSettings, CliSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict, YamlConfigSettingsSource
 
 from .triage_settings import TriageSettings
-
-load_dotenv()
 
 
 class Settings(BaseSettings):
@@ -44,7 +41,7 @@ class Settings(BaseSettings):
     )
 
     # Settings sources in order of priority (first = highest priority):
-    # 1. CLI args, 2. Environment variables, 3. YAML config, 4. .env file
+    # 1. CLI args, 2. Environment variables, 3. .env file, 4. YAML config
     @classmethod
     def settings_customise_sources(
         cls,
