@@ -45,7 +45,7 @@ async def process_ticket(text: str):
                     f"{API_BASE_URL}/api/answer", json={"text": text, "id": session_id, "category": category}
                 )
                 answer_response.raise_for_status()
-                answer = answer_response.json()["content"]
+                answer = answer_response.json()
 
             except Exception as e:
                 answer = f"Fehler bei Answer-Generierung: {str(e)}"
