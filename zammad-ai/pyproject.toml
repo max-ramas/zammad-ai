@@ -4,7 +4,7 @@ license = "MIT"
 version = "0.1.0"
 description = "GenAI-powered agent for Zammad"
 readme = "README.md"
-requires-python = "==3.13.9"
+requires-python = "==3.13.11"
 authors = [
     { name = "Fabian Reinold", email = "fabian.reinold@muenchen.de" },
     { name = "Paul Ilitz", email = "paul.ilitz@muenchen.de" },
@@ -14,27 +14,26 @@ maintainers = [
 ]
 
 dependencies = [
-    "aiofiles==24.1.0",
+    "cryptography==46.0.4",
+    "fastapi==0.128.0",
+    "faststream[cli,kafka]==0.6.6",
     "feedparser==6.0.12",
-    "langchain==1.2.8",
+    "gradio==6.5.1",
+    "httpx==0.28.1",
     "langchain-core==1.2.8",
     "langchain-openai==1.1.7",
+    "langchain-qdrant==1.1.0",
+    "langchain==1.2.8",
     "langfuse==3.12.1",
     "logtools==0.8.7",
     "openai==2.16.0",
-    "faststream[cli,kafka]==0.6.6",
-    "httpx==0.28.1",
-    "cryptography==46.0.4",
+    "pandas==3.0.0",
+    "protobuf==6.33.5",
     "pydantic-settings==2.12.0",
     "pydantic==2.12.5",
     "python-dotenv==1.2.1",
     "truststore==0.10.4",
-    "pandas==3.0.0",
-    "langchain-qdrant==1.1.0",
     "uvicorn==0.40.0",
-    "fastapi==0.128",
-    "gradio==6.5.1",
-    "protobuf==6.33.5",
 ]
 
 [dependency-groups]
@@ -45,6 +44,7 @@ dev = [
     "pytest-asyncio==1.3.0",
     "pytest==9.0.2",
     "ruff==0.15.0",
+    "ty==0.0.14",
 ]
 
 [tool.uv]
