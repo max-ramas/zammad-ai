@@ -1,7 +1,7 @@
 import httpx
 from truststore import inject_into_ssl
 
-from app.core.triage_settings import ZammadSettings
+from app.core.core_settings import ZammadSettings
 from app.models.triage import Attachment, ZammadArticleModel, ZammadTicketModel
 from app.utils.logging import getLogger
 

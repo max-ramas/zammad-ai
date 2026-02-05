@@ -2,49 +2,22 @@ import pytest
 from fastapi.exceptions import RequestValidationError
 from faststream.kafka import TestKafkaBroker
 
-from app.core.settings import KafkaSettings, Settings
-from app.core.triage_settings import (
-    Action,
-    ActionRule,
-    Category,
+from app.core.core_settings import (
+    CoreSettings,
     LangfuseSettings,
     OpenAISettings,
-    PromptConfig,
     QdrantSettings,
-    TriageSettings,
     Usecase,
     ZammadSettings,
 )
+from app.core.settings import KafkaSettings, Settings
+from app.core.triage_settings import Action, ActionRule, Category, LangfusePromptConfig, TriageSettings
 from app.kafka.broker import build_router
 
 mock_settings = Settings(
     valid_request_types=["technischer Bürgersupport"],
-    kafka=KafkaSettings(
-        broker_url="localhost:9092",
-        topic="test-ticket-events",
-        group_id="test-consumer-group",
-    ),
-    triage=TriageSettings(
+    core=CoreSettings(
         usecase=Usecase(name="Test Usecase", description="Test usecase for unit testing"),
-        categories=[
-            Category(name="Test Category 1", id=1),
-            Category(name="Test Category 2", id=2),
-        ],
-        no_category_id=999,
-        actions=[
-            Action(name="Test Action 1", description="First test action", id=1),
-            Action(name="Test Action 2", description="Second test action", id=2),
-        ],
-        no_action_id=888,
-        action_rules=[
-            ActionRule(category_id=1, action_id=1, conditions=None),
-        ],
-        prompt_config=PromptConfig(
-            label="test",
-            categories_prompt="test/categories",
-            examples_prompt="test/examples",
-            role_prompt="test/role",
-        ),
         openai=OpenAISettings(
             api_key="test-api-key",
             url="https://api.openai.com/v1",
@@ -71,6 +44,32 @@ mock_settings = Settings(
             collection_name="test-collection",
             vector_name="test-vector",
             vector_dimension=1536,
+        ),
+    ),
+    kafka=KafkaSettings(
+        broker_url="localhost:9092",
+        topic="test-ticket-events",
+        group_id="test-consumer-group",
+    ),
+    triage=TriageSettings(
+        categories=[
+            Category(name="Test Category 1", id=1),
+            Category(name="Test Category 2", id=2),
+        ],
+        no_category_id=999,
+        actions=[
+            Action(name="Test Action 1", description="First test action", id=1),
+            Action(name="Test Action 2", description="Second test action", id=2),
+        ],
+        no_action_id=888,
+        action_rules=[
+            ActionRule(category_id=1, action_id=1, conditions=None),
+        ],
+        prompt_config=LangfusePromptConfig(
+            label="test",
+            categories_prompt="test/categories",
+            examples_prompt="test/examples",
+            role_prompt="test/role",
         ),
     ),
 )

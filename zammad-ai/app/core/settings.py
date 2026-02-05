@@ -4,7 +4,8 @@ from functools import lru_cache
 from pydantic import BaseModel, Field, FilePath
 from pydantic_settings import BaseSettings, CliSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict, YamlConfigSettingsSource
 
-from .answer_settings import AnswerSettings  #
+from .answer_settings import AnswerSettings
+from .core_settings import CoreSettings
 from .triage_settings import TriageSettings
 
 
@@ -13,6 +14,10 @@ class Settings(BaseSettings):
     Application settings for Zammad AI integration.
     """
 
+    core: "CoreSettings" = Field(
+        default_factory=lambda: CoreSettings(),  # type: ignore
+        description="Core application settings",
+    )
     kafka: "KafkaSettings" = Field(
         default_factory=lambda: KafkaSettings(),
         description="Kafka related settings",
