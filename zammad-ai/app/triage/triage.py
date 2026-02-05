@@ -9,13 +9,13 @@ from langfuse import observe
 from openai import BadRequestError
 from truststore import inject_into_ssl
 
+from app.core.core_settings import CoreSettings, ZammadSettings
 from app.core.settings import Settings, TriageSettings, get_settings
 from app.core.triage_settings import (
     Action,
     Category,
     Condition,
     ConditionField,
-    ZammadSettings,
 )
 from app.models.triage import (
     CategorizationResult,
@@ -46,26 +46,32 @@ class Triage:
     def __init__(self, settings: None | Settings = None) -> None:
         """Initialize Triage with settings from the global configuration."""
         if settings is not None:
-            self.settings: TriageSettings = settings.triage
+            self.triage_settings: TriageSettings = settings.triage
+            self.core_settings: CoreSettings = settings.core
         else:
             app_settings = get_settings()
             if app_settings.triage is None:
                 raise ValueError("Triage settings not configured in application settings")
 
-            self.settings: TriageSettings = app_settings.triage
-        self.no_category: Category = id_to_category(self.settings.no_category_id, self.settings.categories, self.settings.no_category_id)
-        self.no_action: Action = id_to_action(self.settings.no_action_id, self.settings.actions, self.settings.no_action_id)
+            self.triage_settings: TriageSettings = app_settings.triage
+            self.core_settings: CoreSettings = app_settings.core
+        self.no_category: Category = id_to_category(
+            self.triage_settings.no_category_id, self.triage_settings.categories, self.triage_settings.no_category_id
+        )
+        self.no_action: Action = id_to_action(
+            self.triage_settings.no_action_id, self.triage_settings.actions, self.triage_settings.no_action_id
+        )
 
         reasoning_config = {}
-        if self.settings.openai.reasoning_effort is not None:
-            reasoning_config = {"effort": self.settings.openai.reasoning_effort, "summary": "detailed"}
+        if self.core_settings.openai.reasoning_effort is not None:
+            reasoning_config = {"effort": self.core_settings.openai.reasoning_effort, "summary": "detailed"}
         self.chat_model = ChatOpenAI(
-            model=self.settings.openai.completions_model,
+            model=self.core_settings.openai.completions_model,
             temperature=TEMPERATURE,
             store=False,
             max_retries=MAX_RETRIES,
-            api_key=self.settings.openai.api_key,  # type: ignore
-            base_url=self.settings.openai.url,
+            api_key=self.core_settings.openai.api_key,  # type: ignore
+            base_url=self.core_settings.openai.url,
             reasoning=reasoning_config if reasoning_config else None,
         )
 
@@ -75,7 +81,7 @@ class Triage:
             self.ROLE_DESCRIPTION_PROMPT,
             self.EXAMPLES_PROMPT,
             self.CATEGORIES_PROMPT,
-        ) = setup_langfuse(self.settings)
+        ) = setup_langfuse(self.triage_settings)
 
     @observe(name="Zammad-AI Triage Predict Category", as_type="span")
     async def call_llm_predict_category(
@@ -163,14 +169,14 @@ class Triage:
                 input={
                     "text": text,
                     "role_description": self.ROLE_DESCRIPTION_PROMPT,
-                    "categories": self.settings.categories,
+                    "categories": self.triage_settings.categories,
                     "categories_prompt": self.CATEGORIES_PROMPT,
                     "examples": self.EXAMPLES_PROMPT,
                 },
                 session_id=session_id,
             )
 
-            if not cat_result.category or cat_result.category.id not in [c.id for c in self.settings.categories]:
+            if not cat_result.category or cat_result.category.id not in [c.id for c in self.triage_settings.categories]:
                 logger.warning("Predicted category is invalid or not found, assigning no_category")
                 cat_result.category = self.no_category
                 cat_result.reasoning += " (Kategorie ungültig, 'no_category' zugewiesen)"
@@ -216,7 +222,7 @@ class Triage:
             return self.no_action.id
 
         # Find matching action rule
-        for rule in self.settings.action_rules:
+        for rule in self.triage_settings.action_rules:
             if rule.category_id == categorization_result.category.id:
                 # If there are conditions, evaluate them
                 if rule.conditions:
@@ -283,7 +289,7 @@ class Triage:
 
         # Determine action based on category
         action_id = await self.get_action_id(categorization, text=text, session_id=session_id)
-        action = id_to_action(action_id, self.settings.actions, self.settings.no_action_id)
+        action = id_to_action(action_id, self.triage_settings.actions, self.triage_settings.no_action_id)
         return TriageResult(
             category=categorization.category if categorization.category else self.no_category,
             action=action,

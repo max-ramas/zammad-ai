@@ -10,13 +10,14 @@ from app.core.settings import get_settings
 from app.models.triage import KnowledgeBaseAnswer
 from app.utils.logging import getLogger
 
+from ..core.core_settings import CoreSettings
 from .helper import strip_html
 
 logger = getLogger("zammad-ai.triage.rss_feed")
 
 inject_into_ssl()
 
-settings = get_settings().triage
+settings: CoreSettings = get_settings().core
 
 ZAMMAD_BASE_URL = settings.zammad.base_url
 ZAMMAD_KNOWLEDGE_BASE_ID = settings.zammad.knowledge_base_id
