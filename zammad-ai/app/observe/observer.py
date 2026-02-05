@@ -5,19 +5,21 @@ from langchain_core.runnables import RunnableConfig
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 
-from app.core.triage_settings import TriageSettings
+from app.core.settings import Settings
 
 
-def setup_langfuse(settings: TriageSettings) -> tuple[CallbackHandler, Langfuse, str, str, str]:
+def setup_langfuse(settings: Settings) -> tuple[CallbackHandler, Langfuse, str, str, str]:
     langfuse_handler: CallbackHandler = CallbackHandler()
     langfuse: Langfuse = Langfuse(
-        public_key=settings.langfuse.public_key,
-        secret_key=settings.langfuse.secret_key,
-        base_url=settings.langfuse.base_url,
+        public_key=settings.core.langfuse.public_key,
+        secret_key=settings.core.langfuse.secret_key,
+        base_url=settings.core.langfuse.base_url,
     )
-    ROLE_DESCRIPTION: str = langfuse.get_prompt(settings.prompt_config.role_prompt, label=settings.prompt_config.label).prompt
-    EXAMPLES: str = langfuse.get_prompt(settings.prompt_config.examples_prompt, label=settings.prompt_config.label).prompt
-    CATEGORIES_PROMPT: str = langfuse.get_prompt(settings.prompt_config.categories_prompt, label=settings.prompt_config.label).prompt
+    ROLE_DESCRIPTION: str = langfuse.get_prompt(settings.triage.prompt_config.role_prompt, label=settings.triage.prompt_config.label).prompt
+    EXAMPLES: str = langfuse.get_prompt(settings.triage.prompt_config.examples_prompt, label=settings.triage.prompt_config.label).prompt
+    CATEGORIES_PROMPT: str = langfuse.get_prompt(
+        settings.triage.prompt_config.categories_prompt, label=settings.triage.prompt_config.label
+    ).prompt
     return langfuse_handler, langfuse, ROLE_DESCRIPTION, EXAMPLES, CATEGORIES_PROMPT
 
 
