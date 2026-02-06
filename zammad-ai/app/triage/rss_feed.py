@@ -49,7 +49,8 @@ def parse_rss_feed() -> feedparser.FeedParserDict | None:
 
         return feed
     except Exception as e:
-        logger.exception("Error parsing feed from %s: %s", feed_url, e)
+        logger.exception("Error parsing feed: %s", e)
+        logger.debug("URL attempted: %s", feed_url)
         return None
 
 
@@ -68,7 +69,10 @@ def get_ids(feed: feedparser.FeedParserDict, last_updated: datetime | None = Non
     for entry in getattr(feed, "entries", []):
         # Filter by last_updated if possible
         if last_updated is not None:
-            updated = datetime.fromisoformat(entry.get("updated"))
+            updated_str = entry.get("updated", "")
+            if not updated_str:
+                continue  # Skip entries without an updated timestamp
+            updated = datetime.fromisoformat(updated_str)
             # Ensure both datetimes are timezone-aware for comparison
             if updated.tzinfo is None:
                 updated = updated.replace(tzinfo=timezone.utc)
@@ -136,7 +140,10 @@ def get_attachments_data(attachments: list[dict[str, Any]]) -> dict[str, str]:
     """
     results = {}
     for attachment in attachments:
-        results[attachment["filename"]] = fetch_attachment_data(attachment["url"])
+        try:
+            results[attachment["filename"]] = fetch_attachment_data(attachment["url"])
+        except Exception as e:
+            logger.exception("Error fetching attachment %s: %s", attachment.get("filename", "unknown"), e)
     return results
 
 

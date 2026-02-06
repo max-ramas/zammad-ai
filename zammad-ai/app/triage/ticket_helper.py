@@ -57,6 +57,7 @@ async def get_articles_by_id(ticket_id: str, settings: ZammadSettings) -> list[Z
             return articles
     except Exception as e:
         logger.exception("Error fetching articles for ticket %s: %s", ticket_id, e)
+        return None
 
 
 async def create_zammad_article(ticket_id: str, text: str, internal: bool, settings: ZammadSettings) -> bool:

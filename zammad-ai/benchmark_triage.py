@@ -97,8 +97,8 @@ async def run_benchmark():
         json.dump(incorrect, result_file, ensure_ascii=False, indent=4)
 
     with open("test/data/benchmark_results.json", "w", encoding="utf-8") as summary_file:
-        all = {**correct, **incorrect}
-        json.dump(all, summary_file, ensure_ascii=False, indent=4)
+        all_results = {**correct, **incorrect}
+        json.dump(all_results, summary_file, ensure_ascii=False, indent=4)
 
     total = len(correct) + len(incorrect)
     accuracy = (len(correct) / total) * 100 if total > 0 else 0.0
