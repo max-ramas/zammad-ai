@@ -13,7 +13,7 @@ async def process_ticket(text: str):
         Tuple mit (Category, Action, Reasoning, Confidence, Answer)
     """
     if not text.strip():
-        return "Keine Eingabe", "", "", "", ""
+        return "Keine Eingabe", "", "", "", "", []
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
@@ -21,13 +21,13 @@ async def process_ticket(text: str):
             triage_response.raise_for_status()
             triage_data = triage_response.json()
         except httpx.ConnectError:
-            return f"Verbindungsfehler: Backend läuft nicht auf {API_BASE_URL}", "", "", "", ""
+            return f"Verbindungsfehler: Backend läuft nicht auf {API_BASE_URL}", "", "", "", "", []
         except httpx.TimeoutException:
-            return "Timeout: Triage dauert zu lange", "", "", "", ""
+            return "Timeout: Triage dauert zu lange", "", "", "", "", []
         except httpx.HTTPStatusError as e:
-            return f"HTTP-Fehler {e.response.status_code}: {e.response.text}", "", "", "", ""
+            return f"HTTP-Fehler {e.response.status_code}: {e.response.text}", "", "", "", "", []
         except Exception as e:
-            return f"Fehler bei Triage: {type(e).__name__}: {str(e)}", "", "", "", ""
+            return f"Fehler bei Triage: {type(e).__name__}: {str(e)}", "", "", "", "", []
 
         triage_result = triage_data.get("triage", {})
         session_id = triage_data.get("id")
@@ -38,7 +38,7 @@ async def process_ticket(text: str):
         confidence = triage_result.get("confidence", 0.0)
 
         answer = ""
-
+        answer_documents = []
         if str(action) == "Ki_Antwort":
             try:
                 answer_response = await client.post(
@@ -47,13 +47,14 @@ async def process_ticket(text: str):
                 answer_response.raise_for_status()
                 json = answer_response.json()
                 answer = json["response"]
+                answer_documents = json.get("documents", [])
 
             except Exception as e:
                 answer = f"Fehler bei Answer-Generierung: {str(e)}"
 
         confidence_str = f"{confidence * 100:.1f}%"
 
-        return category, action, reasoning, confidence_str, answer
+        return category, action, reasoning, confidence_str, answer, answer_documents
 
 
 with gr.Blocks(title="Zammad AI Triage Demo") as demo:
@@ -114,9 +115,12 @@ with gr.Blocks(title="Zammad AI Triage Demo") as demo:
             confidence_output = gr.Textbox(label="Confidence", interactive=False)
             reasoning_output = gr.Textbox(label="Reasoning", interactive=False, lines=3)
             answer_output = gr.Textbox(label="KI-Antwort", interactive=False, lines=12)
+            answer_documents_output = gr.Textbox(label="Answer Documents", interactive=False, lines=20)
 
     submit_btn.click(
-        fn=process_ticket, inputs=[input_text], outputs=[category_output, action_output, reasoning_output, confidence_output, answer_output]
+        fn=process_ticket,
+        inputs=[input_text],
+        outputs=[category_output, action_output, reasoning_output, confidence_output, answer_output, answer_documents_output],
     )
 
     input_text.submit(

@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 
+from app.answer.formulate_answer import formulate_answer
 from app.core.settings import Settings, get_settings
 from app.kafka.broker import build_router
-from app.models.api import TriageInput, TriageReturn
+from app.models.api import AnswerInput, TriageInput, TriageReturn
 from app.models.triage import CategorizationResult, TriageResult
 from app.observe.observer import get_session_id
 from app.triage.helper import id_to_action, id_to_category
@@ -48,3 +49,15 @@ async def triage(input: TriageInput) -> TriageReturn:
         ),
         id=input.id,
     )
+
+
+@backend.post("/api/answer")
+async def answer(input: AnswerInput):
+    if not input.id:
+        input.id = get_session_id()
+    result = await formulate_answer(
+        question=input.text,
+        category=str(input.category),
+        session_id=input.id,
+    )
+    return result
