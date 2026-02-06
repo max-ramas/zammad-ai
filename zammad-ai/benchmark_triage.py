@@ -5,7 +5,6 @@ import httpx
 from dotenv import load_dotenv
 from tqdm.asyncio import tqdm_asyncio
 
-from app.triage.triage import Triage
 from app.utils.logging import getLogger
 
 load_dotenv()
@@ -18,21 +17,19 @@ RATE_PERIOD = 30  # seconds
 
 API_BASE_URL = "http://localhost:8080"
 
-triage = Triage()
-
 
 async def process_item(key: str, value: dict) -> tuple[str, str, str, str]:
     """Process a single benchmark item."""
+    expected_category = value["category"]
     async with httpx.AsyncClient(timeout=30.0) as client:
         # Schritt 1: Triage-Endpunkt aufrufen
         try:
             triage_response = await client.post(f"{API_BASE_URL}/api/triage", json={"text": value["text"]})
             triage_response.raise_for_status()
             result = triage_response.json()
-        except Exception as e:
-            return key, "Fehler", f"Fehler bei Triage: {type(e).__name__}: {str(e)}", ""
+        except Exception:
+            return key, expected_category, "Fehler", ""
     predicted_category = result["triage"]["category"]["name"]
-    expected_category = value["category"]
     predicted_action = result["triage"]["action"]["name"]
 
     return key, expected_category, predicted_category, predicted_action
