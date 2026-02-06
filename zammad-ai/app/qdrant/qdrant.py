@@ -7,14 +7,14 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client import AsyncQdrantClient, QdrantClient
 from truststore import inject_into_ssl
 
-from app.core.settings import TriageSettings, get_settings
+from app.core.settings import CoreSettings, get_settings
 from app.models.qdrant import QdrantVectorMetadata
 
 load_dotenv()
 inject_into_ssl()
 
 NAMESPACE: UUID = uuid5(NAMESPACE_DNS, "zammad-ai")
-settings: TriageSettings = get_settings().triage
+settings: CoreSettings = get_settings().core
 
 embedding = OpenAIEmbeddings(
     model=settings.openai.embeddings_model,

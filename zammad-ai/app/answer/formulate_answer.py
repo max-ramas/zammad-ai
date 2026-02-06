@@ -11,7 +11,7 @@ inject_into_ssl()
 settings: Settings = get_settings()
 
 logger = getLogger(__name__)
-(langfusehandler, langfuse, _, _, _) = setup_langfuse(settings.triage)
+(langfusehandler, langfuse, _, _, _) = setup_langfuse(settings)
 
 
 async def formulate_answer(
