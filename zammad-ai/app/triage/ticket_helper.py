@@ -16,9 +16,11 @@ logger = getLogger("zammad-ai.triage.ticket_helper")
 
 async def get_data_from_zammad(id: str, settings: ZammadSettings) -> ZammadTicketModel:
     articles = await get_articles_by_id(id, settings=settings)
+    if articles is None:
+        raise Exception(f"Could not fetch articles for ticket {id}")
     ticket = ZammadTicketModel(
         id=id,
-        articles=articles if articles else [],
+        articles=articles,
     )
     return ticket
 
@@ -80,9 +82,6 @@ async def create_zammad_article(ticket_id: str, text: str, internal: bool, setti
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
             response = await client.post(url, headers=headers, json=payload)
-            if response.status_code == 422:
-                logger.warning("Ticket created but with issues %s: %s", ticket_id, response.text)
-                return True
             response.raise_for_status()
             return True
     except Exception as e:
@@ -96,6 +95,7 @@ async def create_zammad_shared_draft(ticket_id: str, text: str, settings: Zammad
         "Authorization": f"Bearer {settings.auth_token}",
     }
     # TODO check payload data fields (ids, types, etc.)
+    # TODO remove magic values for form_id, sender_id, type_id, etc.
     payload = {
         "form_id": "367646073",
         "new_article": {

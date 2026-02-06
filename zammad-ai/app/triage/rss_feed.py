@@ -32,9 +32,6 @@ HTTP_TIMEOUT_SECONDS = 30
 def parse_rss_feed() -> feedparser.FeedParserDict | None:
     """Parse an RSS feed from the given URL.
 
-    Args:
-        feed_url: The URL of the RSS feed to parse.
-
     Returns:
         A FeedParserDict representing the parsed feed, or None if parsing fails.
     """
@@ -69,14 +66,15 @@ def get_ids(feed: feedparser.FeedParserDict, last_updated: datetime | None = Non
     for entry in getattr(feed, "entries", []):
         # Filter by last_updated if possible
         if last_updated is not None:
-            updated_str = entry.get("updated", "")
-            if not updated_str:
-                continue  # Skip entries without an updated timestamp
-            updated = datetime.fromisoformat(updated_str)
+            try:
+                updated = datetime.fromisoformat(entry.get("updated"))
+            except Exception as e:
+                logger.warning("Could not parse updated time for entry %s: %s", entry.get("id", "unknown"), e)
+                continue
             # Ensure both datetimes are timezone-aware for comparison
             if updated.tzinfo is None:
                 updated = updated.replace(tzinfo=timezone.utc)
-            if not updated or updated <= last_updated:
+            if updated <= last_updated:
                 continue
         raw_id = entry.get("id", "")
         parts = raw_id.split("-")
@@ -115,10 +113,14 @@ def fetch_attachment_data(url: str) -> str | None:
 
     full_url = f"{ZAMMAD_BASE_URL}{url}"
     logger.info("Fetching attachment from: %s", full_url)
-
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {AUTH_TOKEN}",
+    }
     try:
         with httpx.Client(timeout=HTTP_TIMEOUT_SECONDS) as client:
-            response = client.get(full_url)
+            response = client.get(full_url, headers=headers)
             response.raise_for_status()  # Raises an error for bad responses
             return _decode_response_content(response)
     except httpx.HTTPStatusError as e:
@@ -136,7 +138,7 @@ def get_attachments_data(attachments: list[dict[str, Any]]) -> dict[str, str]:
         attachments: List of attachment dicts that contain a "url" key.
 
     Returns:
-        List of strings (text or base64) or None entries where fetch failed.
+        A dictionary mapping attachment filenames to their fetched content (text or base64).
     """
     results = {}
     for attachment in attachments:
@@ -168,26 +170,25 @@ def get_kb_answer_by_id(answer_id: str) -> KnowledgeBaseAnswer | None:
         with httpx.Client(timeout=HTTP_TIMEOUT_SECONDS) as client:
             response = client.get(url, headers=headers)
             response.raise_for_status()
+        data = response.json()
+        assets = data.get("assets", {})
+        attachments = assets.get("KnowledgeBaseAnswer", {}).get(answer_id, {}).get("attachments", [])
+        title = assets.get("KnowledgeBaseAnswerTranslation", {}).get(answer_id, {}).get("title", "")
+        attachment_contents = get_attachments_data(attachments)
+        content = strip_html(assets.get("KnowledgeBaseAnswerTranslationContent", {}).get(answer_id, {}).get("body", ""))
+
+        return KnowledgeBaseAnswer(
+            id=answer_id,
+            title=title,
+            content=content,
+            attachments=attachment_contents,
+        )
     except httpx.HTTPStatusError as e:
         logger.error("KB answer fetch failed (%s) for %s: %s", e.response.status_code, answer_id, e.response.text)
         return None
     except Exception as e:
         logger.exception("Error fetching KB answer %s: %s", answer_id, e)
         return None
-
-    data = response.json()
-    assets = data.get("assets", {})
-    attachments = assets.get("KnowledgeBaseAnswer", {}).get(answer_id, {}).get("attachments", [])
-    title = assets.get("KnowledgeBaseAnswerTranslation", {}).get(answer_id, {}).get("title", "")
-    attachment_contents = get_attachments_data(attachments)
-    content = strip_html(assets.get("KnowledgeBaseAnswerTranslationContent", {}).get(answer_id, {}).get("body", ""))
-
-    return KnowledgeBaseAnswer(
-        id=answer_id,
-        title=title,
-        content=content,
-        attachments=attachment_contents,
-    )
 
 
 def check_for_deleted_answers(ids: list[str]) -> list[str]:
@@ -200,18 +201,18 @@ def check_for_deleted_answers(ids: list[str]) -> list[str]:
         List of IDs that are no longer present in the knowledge base.
     """
     deleted_ids = []
-    for answer_id in ids:
-        url = f"{KNOWLEDGE_BASE_URL}/answers/{answer_id}?include_contents={answer_id}"
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {AUTH_TOKEN}",
-        }
-        try:
-            with httpx.Client(timeout=HTTP_TIMEOUT_SECONDS) as client:
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {AUTH_TOKEN}",
+    }
+    with httpx.Client(timeout=HTTP_TIMEOUT_SECONDS) as client:
+        for answer_id in ids:
+            url = f"{KNOWLEDGE_BASE_URL}/answers/{answer_id}?include_contents={answer_id}"
+            try:
                 response = client.get(url, headers=headers)
                 if response.status_code == 404:
                     deleted_ids.append(answer_id)
-        except Exception as e:
-            logger.exception("Error checking KB answer %s: %s", answer_id, e)
+            except Exception as e:
+                logger.exception("Error checking KB answer %s: %s", answer_id, e)
     return deleted_ids
