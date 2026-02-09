@@ -10,13 +10,13 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import pkcs12
 from faststream.security import BaseSecurity
 
-from app.core.settings import KafkaMTLSEnvSecurity, KafkaMTLSFileSecurity, Settings
+from app.core.settings.kafka import KafkaMTLSEnvSecurity, KafkaMTLSFileSecurity, KafkaSettings
 from app.utils.logging import getLogger
 
 logger = getLogger(__name__)
 
 
-def setup_security(settings: Settings) -> BaseSecurity:
+def setup_security(kafka_settings: KafkaSettings) -> BaseSecurity:
     """Set up Kafka security configuration based on application settings.
 
     Returns:
@@ -27,29 +27,29 @@ def setup_security(settings: Settings) -> BaseSecurity:
             variable contents are not valid base64, or if there are issues
             loading the PKCS#12 file.
     """
-    if settings.kafka.security is None:
+    if kafka_settings.security is None:
         logger.debug("No Kafka security configuration provided; using no security.")
         return BaseSecurity()
 
     with TemporaryDirectory() as tempdir:
         tempdir_path: Path = Path(tempdir)
-        if isinstance(settings.kafka.security, KafkaMTLSEnvSecurity):
+        if isinstance(kafka_settings.security, KafkaMTLSEnvSecurity):
             logger.debug("Setting up Kafka mTLS security using environment variables.")
             # Unpack CA file
             try:
-                ca_data = b64decode(s=settings.kafka.security.ca_file_base64).decode(encoding="utf-8")
+                ca_data = b64decode(s=kafka_settings.security.ca_file_base64).decode(encoding="utf-8")
             except binascii.Error as e:  # Malformed base64 raises binascii.Error
                 raise ValueError(f"Setting 'settings.kafka.security.ca_file_base64' contains invalid base64 data: {e}") from e
 
             # Unpack PKCS#12 file
             try:
-                pkcs12_bytes = b64decode(s=settings.kafka.security.pkcs12_base64)
+                pkcs12_bytes = b64decode(s=kafka_settings.security.pkcs12_base64)
             except binascii.Error as e:
                 raise ValueError(f"Setting 'settings.kafka.security.pkcs12_base64' contains invalid base64 data: {e}") from e
 
             # Unpack PKCS#12 password
             try:
-                pkcs12_pw_bytes: bytes = b64decode(s=settings.kafka.security.pkcs12_pw_base64)
+                pkcs12_pw_bytes: bytes = b64decode(s=kafka_settings.security.pkcs12_pw_base64)
             except binascii.Error as e:
                 raise ValueError(f"Setting 'settings.kafka.security.pkcs12_pw_base64' contains invalid base64 data: {e}") from e
 
@@ -78,14 +78,14 @@ def setup_security(settings: Settings) -> BaseSecurity:
                         encryption_algorithm=serialization.NoEncryption(),
                     )
                 )
-        elif isinstance(settings.kafka.security, KafkaMTLSFileSecurity):
+        elif isinstance(kafka_settings.security, KafkaMTLSFileSecurity):
             # Load CA data from file
-            with open(file=settings.kafka.security.ca_file_path, mode="r") as f:
+            with open(file=kafka_settings.security.ca_file_path, mode="r") as f:
                 ca_data = f.read()
 
             # Use provided cert and key files
-            cert_file: Path = settings.kafka.security.client_cert_path
-            key_file: Path = settings.kafka.security.client_key_path
+            cert_file: Path = kafka_settings.security.client_cert_path
+            key_file: Path = kafka_settings.security.client_key_path
         else:
             raise ValueError("Unsupported Kafka security configuration.")
 

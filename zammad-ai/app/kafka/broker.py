@@ -6,10 +6,10 @@ from faststream.exceptions import AckMessage, NackMessage
 from faststream.kafka.fastapi import KafkaRouter
 from faststream.security import BaseSecurity
 
-from app.core.settings import Settings
+from app.core.context import get_backend_context
+from app.core.settings import ZammadAISettings
 from app.models.kafka import Event
 from app.models.triage import TriageResult
-from app.triage.triage import Triage
 from app.utils.logging import getLogger
 
 from .security import setup_security
@@ -17,11 +17,11 @@ from .security import setup_security
 logger: Logger = getLogger("zammad-ai")
 
 
-def build_router(settings: Settings) -> tuple[KafkaRouter, Callable]:
+def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
     """Build and return a KafkaRouter instance and its event handler.
 
     Args:
-        settings (Settings): The application settings.
+        settings (ZammadAISettings): The application settings.
 
     Returns:
         tuple[KafkaRouter, Callable]: The configured KafkaRouter and its event handler.
@@ -29,7 +29,7 @@ def build_router(settings: Settings) -> tuple[KafkaRouter, Callable]:
     logger.info("Building Kafka router")
 
     # Security setup
-    security: BaseSecurity = setup_security(settings=settings)
+    security: BaseSecurity = setup_security(kafka_settings=settings.kafka)
 
     # Kafka Router
     router = KafkaRouter(
@@ -64,9 +64,9 @@ def build_router(settings: Settings) -> tuple[KafkaRouter, Callable]:
         if False:  # Replace with error handlers
             raise NackMessage()
         try:
-            triage = Triage(settings=settings)
+            triage = get_backend_context().triage
             id = event.ticket
-            result: TriageResult = await triage.perform_triage(id=id, settings=settings.triage.zammad)
+            result: TriageResult = await triage.perform_triage(id=id)
             logger.debug(f"Triage result for ticket {id}: {result}")
         except Exception as e:
             logger.error(f"Error processing event for ticket {event.ticket}: {e}")
