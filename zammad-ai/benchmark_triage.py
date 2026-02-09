@@ -25,16 +25,16 @@ triage = Triage(settings=settings)
 
 async def process_item(key: str, value: dict) -> tuple[str, str, str, str]:
     """Process a single benchmark item."""
+    expected_category = value["category"]
     async with httpx.AsyncClient(timeout=30.0) as client:
         # Schritt 1: Triage-Endpunkt aufrufen
         try:
             triage_response = await client.post(f"{API_BASE_URL}/api/triage", json={"text": value["text"]})
             triage_response.raise_for_status()
             result = triage_response.json()
-        except Exception as e:
-            return key, "Fehler", f"Fehler bei Triage: {type(e).__name__}: {str(e)}", ""
+        except Exception:
+            return key, expected_category, "Fehler", ""
     predicted_category = result["triage"]["category"]["name"]
-    expected_category = value["category"]
     predicted_action = result["triage"]["action"]["name"]
 
     return key, expected_category, predicted_category, predicted_action
@@ -99,8 +99,8 @@ async def run_benchmark():
         json.dump(incorrect, result_file, ensure_ascii=False, indent=4)
 
     with open("test/data/benchmark_results.json", "w", encoding="utf-8") as summary_file:
-        all = {**correct, **incorrect}
-        json.dump(all, summary_file, ensure_ascii=False, indent=4)
+        all_results = {**correct, **incorrect}
+        json.dump(all_results, summary_file, ensure_ascii=False, indent=4)
 
     total = len(correct) + len(incorrect)
     accuracy = (len(correct) / total) * 100 if total > 0 else 0.0
