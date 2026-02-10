@@ -41,15 +41,22 @@ class LangfuseClient:
             str: The text content of the fetched prompt template.
 
         Raises:
-            LangfuseError: If fetching the prompt from Langfuse fails for any reason.
+            LangfuseError: If fetching the prompt from Langfuse fails for any reason or if the returned prompt is not a string.
         """
         logger.debug(f"Fetching Langfuse prompt '{prompt_name}' with label '{prompt_label}'.")
         try:
-            return self.langfuse.get_prompt(
+            res = self.langfuse.get_prompt(
                 name=prompt_name,
                 label=prompt_label,
-            ).prompt
+                type="text",
+            )
+            if not isinstance(res.prompt, str):
+                raise LangfuseError(f"Prompt '{prompt_name}' is not of type text.")
+
+            return res.prompt
         except Exception as e:
+            if isinstance(e, LangfuseError):
+                raise e
             logger.error(f"Failed to fetch Langfuse prompt '{prompt_name}' with label '{prompt_label}'", exc_info=True)
             raise LangfuseError(f"Failed to fetch Langfuse prompt '{prompt_name}' with label '{prompt_label}'.") from e
 
