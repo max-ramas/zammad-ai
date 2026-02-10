@@ -11,7 +11,7 @@ from app.utils.logging import getLogger
 
 from .base import BaseZammadClient, ZammadConnectionError
 
-logger: Logger = getLogger("zammad-ai.triage.ticket_helper")
+logger: Logger = getLogger("zammad-ai.zammad.api")
 
 
 class ZammadAPIClient(BaseZammadClient):
@@ -20,9 +20,9 @@ class ZammadAPIClient(BaseZammadClient):
     def __init__(self, settings: ZammadAPISettings) -> None:
         """
         Initialize the Zammad API client and store configuration-derived attributes.
-        
+
         Creates an AsyncClient configured with the settings' base URL, bearer authorization header, and timeout, and saves the knowledge_base_id, rss_feed_token, and max_retries from the provided settings.
-        
+
         Parameters:
             settings (ZammadAPISettings): Configuration containing base_url, auth_token, timeout, knowledge_base_id, rss_feed_token, and max_retries.
         """
@@ -39,13 +39,13 @@ class ZammadAPIClient(BaseZammadClient):
     async def get_ticket(self, id: str) -> ZammadTicket:
         """
         Fetches a ticket and its articles from Zammad using the ticket ID.
-        
+
         Parameters:
             id (str): Ticket ID to fetch.
-        
+
         Returns:
             ZammadTicket: Ticket containing the provided id and the parsed list of articles.
-        
+
         Raises:
             ZammadConnectionError: If the request fails after retries or an HTTP error occurs.
         """
@@ -80,12 +80,12 @@ class ZammadAPIClient(BaseZammadClient):
     ) -> None:
         """
         Post an answer to a Zammad ticket.
-        
+
         Parameters:
             ticket_id (str): ID of the ticket to post the answer to.
             text (str): Content of the answer.
             internal (bool): If True, mark the answer as internal (visible only to agents).
-        
+
         Raises:
             ZammadConnectionError: If posting the article fails after retrying.
         """
@@ -116,7 +116,7 @@ class ZammadAPIClient(BaseZammadClient):
     ) -> None:
         """
         Create a shared draft (internal note) on a Zammad ticket.
-        
+
         Raises:
             ZammadConnectionError: If posting fails after the configured retry attempts or if Zammad returns an HTTP error.
         """
@@ -158,7 +158,7 @@ class ZammadAPIClient(BaseZammadClient):
     async def add_tag_to_ticket(self, ticket_id: str, tag: str) -> None:
         """
         Add a tag to the specified Zammad ticket.
-        
+
         Raises:
             ZammadConnectionError: If adding the tag fails after retrying the configured number of attempts.
         """
