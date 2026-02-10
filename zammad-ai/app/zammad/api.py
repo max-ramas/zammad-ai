@@ -6,7 +6,7 @@ from pydantic import SecretStr, TypeAdapter
 from stamina import retry_context
 
 from app.core.settings.zammad import ZammadAPISettings
-from app.models.zammad import ZammadAnswer, ZammadArticle, ZammadTicket
+from app.models.zammad import ZammadAnswer, ZammadArticle, ZammadSharedDraft, ZammadSharedDraftArticle, ZammadTagAdd, ZammadTicket
 from app.utils.logging import getLogger
 
 from .base import BaseZammadClient, ZammadConnectionError
@@ -125,26 +125,12 @@ class ZammadAPIClient(BaseZammadClient):
         Raises:
             ZammadConnectionError: If posting fails after the configured retry attempts or if Zammad returns an HTTP error.
         """
-        # TODO: move payload to zammad model with default values and validation for dynamic fields (ticket_id, text)
-        payload = {
-            "form_id": "367646073",
-            "new_article": {
-                "body": text,
-                "cc": "",
-                "content_type": "text/html",
-                "from": "KI Agent",
-                "in_reply_to": "",
-                "internal": True,
-                "sender_id": 1,
-                "subject": "",
-                "subtype": "",
-                "ticket_id": ticket_id,
-                "to": "",
-                "type": "note",
-                "type_id": 10,
-            },
-            "ticket_attributes": {"group_id": "2", "owner_id": "4", "priority_id": "2", "state_id": "2"},
-        }
+        payload = ZammadSharedDraft(
+            new_article=ZammadSharedDraftArticle(
+                body=text,
+                ticket_id=ticket_id,
+            ),
+        )
 
         try:
             for attempt in retry_context(
@@ -154,7 +140,7 @@ class ZammadAPIClient(BaseZammadClient):
                 with attempt:
                     response: Response = await self.client.put(
                         url=f"/api/v1/tickets/{ticket_id}/shared_draft",
-                        json=payload,
+                        json=payload.model_dump(by_alias=True),
                     )
                     response.raise_for_status()
                     logger.info(f"Successfully posted shared draft to ticket {ticket_id}.")
@@ -171,12 +157,10 @@ class ZammadAPIClient(BaseZammadClient):
         Raises:
             ZammadConnectionError: If adding the tag fails after retrying the configured number of attempts.
         """
-        # TODO: move payload to zammad model with default values and validation for dynamic fields (ticket_id, text)
-        payload = {
-            "item": tag,
-            "object": "Ticket",
-            "o_id": ticket_id,
-        }
+        payload = ZammadTagAdd(
+            item=tag,
+            o_id=ticket_id,
+        )
         try:
             for attempt in retry_context(
                 on=HTTPStatusError,
@@ -185,7 +169,7 @@ class ZammadAPIClient(BaseZammadClient):
                 with attempt:
                     response: Response = await self.client.post(
                         url="/api/v1/tags/add",
-                        json=payload,
+                        json=payload.model_dump(),
                     )
                     response.raise_for_status()
                     logger.info(f"Successfully added tag '{tag}' to ticket {ticket_id}.")
