@@ -50,7 +50,10 @@ class ZammadAPIClient(BaseZammadClient):
             ZammadConnectionError: If the request fails after retries or an HTTP error occurs.
         """
         try:
-            for attempt in retry_context(on=HTTPStatusError, attempts=self.max_retries):
+            for attempt in retry_context(
+                on=HTTPStatusError,
+                attempts=self.max_retries,
+            ):
                 with attempt:
                     # Send GET request to Zammad API to fetch ticket information
                     response: Response = await self.client.get(f"/api/v1/ticket_articles/by_ticket/{id}")
@@ -72,6 +75,7 @@ class ZammadAPIClient(BaseZammadClient):
             logger.error(f"Failed to fetch ticket {id} after {self.max_retries} attempts.", exc_info=True)
             raise ZammadConnectionError(f"Failed to fetch ticket {id} from Zammad after {self.max_retries} attempts.") from e
 
+    @override
     async def post_answer(
         self,
         ticket_id: str,
@@ -96,7 +100,10 @@ class ZammadAPIClient(BaseZammadClient):
         )
 
         try:
-            for attempt in retry_context(on=HTTPStatusError, attempts=self.max_retries):
+            for attempt in retry_context(
+                on=HTTPStatusError,
+                attempts=self.max_retries,
+            ):
                 with attempt:
                     response: Response = await self.client.post(
                         url="/api/v1/ticket_articles",
@@ -109,6 +116,7 @@ class ZammadAPIClient(BaseZammadClient):
             logger.error(f"Failed to post answer to ticket {ticket_id} after {self.max_retries} attempts.", exc_info=True)
             raise ZammadConnectionError(f"Failed to post answer to ticket {ticket_id} after {self.max_retries} attempts.") from e
 
+    @override
     async def post_shared_draft(
         self,
         ticket_id: str,
@@ -142,7 +150,10 @@ class ZammadAPIClient(BaseZammadClient):
         }
 
         try:
-            for attempt in retry_context(on=HTTPStatusError, attempts=self.max_retries):
+            for attempt in retry_context(
+                on=HTTPStatusError,
+                attempts=self.max_retries,
+            ):
                 with attempt:
                     response: Response = await self.client.put(
                         url=f"/api/v1/tickets/{ticket_id}/shared_draft",
@@ -155,6 +166,7 @@ class ZammadAPIClient(BaseZammadClient):
             logger.error(f"Failed to post shared draft to ticket {ticket_id} after {self.max_retries} attempts.", exc_info=True)
             raise ZammadConnectionError(f"Failed to post shared draft to ticket {ticket_id} after {self.max_retries} attempts.") from e
 
+    @override
     async def add_tag_to_ticket(self, ticket_id: str, tag: str) -> None:
         """
         Add a tag to the specified Zammad ticket.
@@ -169,7 +181,10 @@ class ZammadAPIClient(BaseZammadClient):
             "o_id": ticket_id,
         }
         try:
-            for attempt in retry_context(on=HTTPStatusError, attempts=self.max_retries):
+            for attempt in retry_context(
+                on=HTTPStatusError,
+                attempts=self.max_retries,
+            ):
                 with attempt:
                     response: Response = await self.client.post(
                         url="/api/v1/tags/add",
