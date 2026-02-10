@@ -42,12 +42,12 @@ class Triage:
     def __init__(self, settings: ZammadAISettings) -> None:
         """
         Initialize the Triage instance from the provided ZammadAISettings.
-        
+
         Sets up categories, actions, fallback no_category/no_action, action rules, prompt sources (Langfuse, file, or string), prepares system prompts for GenAI, initializes the GenAI handler, and instantiates the appropriate Zammad client.
-        
+
         Parameters:
             settings (ZammadAISettings): Configuration containing triage categories, actions, action rules, prompt definitions, GenAI settings, and Zammad settings.
-        
+
         Raises:
             ValueError: If the configured triage prompts type is unsupported or if the Zammad settings type is unsupported.
         """
@@ -83,16 +83,22 @@ class Triage:
         # Prompt setup based on the type of prompts provided in settings
         self.prompts: dict[TriagePrompt, str]
         if isinstance(settings.triage.prompts, LangfuseTriagePrompts):
-            from app.observe.observer import LangfuseClient
+            from app.observe.observer import LangfuseClient, LangfuseError
 
             langfuse_client = LangfuseClient()
-            self.prompts = {
-                name: langfuse_client.get_prompt(
-                    prompt_name=prompt.name,
-                    prompt_label=prompt.label,
-                )
-                for name, prompt in settings.triage.prompts.prompt_map.items()
-            }
+            self.prompts = {}
+            for name, prompt in settings.triage.prompts.prompt_map.items():
+                try:
+                    self.prompts[name] = langfuse_client.get_prompt(
+                        prompt_name=prompt.name,
+                        prompt_label=prompt.label,
+                    )
+                except LangfuseError as e:
+                    logger.error(
+                        f"Failed to initialize triage prompts from Langfuse for '{prompt.name}'.",
+                        exc_info=True,
+                    )
+                    raise TriageError("Triage initialization failed due to Langfuse prompt retrieval error.") from e
         elif isinstance(settings.triage.prompts, FileTriagePrompts):
             self.prompts = {
                 name: open(file_path, "r", encoding="utf-8").read() for name, file_path in settings.triage.prompts.prompt_map.items()
@@ -129,13 +135,13 @@ class Triage:
     async def perform_triage(self, id: str) -> TriageResult:
         """
         Perform triage for a Zammad ticket identified by its ID.
-        
+
         Parameters:
             id (str): Zammad ticket identifier.
-        
+
         Returns:
             TriageResult: Result containing the resolved category, selected action, human-readable reasoning, and confidence score.
-        
+
         Raises:
             TriageError: When the ticket cannot be retrieved from Zammad (e.g., connection failures).
         """
@@ -143,7 +149,7 @@ class Triage:
         try:
             ticket: ZammadTicket = await self.zammad_client.get_ticket(id=id)
         except ZammadConnectionError as e:
-            logger.error(msg="Error connecting to Zammad", exc_info=True)
+            logger.error("Error connecting to Zammad", exc_info=True)
             raise TriageError("Triage failed due to Zammad connection error") from e
 
         # TODO: Only use the first article or concatenate all articles?
@@ -151,7 +157,7 @@ class Triage:
         # But what if there are multiple customer messages? -> edge case
 
         # Step 2: Check if there are articles in the ticket
-        logger.debug(msg=f"Number of articles in ticket {id}: {len(ticket.articles)}")
+        logger.debug(f"Number of articles in ticket {id}: {len(ticket.articles)}")
         if len(ticket.articles) == 0:
             logger.warning(f"No articles found for ticket {id}, returning no_category and no_action")
             return TriageResult(
@@ -189,13 +195,13 @@ class Triage:
     async def predict_category(self, message: str, session_id: str) -> CategorizationResult:
         """
         Predict the triage category for a customer message using the GenAI handler.
-        
+
         Parameters:
-        	message (str): Customer message to categorize; leading/trailing whitespace is ignored.
-        	session_id (str): Langfuse session identifier used for tracing the prediction.
-        
+            message (str): Customer message to categorize; leading/trailing whitespace is ignored.
+            session_id (str): Langfuse session identifier used for tracing the prediction.
+
         Returns:
-        	CategorizationResult: Categorization outcome containing `category`, `reasoning`, and `confidence`. If the message is empty, the predicted category is invalid, or an error occurs, returns a result with `no_category`, an explanatory `reasoning`, and `confidence` set to 1.0.
+            CategorizationResult: Categorization outcome containing `category`, `reasoning`, and `confidence`. If the message is empty, the predicted category is invalid, or an error occurs, returns a result with `no_category`, an explanatory `reasoning`, and `confidence` set to 1.0.
         """
         if len(message.strip()) == 0:
             logger.warning("Empty message provided for categorization")
@@ -250,14 +256,14 @@ class Triage:
     async def get_action_id(self, categorization_result: CategorizationResult, message: str = "", session_id: str | None = None) -> int:
         """
         Selects the appropriate action ID for a categorization using configured action rules and optional message-derived conditions.
-        
+
         Evaluates action rules associated with the categorization's category. If a rule defines ordered conditions, each condition is evaluated (possibly extracting values from the provided message via the GenAI handler) and its action_id is returned when the condition matches. If a rule matches but none of its conditions match, the rule's default action_id is returned. If the categorization has no category or no rule matches, the configured fallback action ID is returned.
-        
+
         Parameters:
             categorization_result (CategorizationResult): The categorization outcome whose category guides rule selection.
             message (str): Optional text used to extract condition values (e.g., days since request or processing id).
             session_id (str | None): Optional session identifier forwarded to GenAI extraction calls.
-        
+
         Returns:
             int: The chosen action ID, or the fallback action ID when no rule or matching condition is found.
         """
@@ -310,10 +316,10 @@ class Triage:
     def _id_to_category(self, category_id: int) -> Category:
         """
         Return the Category for the given ID or the configured fallback when no match exists.
-        
+
         Parameters:
             category_id (int): ID of the category to look up.
-        
+
         Returns:
             Category: The matching Category, or the configured fallback Category if no match exists.
         """

@@ -1,8 +1,19 @@
+from logging import Logger
 from uuid import uuid4
 
 from langchain_core.runnables import RunnableConfig
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
+
+from app.utils.logging import getLogger
+
+logger: Logger = getLogger(name="zammad-ai.observe.observer")
+
+
+class LangfuseError(Exception):
+    """Raised when Langfuse client encounters an error."""
+
+    pass
 
 
 class LangfuseClient:
@@ -11,7 +22,7 @@ class LangfuseClient:
     def __init__(self) -> None:
         """
         Initialize the LangfuseClient with a callback handler and Langfuse client.
-        
+
         Creates a new CallbackHandler used for Runnable callbacks and instantiates a Langfuse client.
         The Langfuse client is expected to be configured externally (for example via environment variables or other application configuration).
         """
@@ -21,23 +32,34 @@ class LangfuseClient:
     def get_prompt(self, prompt_name: str, prompt_label: str = "production") -> str:
         """
         Retrieve a prompt template from Langfuse by name and label.
-        
+
         Parameters:
-        	prompt_name (str): Name of the prompt to fetch.
-        	prompt_label (str): Label or version of the prompt to fetch (default: "production").
-        
+            prompt_name (str): Name of the prompt to fetch.
+            prompt_label (str): Label or version of the prompt to fetch (default: "production").
+
         Returns:
-        	str: The text content of the fetched prompt template.
+            str: The text content of the fetched prompt template.
+
+        Raises:
+            LangfuseError: If fetching the prompt from Langfuse fails for any reason.
         """
-        return self.langfuse.get_prompt(prompt_name, label=prompt_label).prompt
+        logger.debug(f"Fetching Langfuse prompt '{prompt_name}' with label '{prompt_label}'.")
+        try:
+            return self.langfuse.get_prompt(
+                name=prompt_name,
+                label=prompt_label,
+            ).prompt
+        except Exception as e:
+            logger.error(f"Failed to fetch Langfuse prompt '{prompt_name}' with label '{prompt_label}'", exc_info=True)
+            raise LangfuseError(f"Failed to fetch Langfuse prompt '{prompt_name}' with label '{prompt_label}'.") from e
 
     def build_config(self, session_id: str | None = None) -> RunnableConfig:
         """
         Builds a RunnableConfig that attaches the Langfuse callback handler and embeds a session identifier in metadata.
-        
+
         Parameters:
             session_id (str | None): Session ID to include in metadata; if None a new UUID4-based session ID is generated.
-        
+
         Returns:
             RunnableConfig: Config with `callbacks` containing the Langfuse callback handler and `metadata` containing `"langfuse_session_id"` set to the session ID.
         """
@@ -54,7 +76,7 @@ class LangfuseClient:
     def generate_session_id(self) -> str:
         """
         Generate a unique session ID for Langfuse tracing.
-        
+
         Returns:
             session_id (str): A newly generated UUID4-based session identifier.
         """
