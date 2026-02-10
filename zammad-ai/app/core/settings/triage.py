@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC
 from typing import Literal
 
@@ -10,8 +12,9 @@ class TriageSettings(BaseModel):
     actions: list["Action"]
     no_action_id: int
     action_rules: list["ActionRule"]
-    prompts: "BaseTriagePrompts" = Field(
+    prompts: StringTriagePrompts | FileTriagePrompts | LangfuseTriagePrompts = Field(
         description="Prompts for the triage process. Can be provided as raw strings, file paths, or Langfuse prompt references.",
+        discriminator="type",
     )
 
 
