@@ -25,6 +25,10 @@ logger: Logger = getLogger("zammad-ai.genai_handler")
 T = TypeVar("T")
 
 
+class GenAIError(Exception):
+    """Exception raised for errors in the GenAI handler."""
+
+
 class GenAIHandler:
     """Handles all GenAI/LangChain operations for triage.
 
@@ -211,5 +215,9 @@ class GenAIHandler:
         self.langfuse_client.langfuse.update_current_trace(session_id=session_id)
         config: RunnableConfig = self.langfuse_client.build_config(session_id=session_id)
 
-        response: T = await chain.ainvoke(input=input, config=config)
-        return response
+        try:
+            response: T = await chain.ainvoke(input=input, config=config)
+            return response
+        except Exception as e:
+            logger.error("Error during GenAI chain invocation", exc_info=True)
+            raise GenAIError("GenAI operation failed") from e

@@ -26,7 +26,7 @@ from app.models.zammad import ZammadTicket
 from app.utils.logging import getLogger
 from app.zammad import BaseZammadClient, ZammadAPIClient, ZammadConnectionError, ZammadEAIClient
 
-from .genai_handler import GenAIHandler
+from .genai_handler import GenAIError, GenAIHandler
 from .helper import get_operator_function
 from .prompts import SYSTEM_PROMPT_CATEGORIES, SYSTEM_PROMPT_DAYS_SINCE_REQUEST, SYSTEM_PROMPT_PROCESSING_ID
 
@@ -238,6 +238,9 @@ class Triage:
 
             return cat_result
 
+        except GenAIError as e:
+            logger.error("GenAI categorization error", exc_info=True)
+            raise TriageError("Categorization failed due to GenAI error") from e
         except ImportError:
             # BadRequestError import issue
             logger.error("BadRequestError during categorization", exc_info=True)
@@ -268,51 +271,54 @@ class Triage:
         Returns:
             int: The chosen action ID, or the fallback action ID when no rule or matching condition is found.
         """
+        try:
+            days_since_request = None
+            processing_id = None
 
-        days_since_request = None
-        processing_id = None
+            # If no category or it's the no_category, always return no_action
+            if not categorization_result.category or categorization_result.category.id == self.no_category.id:
+                return self.no_action.id
 
-        # If no category or it's the no_category, always return no_action
-        if not categorization_result.category or categorization_result.category.id == self.no_category.id:
+            # Find matching action rule
+            for rule in self.action_rules:
+                if rule.category_id == categorization_result.category.id:
+                    # If there are conditions, evaluate them
+                    if rule.conditions:
+                        conditions: list[Condition] = sorted(rule.conditions, key=lambda c: c.priority)
+                        for condition in conditions:
+                            if condition.field == "days_since_request":
+                                if days_since_request is None:
+                                    days_result: DaysSinceRequestResponse = await self.genai_handler.extract_days_since_request(
+                                        input={
+                                            "text": message,
+                                            "today": datetime.datetime.now().strftime("%Y-%m-%d"),
+                                        },
+                                        session_id=session_id,
+                                    )
+                                    days_since_request = days_result.days_since_request
+                                if (get_operator_function(operator=condition.operator))(days_since_request, condition.value):
+                                    return condition.action_id
+
+                            if condition.field == "processing_id":
+                                if processing_id is None:
+                                    condition_str: str = "Processing id " + condition.operator + " " + str(condition.value)
+                                    processing_result: ProcessingIdResponse = await self.genai_handler.extract_processing_id(
+                                        input={
+                                            "text": message,
+                                            "condition": condition_str,
+                                        },
+                                        session_id=session_id,
+                                    )
+                                    processing_id = processing_result.processing_id
+                                if get_operator_function(operator=condition.operator)(processing_id, condition.value):
+                                    return condition.action_id
+                    return rule.action_id
+
+            # Default action if no rules matched
             return self.no_action.id
-
-        # Find matching action rule
-        for rule in self.action_rules:
-            if rule.category_id == categorization_result.category.id:
-                # If there are conditions, evaluate them
-                if rule.conditions:
-                    conditions: list[Condition] = sorted(rule.conditions, key=lambda c: c.priority)
-                    for condition in conditions:
-                        if condition.field == "days_since_request":
-                            if days_since_request is None:
-                                days_result: DaysSinceRequestResponse = await self.genai_handler.extract_days_since_request(
-                                    input={
-                                        "text": message,
-                                        "today": datetime.datetime.now().strftime("%Y-%m-%d"),
-                                    },
-                                    session_id=session_id,
-                                )
-                                days_since_request = days_result.days_since_request
-                            if (get_operator_function(operator=condition.operator))(days_since_request, condition.value):
-                                return condition.action_id
-
-                        if condition.field == "processing_id":
-                            if processing_id is None:
-                                condition_str: str = "Processing id " + condition.operator + " " + str(condition.value)
-                                processing_result: ProcessingIdResponse = await self.genai_handler.extract_processing_id(
-                                    input={
-                                        "text": message,
-                                        "condition": condition_str,
-                                    },
-                                    session_id=session_id,
-                                )
-                                processing_id = processing_result.processing_id
-                            if get_operator_function(operator=condition.operator)(processing_id, condition.value):
-                                return condition.action_id
-                return rule.action_id
-
-        # Default action if no rules matched
-        return self.no_action.id
+        except GenAIError as e:
+            logger.error("GenAI extraction error during action determination", exc_info=True)
+            raise TriageError("Action determination failed due to GenAI error") from e
 
     def _id_to_category(self, category_id: int) -> Category:
         """
