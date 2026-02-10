@@ -13,7 +13,7 @@ from app.utils.logging import getLogger
 
 from .v1.triage import triage_router
 
-logger: Logger = getLogger("zammad-ai.api")
+logger: Logger = getLogger("zammad-ai.api.backend")
 
 
 @asynccontextmanager
