@@ -182,6 +182,7 @@ def get_kb_answer_by_id(answer_id: str) -> KnowledgeBaseAnswer | None:
             title=title,
             content=content,
             attachments=attachment_contents,
+            url=f"{ZAMMAD_BASE_URL}/#knowledge_base/{ZAMMAD_KNOWLEDGE_BASE_ID}/locale/de-de/answer/{answer_id}",
         )
     except httpx.HTTPStatusError as e:
         logger.error("KB answer fetch failed (%s) for %s: %s", e.response.status_code, answer_id, e.response.text)

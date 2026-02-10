@@ -8,6 +8,7 @@ class KnowledgeBaseAnswer(BaseModel):
     title: str = Field(..., description="The title of the answer")
     content: str = Field(..., description="The content of the answer")
     attachments: dict[str, str] = Field(..., description="Dict of attachments associated with the filename")
+    url: str | None = Field(None, description="URL to the answer in the knowledge base")
 
 
 class CategorizationResult(BaseModel):

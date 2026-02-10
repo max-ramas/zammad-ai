@@ -6,3 +6,4 @@ class QdrantVectorMetadata(BaseModel):
     title: str
     content: str
     attachments: dict[str, str] | None = None
+    url: str | None = None

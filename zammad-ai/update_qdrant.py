@@ -29,6 +29,7 @@ async def main() -> None:
                     title=answer.title,
                     content=answer.content,
                     attachments=answer.attachments,
+                    url=answer.url,
                 )
 
                 await save_to_qdrant(page_content=page_content, metadata=metadata, id=str(answer.id))
