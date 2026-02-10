@@ -12,9 +12,10 @@ from app.models.triage import TriageResult
 from app.triage.triage import get_triage
 from app.utils.logging import getLogger
 
+from ..triage.triage import Triage
 from .security import setup_security
 
-logger: Logger = getLogger("zammad-ai")
+logger: Logger = getLogger(name="zammad-ai")
 
 
 def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
@@ -74,15 +75,16 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
             logger.info(f"Skipping event with request type: {event.request_type}")
             raise AckMessage()
 
-        if False:  # Replace with error handlers
+        if False:  # TODO: Replace with error handlers
             raise NackMessage()
         try:
-            triage = get_triage(settings=settings)
-            id = event.ticket
+            triage: Triage = get_triage(settings=settings)
+            id: str = event.ticket
             result: TriageResult = await triage.perform_triage(id=id)
             logger.debug(f"Triage result for ticket {id}: {result}")
         except Exception:
             logger.error(f"Error processing event for ticket {event.ticket}.", exc_info=True)
+            raise NackMessage()
         raise AckMessage()
 
     return router, event_handler
