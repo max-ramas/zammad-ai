@@ -4,6 +4,7 @@ from uuid import uuid4
 from langchain_core.runnables import RunnableConfig
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
+from langfuse.model import TextPromptClient
 
 from app.utils.logging import getLogger
 
@@ -45,7 +46,7 @@ class LangfuseClient:
         """
         logger.debug(f"Fetching Langfuse prompt '{prompt_name}' with label '{prompt_label}'.")
         try:
-            res = self.langfuse.get_prompt(
+            res: TextPromptClient = self.langfuse.get_prompt(
                 name=prompt_name,
                 label=prompt_label,
                 type="text",

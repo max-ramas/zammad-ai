@@ -53,6 +53,7 @@ class GenAIHandler:
             ValueError: If an unsupported GenAI SDK is specified.
         """
         self.prompts = prompts
+        # TODO: Refactor langfuse client as optional argument, if not passed there is no tracing and no handler is passed to the chains
         self.langfuse_client = LangfuseClient()
 
         # Initialize LLM based on configured SDK
