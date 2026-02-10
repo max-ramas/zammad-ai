@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import ABC
 from typing import Literal
 
 from pydantic import BaseModel, Field, FilePath, NonNegativeInt
@@ -55,10 +54,7 @@ class ProcessingState(BaseModel):
 TriagePrompt = Literal["categories", "examples", "role"]
 
 
-class BaseTriagePrompts(BaseModel, ABC): ...
-
-
-class StringTriagePrompts(BaseTriagePrompts):
+class StringTriagePrompts(BaseModel):
     type: Literal["string"] = "string"
     prompt_map: dict[TriagePrompt, str] = Field(
         description="Prompts for the triage process as raw strings. The keys should be 'categories', 'examples', and 'role'.",
@@ -70,14 +66,14 @@ class StringTriagePrompts(BaseTriagePrompts):
     )
 
 
-class FileTriagePrompts(BaseTriagePrompts):
+class FileTriagePrompts(BaseModel):
     type: Literal["file"] = "file"
     prompt_map: dict[TriagePrompt, FilePath] = Field(
         description="Prompts for the triage process as file paths. The files should contain the prompts as raw text. The keys should be 'categories', 'examples', and 'role'.",
     )
 
 
-class LangfuseTriagePrompts(BaseTriagePrompts):
+class LangfuseTriagePrompts(BaseModel):
     type: Literal["langfuse"] = "langfuse"
     prompt_map: dict[TriagePrompt, "LangfusePrompt"] = Field(
         description="Prompts for the triage process as LangfusePrompt objects. The keys should be 'categories', 'examples', and 'role'.",
