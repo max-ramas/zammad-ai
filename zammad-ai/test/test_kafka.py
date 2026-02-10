@@ -1,3 +1,4 @@
+import unittest.mock
 from typing import Generator
 from unittest.mock import AsyncMock, MagicMock
 
@@ -5,8 +6,6 @@ import pytest
 from fastapi.exceptions import RequestValidationError
 from faststream.kafka import TestKafkaBroker
 
-from app.core import context
-from app.core.context import BackendContext
 from app.core.settings import ZammadAISettings
 from app.core.settings.kafka import KafkaSettings
 from app.core.settings.qdrant import QdrantSettings
@@ -24,9 +23,9 @@ from app.models.triage import TriageResult
 def create_mock_settings() -> ZammadAISettings:
     """
     Builds a complete ZammadAISettings object populated with realistic test values for unit tests.
-    
+
     Temporarily replaces sys.argv to avoid CLI argument parsing during construction.
-    
+
     Returns:
         ZammadAISettings: Settings populated with zammad, qdrant, kafka, triage configuration, and valid_request_types suitable for tests.
     """
@@ -70,7 +69,7 @@ def create_mock_settings() -> ZammadAISettings:
 def valid_message() -> dict:
     """
     Standard valid Kafka event payload used by tests.
-    
+
     Returns:
         dict: Payload with keys:
             - action: event action (e.g., "created")
@@ -94,7 +93,7 @@ def valid_message() -> dict:
 def mock_triage() -> MagicMock:
     """
     Create a MagicMock that simulates a Triage with a preset async `perform_triage` result.
-    
+
     Returns:
         MagicMock: A mock Triage object whose `perform_triage` is an AsyncMock returning a
         TriageResult with a Category(name="Test", id=1), Action(name="Test", description="Test", id=1),
@@ -114,32 +113,22 @@ def mock_triage() -> MagicMock:
 
 
 @pytest.fixture
-def mock_backend_context(mock_triage) -> Generator[BackendContext, None, None]:
+def mock_get_triage(mock_triage) -> Generator[MagicMock, None, None]:
     """
-    Create and inject a mocked BackendContext into the module for use in tests.
-    
+    Mock the get_triage function to return a mocked triage instance.
+
     Parameters:
-        mock_triage (MagicMock): A mock triage object to attach to the backend context; its
-            `perform_triage` coroutine will be called by code under test.
-    
+        mock_triage (MagicMock): A mock triage object.
+
     Returns:
-        Generator yielding the mocked BackendContext. The function sets `context.backend_context`
-        to the created mock before yielding and resets `context.backend_context` to None after
-        the generator finishes to restore global state.
+        Generator yielding the mocked get_triage function.
     """
-    settings = create_mock_settings()
-    ctx = MagicMock(spec=BackendContext)
-    ctx.triage = mock_triage
-    ctx.settings = settings
-    # Set the global backend_context variable
-    context.backend_context = ctx
-    yield ctx
-    # Cleanup after test
-    context.backend_context = None
+    with unittest.mock.patch("app.kafka.broker.get_triage", return_value=mock_triage) as mock:
+        yield mock
 
 
 @pytest.mark.asyncio
-async def test_event_handler_valid_message(valid_message: dict, mock_backend_context) -> None:
+async def test_event_handler_valid_message(valid_message: dict, mock_triage, mock_get_triage) -> None:
     """Test event handler with a valid message."""
     settings = create_mock_settings()
     router, event_handler = build_router(settings=settings)
@@ -148,11 +137,11 @@ async def test_event_handler_valid_message(valid_message: dict, mock_backend_con
         message = dict(valid_message)
         await test_broker.publish(topic=settings.kafka.topic, message=message)
         # Verify the triage was called with the correct ticket ID
-        mock_backend_context.triage.perform_triage.assert_called_once_with(id="3720")
+        mock_triage.perform_triage.assert_called_once_with(id="3720")
 
 
 @pytest.mark.asyncio
-async def test_event_handler_with_requestType_alias(valid_message: dict, mock_backend_context) -> None:
+async def test_event_handler_with_requestType_alias(valid_message: dict, mock_triage, mock_get_triage) -> None:
     """Test event handler accepts requestType as alias for anliegenart."""
     settings = create_mock_settings()
     router, event_handler = build_router(settings=settings)
@@ -163,11 +152,11 @@ async def test_event_handler_with_requestType_alias(valid_message: dict, mock_ba
         message["requestType"] = "technischer Bürgersupport"
         await test_broker.publish(topic=settings.kafka.topic, message=message)
         # Verify the triage was called with the correct ticket ID
-        mock_backend_context.triage.perform_triage.assert_called_once_with(id="3720")
+        mock_triage.perform_triage.assert_called_once_with(id="3720")
 
 
 @pytest.mark.asyncio
-async def test_event_handler_invalid_request_type(valid_message: dict, mock_backend_context, caplog) -> None:
+async def test_event_handler_invalid_request_type(valid_message: dict, mock_triage, mock_get_triage, caplog) -> None:
     """Test event handler skips messages with invalid request types."""
     settings = create_mock_settings()
     router, event_handler = build_router(settings=settings)
@@ -178,11 +167,11 @@ async def test_event_handler_invalid_request_type(valid_message: dict, mock_back
             await test_broker.publish(topic=settings.kafka.topic, message=message)
         assert "Skipping" in caplog.text
         # Verify triage was NOT called for invalid request types
-        mock_backend_context.triage.perform_triage.assert_not_called()
+        mock_triage.perform_triage.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_event_handler_invalid_message_format(mock_backend_context) -> None:
+async def test_event_handler_invalid_message_format(mock_triage, mock_get_triage) -> None:
     """Test event handler with malformed message that fails Pydantic validation."""
     settings = create_mock_settings()
     router, event_handler = build_router(settings=settings)
@@ -197,7 +186,7 @@ async def test_event_handler_invalid_message_format(mock_backend_context) -> Non
 
 
 @pytest.mark.asyncio
-async def test_event_handler_with_multiple_valid_request_types(valid_message: dict, mock_backend_context) -> None:
+async def test_event_handler_with_multiple_valid_request_types(valid_message: dict, mock_triage, mock_get_triage) -> None:
     """Test event handler with multiple valid request types configured."""
     settings = create_mock_settings()
     settings.valid_request_types = ["technischer Bürgersupport", "general support", "other"]
@@ -207,11 +196,11 @@ async def test_event_handler_with_multiple_valid_request_types(valid_message: di
         message["anliegenart"] = "general support"
         await test_broker.publish(topic=settings.kafka.topic, message=message)
         # Verify the triage was called with the correct ticket ID
-        mock_backend_context.triage.perform_triage.assert_called_once_with(id="3720")
+        mock_triage.perform_triage.assert_called_once_with(id="3720")
 
 
 @pytest.mark.asyncio
-async def test_event_handler_case_sensitive_request_type(valid_message: dict, mock_backend_context, caplog) -> None:
+async def test_event_handler_case_sensitive_request_type(valid_message: dict, mock_triage, mock_get_triage, caplog) -> None:
     """Test that request type validation is case sensitive."""
     settings = create_mock_settings()
     settings.valid_request_types = ["technischer Bürgersupport"]  # exact case
@@ -223,4 +212,4 @@ async def test_event_handler_case_sensitive_request_type(valid_message: dict, mo
             await test_broker.publish(topic=settings.kafka.topic, message=message)
         assert "Skipping event" in caplog.text
         # Verify triage was NOT called for case mismatch
-        mock_backend_context.triage.perform_triage.assert_not_called()
+        mock_triage.perform_triage.assert_not_called()
