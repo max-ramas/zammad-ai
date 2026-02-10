@@ -2,6 +2,7 @@
 
 import binascii
 from base64 import b64decode
+from logging import Logger
 from pathlib import Path
 from ssl import SSLContext, create_default_context
 from tempfile import TemporaryDirectory
@@ -13,16 +14,16 @@ from faststream.security import BaseSecurity
 from app.core.settings.kafka import KafkaMTLSEnvSecurity, KafkaMTLSFileSecurity, KafkaSettings
 from app.utils.logging import getLogger
 
-logger = getLogger(__name__)
+logger: Logger = getLogger("zammad-ai.kafka.security")
 
 
 def setup_security(kafka_settings: KafkaSettings) -> BaseSecurity:
     """
     Configure and return a BaseSecurity for Kafka based on the provided KafkaSettings.
-    
+
     Returns:
         BaseSecurity: A security object configured with an SSLContext and use_ssl=True when mTLS is configured; returns a default (no-security) BaseSecurity if kafka_settings.security is None.
-    
+
     Raises:
         ValueError: If environment-provided base64 fields are invalid, if the PKCS#12 data or password cannot be decoded or loaded, if the PKCS#12 archive lacks a private key or certificate, or if the kafka_settings.security type is unsupported.
     """

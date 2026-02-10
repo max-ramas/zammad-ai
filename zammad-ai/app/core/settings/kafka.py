@@ -1,6 +1,9 @@
-from abc import ABC
+from __future__ import annotations
 
-from pydantic import BaseModel, Field, FilePath
+from abc import ABC
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, FilePath
 
 
 class KafkaSettings(BaseModel):
@@ -24,7 +27,13 @@ class KafkaSettings(BaseModel):
         default=None,
     )
 
-    security: "KafkaSecurity | None" = Field(
+    security: (
+        Annotated[
+            KafkaMTLSEnvSecurity | KafkaMTLSFileSecurity,
+            Field(discriminator="type"),
+        ]
+        | None
+    ) = Field(
         default=None,
         description="Security configuration for Kafka connection.",
     )
@@ -33,11 +42,16 @@ class KafkaSettings(BaseModel):
 class KafkaSecurity(BaseModel, ABC):
     """Base class for Kafka security configurations."""
 
-    pass
+    model_config = ConfigDict(extra="forbid")
 
 
 class KafkaMTLSEnvSecurity(KafkaSecurity):
     """mTLS configuration for Kafka connection using environment variables only."""
+
+    type: Literal["env"] = Field(
+        description="Discriminator for environment-based mTLS configuration.",
+        default="env",
+    )
 
     ca_file_base64: str = Field(
         description="Base64-encoded CA certificate.",
@@ -54,6 +68,11 @@ class KafkaMTLSEnvSecurity(KafkaSecurity):
 
 class KafkaMTLSFileSecurity(KafkaSecurity):
     """mTLS configuration for Kafka connection using file paths."""
+
+    type: Literal["file"] = Field(
+        description="Discriminator for file-based mTLS configuration.",
+        default="file",
+    )
 
     ca_file_path: FilePath = Field(
         description="Path to the CA certificate file (PEM format).",
