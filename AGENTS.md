@@ -166,10 +166,11 @@ chore(deps): bump faststream to 0.6.7
 
 Priority order (highest first):
 
-1. Environment variables (prefix `ZAMMAD_AI_`)
-2. `config.yaml` file
+1. CLI arguments
+2. Environment variables (prefix `ZAMMAD_AI_`)
 3. `.env` file
-4. Defaults in `app/core/settings.py`
+4. `config.yaml` file
+5. Defaults in `app/core/settings.py`
 
 ## Key integrations
 
