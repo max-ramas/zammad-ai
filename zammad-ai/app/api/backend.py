@@ -60,7 +60,7 @@ backend.include_router(
     prefix="/api/v1",
 )
 
-if not settings.frontend.enabled:
+if not settings.frontend.enabled and settings.mode == "development":
     logger.info("Frontend is disabled, rerouting root path to API docs")
 
     @backend.get("/", include_in_schema=False)
