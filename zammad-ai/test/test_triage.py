@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Generator
 
 import pytest
+from pydantic import HttpUrl, SecretStr
 
 from app.core.settings import ZammadAISettings
 from app.core.settings.genai import GenAISettings
@@ -188,12 +189,12 @@ def create_mock_settings(action_rules: list[ActionRule] | None = None) -> Zammad
             mode="unittest",
             genai=GenAISettings(),
             zammad=ZammadAPISettings(
-                base_url="https://example.com",  # type: ignore
-                auth_token="test-token",  # type: ignore
+                base_url=HttpUrl(url="https://example.com"),
+                auth_token=SecretStr(secret_value="test-token"),
             ),
             qdrant=QdrantSettings(
-                host="https://qdrant.example.com",  # type: ignore
-                api_key="test-key",  # type: ignore
+                host=HttpUrl(url="https://qdrant.example.com"),
+                api_key=SecretStr(secret_value="test-key"),
                 collection_name="test_collection",
             ),
             kafka=KafkaSettings(
