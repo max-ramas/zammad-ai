@@ -168,30 +168,39 @@ class Triage:
                 action=self.no_action,
             )
 
-        # Step 3: Extract customer message and generate session ID for Langfuse
-        customer_message: str = ticket.articles[0].text
-        session_id: str = self.genai_handler.langfuse_client.generate_session_id()
+        try:
+            # Step 3: Extract customer message and generate session ID for Langfuse
+            customer_message: str = ticket.articles[0].text
+            session_id: str = self.genai_handler.langfuse_client.generate_session_id()
 
-        # Step 4: Predict category using LLM
-        categorization: CategorizationResult = await self.predict_category(
-            message=customer_message,
-            session_id=session_id,
-        )
+            # Step 4: Predict category using LLM
+            categorization: CategorizationResult = await self.predict_category(
+                message=customer_message,
+                session_id=session_id,
+            )
 
-        # Step 5: Determine action based on predicted category and conditions
-        action_id: int = await self.get_action_id(
-            categorization_result=categorization,
-            message=customer_message,
-            session_id=session_id,
-        )
-        action: Action = self.actions_by_id.get(action_id, self.no_action)
-        # Step 6: Return the triage result
-        return TriageResult(
-            category=categorization.category if categorization.category else self.no_category,
-            action=action,
-            reasoning=categorization.reasoning,
-            confidence=categorization.confidence,
-        )
+            # Step 5: Determine action based on predicted category and conditions
+            action_id: int = await self.get_action_id(
+                categorization_result=categorization,
+                message=customer_message,
+                session_id=session_id,
+            )
+            action: Action = self.actions_by_id.get(action_id, self.no_action)
+            # Step 6: Return the triage result
+            return TriageResult(
+                category=categorization.category if categorization.category else self.no_category,
+                action=action,
+                reasoning=categorization.reasoning,
+                confidence=categorization.confidence,
+            )
+        except TriageError:
+            logger.warning(f"Processing failed for ticket {id}, returning fallback TriageResult.")
+            return TriageResult(
+                category=self.no_category,
+                action=self.no_action,
+                reasoning="Fehler bei der Triage-Verarbeitung",
+                confidence=1.0,
+            )
 
     async def predict_category(self, message: str, session_id: str) -> CategorizationResult:
         """
@@ -241,21 +250,9 @@ class Triage:
         except GenAIError as e:
             logger.error("GenAI categorization error", exc_info=True)
             raise TriageError("Categorization failed due to GenAI error") from e
-        except ImportError:
-            # BadRequestError import issue
-            logger.error("BadRequestError during categorization", exc_info=True)
-            return CategorizationResult(
-                category=self.no_category,
-                reasoning="Fehler: Request konnte nicht vollendet werden, wahrscheinlich wg. Content-Policy",
-                confidence=1.0,
-            )
         except Exception as e:
             logger.error("Unexpected error during categorization", exc_info=True)
-            return CategorizationResult(
-                category=self.no_category,
-                reasoning=f"Unerwarteter Fehler: {str(e)}",
-                confidence=1.0,
-            )
+            raise TriageError(f"Categorization failed due to unexpected error: {str(e)}") from e
 
     async def get_action_id(self, categorization_result: CategorizationResult, message: str = "", session_id: str | None = None) -> int:
         """
@@ -319,6 +316,9 @@ class Triage:
         except GenAIError as e:
             logger.error("GenAI extraction error during action determination", exc_info=True)
             raise TriageError("Action determination failed due to GenAI error") from e
+        except Exception as e:
+            logger.error("Unexpected error during action determination", exc_info=True)
+            raise TriageError(f"Action determination failed due to unexpected error: {str(e)}") from e
 
     def _id_to_category(self, category_id: int) -> Category:
         """

@@ -374,21 +374,41 @@ async def test_predict_category_valid_category_kept(patched_triage: Triage) -> N
 
 
 # ---------------------------------------------------------------------------
-# predict_category: GenAI handler raises → graceful fallback
+# predict_category: GenAI handler raises → TriageError
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_predict_category_handles_genai_exception(patched_triage: Triage) -> None:
-    """An unexpected exception from the GenAI handler is caught and returns no_category."""
+    """An unexpected exception from the GenAI handler causes a TriageError."""
 
     async def _boom(*_args, **_kwargs):
         raise RuntimeError("LLM exploded")
 
     patched_triage.genai_handler.predict_category = _boom  # type: ignore
-    result = await patched_triage.predict_category(message="trigger error", session_id="session-id")
+    with pytest.raises(TriageError) as excinfo:
+        await patched_triage.predict_category(message="trigger error", session_id="session-id")
+    assert "unexpected error" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_perform_triage_handles_processing_triage_error(patched_triage: Triage) -> None:
+    """A TriageError during processing in perform_triage is caught and returns a fallback result."""
+
+    async def _boom(*_args, **_kwargs):
+        raise TriageError("Simulated processing error")
+
+    # Mock predict_category to raise TriageError
+    patched_triage.predict_category = _boom  # type: ignore
+
+    # Ensure there is a ticket with articles so it doesn't return early
+    patched_triage.zammad_client.ticket = ZammadTicket(id="123", articles=[ZammadArticle(id="1", ticket_id="123", text="Help me")])  # type: ignore
+
+    result = await patched_triage.perform_triage(id="123")
+
     assert result.category == patched_triage.no_category
-    assert "Unerwarteter Fehler" in result.reasoning
+    assert result.action == patched_triage.no_action
+    assert "Fehler bei der Triage-Verarbeitung" in result.reasoning
     assert result.confidence == 1.0
 
 
