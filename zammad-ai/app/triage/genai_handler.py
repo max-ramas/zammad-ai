@@ -35,7 +35,7 @@ class GenAIHandler:
     def __init__(self, genai_settings: GenAISettings, prompts: dict[str, str]) -> None:
         """
         Initialize the GenAIHandler, configure the chat model, and pre-build runnable chains for triage operations.
-        
+
         Parameters:
             genai_settings (GenAISettings): GenAI configuration including `sdk`, model name, temperature, max_retries, and optional `reasoning_effort`.
             prompts (dict[str, str]): Mapping of prompt templates required by the handler. Expected keys:
@@ -44,7 +44,7 @@ class GenAIHandler:
                 - "examples"
                 - "days_since_request"
                 - "processing_id"
-        
+
         Raises:
             ValueError: If an unsupported GenAI SDK is specified.
         """
@@ -57,7 +57,7 @@ class GenAIHandler:
                 from langchain_openai import ChatOpenAI
 
                 self.chat_model = ChatOpenAI(
-                    model=genai_settings.chat_model,  # type: ignore
+                    model=genai_settings.chat_model,
                     temperature=genai_settings.temperature,
                     max_retries=genai_settings.max_retries,
                     reasoning={
@@ -79,7 +79,7 @@ class GenAIHandler:
     def _build_chains(self) -> None:
         """
         Construct reusable LangChain runnable sequences for triage operations.
-        
+
         Builds and assigns three instance-level chains:
         - category_chain: categorization prompt using prompts["categories"] that produces a CategorizationResult.
         - days_since_request_chain: extraction prompt using prompts["days_since_request"] that produces a DaysSinceRequestResponse.
@@ -126,11 +126,11 @@ class GenAIHandler:
     ) -> CategorizationResult:
         """
         Predicts the category for the provided message and returns classification details.
-        
+
         Parameters:
             input (dict): Payload containing at least the "text" key with the message to categorize; may include additional context.
             session_id (str | None): Optional Langfuse session ID used for tracing.
-        
+
         Returns:
             CategorizationResult: Predicted category, explanatory reasoning, and confidence score.
         """
@@ -148,13 +148,13 @@ class GenAIHandler:
     ) -> DaysSinceRequestResponse:
         """
         Extract the number of days since a request from the provided input.
-        
+
         Parameters:
             input (dict): Dictionary with keys:
                 - "text": Message text to extract the date/reference from.
                 - "today": Current date as a string in YYYY-MM-DD format.
             session_id (str | None): Optional Langfuse session ID used for tracing.
-        
+
         Returns:
             DaysSinceRequestResponse: Response containing the extracted days value.
         """
@@ -172,13 +172,13 @@ class GenAIHandler:
     ) -> ProcessingIdResponse:
         """
         Extract the processing ID from the provided input message.
-        
+
         Parameters:
             input (dict): Input payload containing:
                 - "text": Message text to extract the ID from.
                 - "condition": Condition string used to match or validate the ID.
             session_id (str | None): Optional Langfuse session ID used for tracing.
-        
+
         Returns:
             ProcessingIdResponse: Response object containing the extracted processing ID.
         """
@@ -196,12 +196,12 @@ class GenAIHandler:
     ) -> T:
         """
         Invoke a pre-built RunnableSequence and associate the call with a Langfuse session trace.
-        
+
         Parameters:
             chain (RunnableSequence[Any, T]): The pre-built chain to execute.
             input (dict): Input payload passed to the chain.
             session_id (str | None): Optional Langfuse session ID to use for tracing; a new session ID is generated if omitted.
-        
+
         Returns:
             T: The chain's output.
         """
