@@ -28,7 +28,7 @@ class ZammadAPIClient(BaseZammadClient):
         """
         self.client = AsyncClient(
             base_url=settings.base_url.encoded_string(),
-            headers={"Authorization": f"Bearer {settings.auth_token}"},  # TODO: implement custom auth schema if needed
+            headers={"Authorization": f"Bearer {settings.auth_token.get_secret_value()}"},  # TODO: implement custom auth schema if needed
             timeout=settings.timeout,
         )
         self.knowledge_base_id: str | None = settings.knowledge_base_id
