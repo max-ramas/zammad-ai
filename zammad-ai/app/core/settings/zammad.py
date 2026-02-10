@@ -36,7 +36,7 @@ class ZammadAPISettings(BaseZammadSettings):
     Settings for Zammad API integration.
     """
 
-    type: Literal["api"] = "api"  # type: ignore
+    type: Literal["api"] = "api"
 
     base_url: HttpUrl = Field(
         description="Zammad base URL",
@@ -56,7 +56,7 @@ class ZammadEAISettings(BaseZammadSettings):
     Settings for specific Zammad EAI integration, such as API endpoints and authentication details.
     """
 
-    type: Literal["eai"] = "eai"  # type: ignore
+    type: Literal["eai"] = "eai"
 
     eai_url: HttpUrl = Field(
         description="Zammad EAI API endpoint",

@@ -57,7 +57,7 @@ class GenAIHandler:
                 from langchain_openai import ChatOpenAI
 
                 self.chat_model = ChatOpenAI(
-                    model=genai_settings.chat_model,
+                    model_name=genai_settings.chat_model,
                     temperature=genai_settings.temperature,
                     max_retries=genai_settings.max_retries,
                     reasoning={

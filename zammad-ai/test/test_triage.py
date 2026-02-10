@@ -367,6 +367,7 @@ async def test_predict_category_valid_category_kept(patched_triage: Triage) -> N
         confidence=0.88,
     )
     result = await patched_triage.predict_category(message="some text", session_id="session-id")
+    assert result.category is not None
     assert result.category.id == 1
     assert result.reasoning == "looks right"
     assert result.confidence == 0.88
