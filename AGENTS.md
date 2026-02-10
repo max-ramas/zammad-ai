@@ -73,6 +73,13 @@ uv run ty check
 - Classes: `PascalCase` (`KafkaSettings`, `TicketEvent`)
 - Constants: `UPPER_SNAKE_CASE` (`KAFKA_BROKER_URL`, `MAX_RETRIES`)
 
+**Logging rules:**
+
+- Use f-strings only when interpolating variables.
+- When inside an exception handler, always pass `exc_info=True`.
+- Always use the variable name `e` for exceptions.
+- Never include the exception text (e.g., `{e}`) in log messages.
+
 **Configuration pattern:**
 
 ```python
@@ -100,7 +107,7 @@ async def handle_ticket_event(message: Event) -> AckMessage | NackMessage:
         # Business logic here
         return AckMessage()
     except Exception as e:
-        logger.error(f"Failed to process event: {e}")
+        logger.error("Failed to process event.", exc_info=True)
         return NackMessage()
 ```
 

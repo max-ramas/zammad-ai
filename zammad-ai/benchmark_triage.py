@@ -26,11 +26,11 @@ triage = Triage(settings=settings)
 async def process_item(key: str, value: dict) -> tuple[str, str, str, str]:
     """
     Send an item's text to the triage API and return its expected and predicted category/action.
-    
+
     Parameters:
         key (str): Identifier for the item.
         value (dict): Item payload containing at least "category" (expected category name) and "text" (text to triage).
-    
+
     Returns:
         tuple[str, str, str, str]: A 4-tuple (key, expected_category, predicted_category, predicted_action).
             If an error occurs during the request, `predicted_category` is "Fehler" and `predicted_action` is an empty string.
@@ -114,17 +114,16 @@ async def run_benchmark():
 
     total = len(correct) + len(incorrect)
     accuracy = (len(correct) / total) * 100 if total > 0 else 0.0
-    logger.info("Total: %d | Correct: %d | Incorrect: %d | Accuracy: %.2f%%", total, len(correct), len(incorrect), accuracy)
+    logger.info(f"Total: {total} | Correct: {len(correct)} | Incorrect: {len(incorrect)} | Accuracy: {accuracy:.2f}%")
     incorrect_categories = dict(sorted(incorrect_categories.items(), key=lambda x: x[1], reverse=True))
-    logger.debug("Incorrect category pairs: %s", incorrect_categories)
+    logger.debug(f"Incorrect category pairs: {incorrect_categories}")
     logger.debug(
-        "Incorrect category pairs but correct action: %d -> Accuracy: %.2f%%",
-        incorrect_but_correct_action,
-        (len(correct) + incorrect_but_correct_action) / total * 100 if total > 0 else 0.0,
+        f"Incorrect category pairs but correct action: {incorrect_but_correct_action} -> "
+        f"Accuracy: {((len(correct) + incorrect_but_correct_action) / total * 100 if total > 0 else 0.0):.2f}%"
     )
     logger.debug(
-        "Incorrect categories (but correct action): %s",
-        dict(sorted(incorrect_categories_but_correct_action.items(), key=lambda x: x[1], reverse=True)),
+        f"Incorrect categories (but correct action): "
+        f"{dict(sorted(incorrect_categories_but_correct_action.items(), key=lambda x: x[1], reverse=True))}"
     )
 
     return accuracy
