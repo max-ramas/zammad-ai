@@ -193,3 +193,11 @@ class ZammadAPIClient(BaseZammadClient):
         except HTTPStatusError as e:
             logger.error(f"Failed to add tag '{tag}' to ticket {ticket_id} after {self.max_retries} attempts.", exc_info=True)
             raise ZammadConnectionError(f"Failed to add tag '{tag}' to ticket {ticket_id} after {self.max_retries} attempts.") from e
+
+    @override
+    async def cleanup(self) -> None:
+        """
+        Close the httpx client.
+        """
+        await self.client.aclose()
+        logger.info("Zammad API client closed.")

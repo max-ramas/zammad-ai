@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse
 from app.core.settings import ZammadAISettings, get_settings
 from app.kafka.broker import build_router
 from app.models.api_v1 import HealthCheckReponse
-from app.triage import Triage
+from app.triage.triage import get_triage
 from app.utils.logging import getLogger
 
 from .v1.triage import triage_router
@@ -21,22 +21,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Manage the application lifespan by initializing shared resources on startup and releasing them on shutdown.
 
-    On startup, attaches a Triage instance to `app.state.triage` using the current settings. On shutdown, calls `cleanup()` on `app.state.backend_context`.
+    On startup, initializes the Triage instance. On shutdown, performs cleanup.
 
     Parameters:
-        app (FastAPI): The FastAPI application whose state will hold the shared resources.
+        app (FastAPI): The FastAPI application.
     """
-    # Startup: Initialize shared context
+    # Startup: Initialize shared Triage instance
     settings: ZammadAISettings = get_settings()
 
-    logger.info("Initializing backend context with shared Triage instance")
-    app.state.triage = Triage(settings=settings)
+    logger.info("Initializing shared Triage instance")
+    app.state.triage = get_triage(settings=settings)
 
     yield
 
     # Shutdown: Cleanup resources
-    logger.info("Shutting down backend context")
-    await app.state.backend_context.cleanup()
+    logger.info("Shutting down shared Triage instance")
+    await app.state.triage.cleanup()
 
 
 settings: ZammadAISettings = get_settings()

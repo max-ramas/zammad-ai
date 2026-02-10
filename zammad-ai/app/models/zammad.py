@@ -59,10 +59,10 @@ class ZammadArticle(BaseModel):
     def strip_html(cls, text: str) -> str:
         """
         Normalize article text by removing HTML tags, unescaping HTML entities, and collapsing whitespace.
-        
+
         Parameters:
             text: Input string that may contain HTML.
-        
+
         Returns:
             The input string with HTML tags removed, HTML entities unescaped, and runs of whitespace collapsed to single spaces and trimmed.
         """

@@ -96,9 +96,9 @@ class ZammadAISettings(BaseSettings):
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         """
         Define the precedence and ordering of configuration sources for the settings class.
-        
+
         The returned tuple lists settings sources in precedence order (highest priority first): initialization values, CLI arguments, environment variables, dotenv (.env) file, and YAML configuration file.
-        
+
         Returns:
             tuple[PydanticBaseSettingsSource, ...]: Settings sources in priority order.
         """
@@ -115,7 +115,7 @@ class ZammadAISettings(BaseSettings):
 def get_settings() -> ZammadAISettings:
     """
     Provide the application's cached settings.
-    
+
     Returns:
         ZammadAISettings: The cached settings instance used by the application.
     """

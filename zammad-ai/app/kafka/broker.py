@@ -6,10 +6,10 @@ from faststream.exceptions import AckMessage, NackMessage
 from faststream.kafka.fastapi import KafkaRouter
 from faststream.security import BaseSecurity
 
-from app.core.context import get_backend_context
 from app.core.settings import ZammadAISettings
 from app.models.kafka import Event
 from app.models.triage import TriageResult
+from app.triage.triage import get_triage
 from app.utils.logging import getLogger
 
 from .security import setup_security
@@ -77,7 +77,7 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
         if False:  # Replace with error handlers
             raise NackMessage()
         try:
-            triage = get_backend_context().triage
+            triage = get_triage(settings=settings)
             id = event.ticket
             result: TriageResult = await triage.perform_triage(id=id)
             logger.debug(f"Triage result for ticket {id}: {result}")

@@ -336,3 +336,34 @@ class Triage:
             The matching Action or no_action as fallback
         """
         return self.actions_by_id.get(action_id, self.no_action)
+
+    async def cleanup(self) -> None:
+        """
+        Perform cleanup of Triage-managed resources.
+        """
+        await self.zammad_client.cleanup()
+        logger.info("Triage resources cleaned up.")
+
+
+_triage: Triage | None = None
+
+
+def get_triage(settings: ZammadAISettings | None = None) -> Triage:
+    """
+    Get or create the shared Triage instance.
+
+    Args:
+        settings: Optional settings to initialize the Triage instance.
+                 If not provided, uses get_settings().
+
+    Returns:
+        The shared Triage instance.
+    """
+    global _triage
+    if _triage is None:
+        if settings is None:
+            from app.core.settings import get_settings
+
+            settings = get_settings()
+        _triage = Triage(settings=settings)
+    return _triage

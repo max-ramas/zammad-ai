@@ -13,10 +13,10 @@ class BaseZammadClient(ABC):
     ) -> ZammadTicket:
         """
         Fetches ticket information for a given Zammad ticket ID.
-        
+
         Parameters:
             id (str): Zammad ticket ID to retrieve.
-        
+
         Returns:
             ZammadTicket: Ticket data corresponding to the provided ID.
         """
@@ -31,7 +31,7 @@ class BaseZammadClient(ABC):
     ) -> None:
         """
         Post an answer to the specified Zammad ticket.
-        
+
         Parameters:
             ticket_id: ID of the ticket to update.
             text: Answer content to post.
@@ -47,10 +47,10 @@ class BaseZammadClient(ABC):
     ) -> None:
         """
         Post a shared draft to the specified Zammad ticket.
-        
+
         Parameters:
-        	ticket_id (str): ID of the ticket to post the shared draft to.
-        	text (str): Content of the shared draft.
+                ticket_id (str): ID of the ticket to post the shared draft to.
+                text (str): Content of the shared draft.
         """
         ...
 
@@ -62,10 +62,17 @@ class BaseZammadClient(ABC):
     ) -> None:
         """
         Add a tag to the specified Zammad ticket.
-        
+
         Parameters:
             ticket_id (str): Zammad ticket identifier.
             tag (str): Tag text to add to the ticket.
+        """
+        ...
+
+    @abstractmethod
+    async def cleanup(self) -> None:
+        """
+        Perform cleanup of client resources (e.g., closing connections).
         """
         ...
 
