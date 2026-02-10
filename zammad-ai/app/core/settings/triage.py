@@ -84,7 +84,7 @@ class LangfuseTriagePrompts(BaseTriagePrompts):
     )
 
 
-class LangfusePrompt(BaseTriagePrompts):
+class LangfusePrompt(BaseModel):
     label: str = Field(
         description="Label of the prompt in Langfuse",
         default="production",
