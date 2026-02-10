@@ -2,7 +2,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from logging import Logger
 
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
 from app.core.settings import ZammadAISettings, get_settings
@@ -11,7 +11,7 @@ from app.models.api_v1 import HealthCheckReponse
 from app.triage import Triage
 from app.utils.logging import getLogger
 
-from .v1.triage import get_triage, triage_router
+from .v1.triage import triage_router
 
 logger: Logger = getLogger("zammad-ai.api")
 
@@ -20,9 +20,9 @@ logger: Logger = getLogger("zammad-ai.api")
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Manage the application lifespan by initializing shared resources on startup and releasing them on shutdown.
-    
+
     On startup, attaches a Triage instance to `app.state.triage` using the current settings. On shutdown, calls `cleanup()` on `app.state.backend_context`.
-    
+
     Parameters:
         app (FastAPI): The FastAPI application whose state will hold the shared resources.
     """
@@ -57,9 +57,7 @@ backend.include_router(router=router)
 # Mount API routers
 backend.include_router(
     router=triage_router,
-    prefix="/api/v1/triage",
-    tags=["triage"],
-    dependencies=[Depends(get_triage)],
+    prefix="/api/v1",
 )
 
 if not settings.frontend.enabled:
@@ -69,7 +67,7 @@ if not settings.frontend.enabled:
     async def reroute_to_docs() -> RedirectResponse:
         """
         Redirect root requests to the API documentation page.
-        
+
         Returns:
             RedirectResponse: A response that redirects the client to "/api/docs".
         """
@@ -80,7 +78,7 @@ if not settings.frontend.enabled:
 async def health_check() -> HealthCheckReponse:
     """
     Provide a basic application health check response.
-    
+
     Returns:
         HealthCheckReponse: An instance containing the application's default health status.
     """
