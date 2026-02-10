@@ -36,7 +36,7 @@ class ZammadAPIClient(BaseZammadClient):
         self.max_retries: int = settings.max_retries
 
     @override
-    async def get_ticket(self, id: str) -> ZammadTicket:
+    async def get_ticket(self, id: str) -> ZammadTicket:  # type: ignore
         """
         Fetches a ticket and its articles from Zammad using the ticket ID.
 
@@ -67,9 +67,6 @@ class ZammadAPIClient(BaseZammadClient):
                         articles=articles,
                     )
                     return ticket
-            else:
-                logger.error(f"Failed to fetch ticket {id} after {self.max_retries} attempts.")
-                raise ZammadConnectionError(f"Failed to fetch ticket {id} from Zammad after {self.max_retries} attempts.")
 
         except HTTPStatusError as e:
             logger.error(f"Failed to fetch ticket {id} after {self.max_retries} attempts.", exc_info=True)
