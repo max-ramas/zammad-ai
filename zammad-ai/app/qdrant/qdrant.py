@@ -7,28 +7,30 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client import AsyncQdrantClient, QdrantClient
 from truststore import inject_into_ssl
 
-from app.core.settings import CoreSettings, get_settings
+from app.core.settings import ZammadAISettings, get_settings
 from app.models.qdrant import QdrantVectorMetadata
 
 load_dotenv()
 inject_into_ssl()
 
 NAMESPACE: UUID = uuid5(NAMESPACE_DNS, "zammad-ai")
-settings: CoreSettings = get_settings().core
+settings: ZammadAISettings = get_settings()
 
 embedding = OpenAIEmbeddings(
-    model=settings.openai.embeddings_model,
-    api_key=settings.openai.api_key,  # type: ignore
-    base_url=settings.openai.url,
+    model=settings.genai.embeddings_model,
     dimensions=settings.qdrant.vector_dimension,
 )
-aqdrant_client = AsyncQdrantClient(settings.qdrant.host, api_key=settings.qdrant.api_key, port=None, timeout=60)
-qdrant_client = QdrantClient(settings.qdrant.host, api_key=settings.qdrant.api_key, port=None, timeout=60)
+aqdrant_client = AsyncQdrantClient(
+    settings.qdrant.host.encoded_string(), api_key=settings.qdrant.api_key.get_secret_value(), port=None, timeout=60
+)
+qdrant_client = QdrantClient(
+    settings.qdrant.host.encoded_string(), api_key=settings.qdrant.api_key.get_secret_value(), port=None, timeout=60
+)
 vectorstore = QdrantVectorStore(
     client=qdrant_client,
     collection_name=settings.qdrant.collection_name,
     embedding=embedding,
-    vector_name=settings.qdrant.vector_name,
+    vector_name=settings.qdrant.vector_name if settings.qdrant.vector_name else "",
 )
 
 
