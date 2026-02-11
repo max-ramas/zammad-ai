@@ -36,3 +36,20 @@ class GenAISettings(BaseModel):
         default=3,
         ge=0,
     )
+
+    @property
+    def store(self) -> bool | None:
+        """Determines whether to store interactions based on the configured GenAI SDK."""
+        if self.reasoning_effort is not None:
+            return False
+        return None
+
+    @property
+    def reasoning_config(self) -> dict[str, str] | None:
+        """Constructs a reasoning configuration dictionary for LLM interactions based on the configured reasoning effort."""
+        if self.reasoning_effort is not None:
+            return {
+                "reasoning_effort": self.reasoning_effort,
+                "summary": "detailed",
+            }
+        return None
