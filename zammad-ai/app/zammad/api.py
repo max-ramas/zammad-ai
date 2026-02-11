@@ -1,7 +1,7 @@
 from logging import Logger
 from typing import override
 
-from httpx import AsyncClient, HTTPStatusError, Response
+from httpx import AsyncClient, ConnectError, HTTPStatusError, ReadTimeout, Response, TimeoutException
 from pydantic import SecretStr, TypeAdapter
 from stamina import retry_context
 
@@ -51,7 +51,7 @@ class ZammadAPIClient(BaseZammadClient):
         """
         try:
             for attempt in retry_context(
-                on=HTTPStatusError,
+                on=(HTTPStatusError, ConnectError, TimeoutException, ReadTimeout),
                 attempts=self.http_attempts,
             ):
                 with attempt:
@@ -68,7 +68,7 @@ class ZammadAPIClient(BaseZammadClient):
                     )
                     return ticket
 
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) as e:
             logger.error(f"Failed to fetch ticket {id} after {self.http_attempts} attempts.", exc_info=True)
             raise ZammadConnectionError(f"Failed to fetch ticket {id} from Zammad after {self.http_attempts} attempts.") from e
 
@@ -98,7 +98,7 @@ class ZammadAPIClient(BaseZammadClient):
 
         try:
             for attempt in retry_context(
-                on=HTTPStatusError,
+                on=(HTTPStatusError, ConnectError, TimeoutException, ReadTimeout),
                 attempts=self.http_attempts,
             ):
                 with attempt:
@@ -109,7 +109,7 @@ class ZammadAPIClient(BaseZammadClient):
                     response.raise_for_status()
                     logger.info(f"Successfully posted answer to ticket {ticket_id}.")
                     return
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) as e:
             logger.error(f"Failed to post answer to ticket {ticket_id} after {self.http_attempts} attempts.", exc_info=True)
             raise ZammadConnectionError(f"Failed to post answer to ticket {ticket_id} after {self.http_attempts} attempts.") from e
 
@@ -134,7 +134,7 @@ class ZammadAPIClient(BaseZammadClient):
 
         try:
             for attempt in retry_context(
-                on=HTTPStatusError,
+                on=(HTTPStatusError, ConnectError, TimeoutException, ReadTimeout),
                 attempts=self.http_attempts,
             ):
                 with attempt:
@@ -145,7 +145,7 @@ class ZammadAPIClient(BaseZammadClient):
                     response.raise_for_status()
                     logger.info(f"Successfully posted shared draft to ticket {ticket_id}.")
                     return
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) as e:
             logger.error(f"Failed to post shared draft to ticket {ticket_id} after {self.http_attempts} attempts.", exc_info=True)
             raise ZammadConnectionError(f"Failed to post shared draft to ticket {ticket_id} after {self.http_attempts} attempts.") from e
 
@@ -163,7 +163,7 @@ class ZammadAPIClient(BaseZammadClient):
         )
         try:
             for attempt in retry_context(
-                on=HTTPStatusError,
+                on=(HTTPStatusError, ConnectError, TimeoutException, ReadTimeout),
                 attempts=self.http_attempts,
             ):
                 with attempt:
@@ -174,7 +174,7 @@ class ZammadAPIClient(BaseZammadClient):
                     response.raise_for_status()
                     logger.info(f"Successfully added tag '{tag}' to ticket {ticket_id}.")
                     return
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) as e:
             logger.error(f"Failed to add tag '{tag}' to ticket {ticket_id} after {self.http_attempts} attempts.", exc_info=True)
             raise ZammadConnectionError(f"Failed to add tag '{tag}' to ticket {ticket_id} after {self.http_attempts} attempts.") from e
 
