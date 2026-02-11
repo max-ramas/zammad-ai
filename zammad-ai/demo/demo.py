@@ -17,7 +17,7 @@ async def process_ticket(text: str):
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
-            triage_response = await client.post(f"{API_BASE_URL}/api/triage", json={"text": text})
+            triage_response = await client.post(f"{API_BASE_URL}/api/v1/triage", json={"text": text})
             triage_response.raise_for_status()
             triage_data = triage_response.json()
         except httpx.ConnectError:
@@ -39,10 +39,10 @@ async def process_ticket(text: str):
 
         answer = ""
         answer_documents = []
-        if str(action) == "Ki_Antwort":
+        if str(action) == "KI_Antwort":
             try:
                 answer_response = await client.post(
-                    f"{API_BASE_URL}/api/answer", json={"text": text, "id": session_id, "category": category}
+                    f"{API_BASE_URL}/api/v1/answer", json={"text": text, "id": session_id, "category": category}
                 )
                 answer_response.raise_for_status()
                 json = answer_response.json()
