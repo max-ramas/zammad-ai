@@ -11,9 +11,6 @@ class BaseZammadSettings(BaseModel, ABC):
     Base settings for Zammad integration, including common configuration options for both API and EAI integrations.
     """
 
-    type: ZammadEndpoint = Field(
-        description="The type of Zammad integration to use. Can be either 'api' for Zammad API integration or 'eai' for Zammad EAI integration.",
-    )
     knowledge_base_id: str | None = Field(
         description="The ID of the knowledge base to use for retrieving documents. If set to None, the knowledge base functionality will be disabled.",
         examples=["1"],
