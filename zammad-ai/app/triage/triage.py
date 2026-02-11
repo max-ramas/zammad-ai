@@ -1,4 +1,4 @@
-import datetime
+from datetime import date
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -291,7 +291,7 @@ class Triage:
                                         prompt_key="days_since_request",
                                         input={
                                             "text": message,
-                                            "today": datetime.datetime.now().strftime("%Y-%m-%d"),
+                                            "today": date.today().isoformat(),  # TODO: Mpck date for benchmarks with old tickets
                                         },
                                         session_id=session_id,
                                         schema=DaysSinceRequestResponse,
