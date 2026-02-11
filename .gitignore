@@ -359,5 +359,3 @@ vite.config.ts.timestamp-*
 
 #Data
 data/
-#Api-Test
-api/

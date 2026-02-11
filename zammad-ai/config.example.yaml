@@ -1,0 +1,185 @@
+# ============================================================================
+# Zammad-AI Configuration Template
+# ============================================================================
+# Copy this file to config.yaml and adjust values for your use case
+#
+# IMPORTANT: Secrets (API keys, tokens) should be set in .env file, not here!
+# See .env.example for required environment variables
+#
+# Configuration hierarchy (highest priority first):
+#   1. CLI arguments
+#   2. Environment variables (prefix: ZAMMAD_AI_)
+#   3. .env file
+#   4. This YAML file (config.yaml)
+# ============================================================================
+
+# ============================================================================
+# Use Case Configuration
+# ============================================================================
+usecase:
+  name: "my_usecase"
+  description: "Description of your use case"
+
+# ============================================================================
+# GenAI Configuration
+# ============================================================================
+genai:
+  sdk: "openai" # Currently only "openai" is supported
+  chat_model: "gpt-4.1-mini" # Model for chat completions
+  embeddings_model: "text-embedding-3-large" # Model for embeddings
+  reasoning_effort: null # Options: "minimal", "low", "medium", "high", or null
+  temperature: 0.0 # Temperature for chat completions (0.0 = deterministic)
+  max_retries: 3 # Maximum number of retries for API calls
+
+# Note: OpenAI SDK requires environment variables (set in .env):
+#   OPENAI_API_KEY (required)
+#   OPENAI_BASE_URL (optional, for custom endpoints/proxies)
+
+# ============================================================================
+# Zammad Configuration
+# ============================================================================
+# Set secrets in .env file:
+#   ZAMMAD_AI_ZAMMAD__AUTH_TOKEN (required)
+#   ZAMMAD_AI_ZAMMAD__RSS_FEED_TOKEN (optional)
+
+zammad:
+  type: "api" # Options: "api" or "eai"
+
+  # For type: "api"
+  base_url: "https://your-zammad-instance.example.com"
+  knowledge_base_id: "1" # Optional: set to null to disable knowledge base
+  timeout: 30 # Request timeout in seconds
+  max_retries: 3 # Maximum number of retries for API calls
+
+  # For type: "eai" (alternative to "api"), use these instead:
+  # eai_url: "https://your-zammad-eai.example.com/api/v1"
+  # knowledge_base_id: "1"
+  # timeout: 30
+  # max_retries: 3
+  # Set ZAMMAD_AI_ZAMMAD__SECRET in .env
+
+# ============================================================================
+# Qdrant Configuration
+# ============================================================================
+# Set secret in .env file:
+#   ZAMMAD_AI_QDRANT__API_KEY (required)
+
+qdrant:
+  host: "https://your-qdrant-instance.example.com"
+  collection_name: "your_collection_name"
+  vector_name: null # Optional: specify vector name if needed
+  vector_dimension: 1024 # Dimension of embedding vectors
+
+# ============================================================================
+# Kafka Configuration
+# ============================================================================
+kafka:
+  broker_url: "localhost:9092" # Kafka broker URL
+  topic: "ticket-events" # Kafka topic to consume from
+  group_id: "zammad-ai" # Consumer group ID
+
+  # mTLS Security Configuration (optional)
+  # Configure using environment variables in .env file
+  # See .env.example for file-based and base64-encoded options
+  security: null
+
+# ============================================================================
+# Valid Request Types
+# ============================================================================
+# List of request types that should be processed by the application
+valid_request_types:
+  - "example_request_type"
+
+# ============================================================================
+# Triage Configuration
+# ============================================================================
+triage:
+  # Category setup: Define the categories for ticket classification
+  categories:
+    - id: 1
+      name: "General Questions"
+    - id: 2
+      name: "Status Inquiries"
+    - id: 99
+      name: "Cannot Categorize"
+
+  # Fallback category when classification fails
+  no_category_id: 99
+
+  # Action setup: Define automated actions
+  actions:
+    - id: 0
+      name: "no_action"
+      description: "No automated action"
+    - id: 1
+      name: "ai_response"
+      description: "Generate AI-powered response"
+
+  # Fallback action when no rule matches
+  no_action_id: 0
+
+  # Action rules: Define when to trigger specific actions
+  action_rules:
+    # Example: Always generate AI response for category 1
+    - category_id: 1
+      action_id: 1
+
+    # Example: Conditional action based on conditions
+    - category_id: 2
+      action_id: 0 # Default action when no condition matches
+      conditions:
+        - priority: 1
+          field: "days_since_request"
+          operator: "less"
+          value: 30
+          action_id: 1
+        - priority: 2
+          field: "days_since_request"
+          operator: "greater_equals"
+          value: 30
+          action_id: 0
+
+  # Prompt configuration (requires Langfuse)
+  # Set Langfuse credentials in .env if using type: "langfuse"
+  prompts:
+    type: "langfuse" # Options: "langfuse", "string", or "file"
+
+    # For type: "langfuse"
+    prompt_map:
+      categories:
+        label: "latest" # Prompt version label
+        name: "your-usecase/categories" # Prompt name in Langfuse
+      examples:
+        label: "latest"
+        name: "your-usecase/examples"
+      role:
+        label: "latest"
+        name: "your-usecase/role"
+
+    # For type: "string" (inline prompts), use:
+    # type: "string"
+    # prompt_map:
+    #   categories: "Your inline categories prompt..."
+    #   examples: "Your inline examples prompt..."
+    #   role: "Your inline role prompt..."
+
+    # For type: "file" (prompts from files), use:
+    # type: "file"
+    # prompt_map:
+    #   categories: "/path/to/categories.txt"
+    #   examples: "/path/to/examples.txt"
+    #   role: "/path/to/role.txt"
+
+# ============================================================================
+# Optional Settings
+# ============================================================================
+
+# Frontend settings (optional web interface)
+frontend:
+  enabled: false # Set to true to enable frontend
+
+# Langfuse integration toggle
+langfuse_enabled: true # Set to false to disable Langfuse integration
+
+# Application mode
+mode: "production" # Options: "production", "development", "unittest"
