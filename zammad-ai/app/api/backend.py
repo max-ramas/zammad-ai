@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse
 
 from app.core.settings import ZammadAISettings, get_settings
 from app.kafka.broker import build_router
-from app.models.api_v1 import HealthCheckReponse
+from app.models.api_v1 import HealthCheckResponse
 from app.triage.triage import get_triage
 from app.utils.logging import getLogger
 
@@ -75,11 +75,11 @@ if not settings.frontend.enabled and settings.mode == "development":
 
 
 @backend.get("/api/v1/health", tags=["health"])
-async def health_check() -> HealthCheckReponse:
+async def health_check() -> HealthCheckResponse:
     """
     Provide a basic application health check response.
 
     Returns:
-        HealthCheckReponse: An instance containing the application's default health status.
+        HealthCheckResponse: An instance containing the application's default health status.
     """
-    return HealthCheckReponse()
+    return HealthCheckResponse()
