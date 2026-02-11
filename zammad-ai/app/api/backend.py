@@ -11,6 +11,7 @@ from app.models.api_v1 import HealthCheckResponse
 from app.triage.triage import get_triage
 from app.utils.logging import getLogger
 
+from .v1.answer import answer_router
 from .v1.triage import triage_router
 
 logger: Logger = getLogger("zammad-ai.api.backend")
@@ -57,6 +58,11 @@ backend.include_router(router=router)
 # Mount API routers
 backend.include_router(
     router=triage_router,
+    prefix="/api/v1",
+)
+
+backend.include_router(
+    router=answer_router,
     prefix="/api/v1",
 )
 

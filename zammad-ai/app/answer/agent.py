@@ -6,25 +6,15 @@ from langchain.agents.structured_output import ProviderStrategy
 from langchain.tools import BaseTool
 from langchain_core.callbacks import Callbacks
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
 
-from app.core.settings import Settings, get_settings
+from app.core.settings import ZammadAISettings, get_settings
+from app.models.answer import StructuredAgentResponse
 from app.utils.logging import getLogger
 
 from .tools import retrieve_documents_dlf, retrieve_documents_knowledgebase
 
-settings: Settings = get_settings()
+settings: ZammadAISettings = get_settings()
 logger: Logger = getLogger()
-
-
-class DocumentDict(BaseModel):
-    title: str = Field(description="The title of the document.")
-    url: str = Field(description="The URL source of the document.")
-
-
-class StructuredAgentResponse(BaseModel):
-    response: str = Field(description="The final answer to the user's question.")
-    documents: list[DocumentDict] = Field(description="List of documents supporting the answer.")
 
 
 async def build_agent(callbacks: Callbacks) -> LangGraphAgent:
@@ -32,11 +22,9 @@ async def build_agent(callbacks: Callbacks) -> LangGraphAgent:
 
     # Build the chat model
     chat_model = ChatOpenAI(
-        model=settings.core.openai.completions_model,
-        temperature=settings.core.openai.temperature,
-        max_retries=5,
-        api_key=settings.core.openai.api_key,  # type: ignore
-        base_url=settings.core.openai.url,
+        model_name=settings.genai.chat_model,
+        temperature=settings.genai.temperature,
+        max_retries=settings.genai.max_retries,
     )
 
     # Configure the tools
@@ -50,14 +38,14 @@ async def build_agent(callbacks: Callbacks) -> LangGraphAgent:
         system_prompt=system_prompt,
         tools=available_tools,
         response_format=ProviderStrategy(StructuredAgentResponse),
-        # context_schema=AgentContext,  # type: ignore
+        # context_schema=AgentContext,
     )
 
     # Wrap the agent in a AG-UI LangGraphAgent
     return LangGraphAgent(
         name="Zammad-AI Answer Agent",
         description="Der Zammad-AI Answer Agent unterstützt bei der Recherche und Analyse von Dokumenten und formuliert präzise Antworten.",
-        graph=agent,  # type: ignore
+        graph=agent,
         config={
             "callbacks": callbacks,
         },  # Workaround as LangGraphAgent doesnt yet support context parameter
