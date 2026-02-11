@@ -1,13 +1,11 @@
 # .pre-commit-config.yaml
-default_language_version:
-  python: python3.13
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.14.14
+    rev: v0.15.0
     hooks:
       # Run the linter.
-      - id: ruff
+      - id: ruff-check
         types_or: [python, pyi, jupyter]
         args: [--fix]
       - id: ruff-format
@@ -29,11 +27,10 @@ repos:
         args: [--autofix, --no-ensure-ascii]
         exclude: '(\.ipynb$|package\.json$|package-lock\.json$)'
   - repo: https://github.com/kynan/nbstripout
-    rev: 0.8.2
+    rev: 0.9.0
     hooks:
       - id: nbstripout
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.29.1
+    rev: v8.30.0
     hooks:
       - id: gitleaks
-        language_version: 1.25.3

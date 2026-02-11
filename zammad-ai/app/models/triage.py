@@ -1,0 +1,36 @@
+from pydantic import BaseModel, Field
+
+from app.core.settings.triage import Action, Category
+
+
+class CategorizationResult(BaseModel):
+    """
+    A structured response for a categorization request.
+    """
+
+    category: Category | None = Field(description=("The predicted category for the text."))
+    reasoning: str = Field(description="A single sentence explaining why the text fits the chosen category.Translate the text in german.")
+    confidence: float = Field(
+        description="Value from 0.0 to 1.0 on how sure / confident you are in your categorisation",
+        ge=0.0,
+        le=1.0,
+    )
+
+
+class TriageResult(BaseModel):
+    """Complete result of the triage process."""
+
+    category: Category = Field(description="The predicted category")
+    action: Action = Field(description="The recommended action")
+    reasoning: str = Field(description="Explanation for the categorization")
+    confidence: float = Field(description="Confidence score (0.0 to 1.0)")
+
+
+class DaysSinceRequestResponse(BaseModel):
+    days_since_request: int = Field(description="Number of days since the request was made")
+    reason: str = Field(description="Reason for the calculation")
+
+
+class ProcessingIdResponse(BaseModel):
+    processing_id: str = Field(description="Extracted processing ID from the text")
+    condition_met: bool = Field(description="Whether the extracted processing ID meets the specified condition")
