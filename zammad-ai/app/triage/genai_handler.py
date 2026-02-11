@@ -65,13 +65,8 @@ class GenAIHandler:
                     model_name=genai_settings.chat_model,
                     temperature=genai_settings.temperature,
                     max_retries=genai_settings.max_retries,
-                    reasoning={
-                        "effort": genai_settings.reasoning_effort,
-                        "summary": "detailed",
-                    }
-                    if genai_settings.reasoning_effort is not None
-                    else None,
-                    store=False,
+                    reasoning=genai_settings.reasoning_config,
+                    store=genai_settings.store,
                 )
             case _:
                 raise ValueError(f"Unsupported GenAI SDK: {genai_settings.sdk}")
