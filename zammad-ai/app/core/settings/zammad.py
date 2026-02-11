@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Literal
 
-from pydantic import BaseModel, Field, HttpUrl, SecretStr
+from pydantic import BaseModel, Field, HttpUrl, NonNegativeInt, SecretStr
 
 ZammadEndpoint = Literal["api", "eai"]
 
@@ -21,10 +21,9 @@ class BaseZammadSettings(BaseModel, ABC):
         default=30,
         ge=5,
     )
-    max_retries: int = Field(
+    max_retries: NonNegativeInt = Field(
         description="Maximum number of retries for HTTP requests to Zammad in case of failures.",
         default=3,
-        ge=0,
     )
 
 

@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt
 
 
 class GenAISettings(BaseModel):
@@ -25,16 +25,14 @@ class GenAISettings(BaseModel):
         description="Reasoning effort for supporting models",
         default=None,
     )
-    temperature: float = Field(
+    temperature: NonNegativeFloat = Field(
         description="Temperature for LLM responses (0.0 to 2.0)",
         default=0.0,
-        ge=0.0,
         le=2.0,
     )
-    max_retries: int = Field(
+    max_retries: NonNegativeInt = Field(
         description="Maximum retry attempts",
         default=3,
-        ge=0,
     )
 
     @property
