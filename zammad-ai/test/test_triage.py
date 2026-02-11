@@ -51,6 +51,45 @@ class FakeGenAIHandler:
         self.days_since_request_response: DaysSinceRequestResponse | None = None
         self.processing_id_response: ProcessingIdResponse | None = None
 
+    async def invoke(
+        self,
+        prompt_key: str,
+        input: dict,
+        session_id: str | None = None,
+        schema: type | None = None,
+    ) -> CategorizationResult | DaysSinceRequestResponse | ProcessingIdResponse | dict:
+        """
+        Invoke the fake GenAI handler, returning preset or default responses based on the prompt key and schema.
+
+        Parameters:
+            prompt_key (str): The prompt key (e.g., "categories", "days_since_request", "processing_id").
+            input (dict): Input payload for the prompt.
+            session_id (str | None): Optional session identifier for tracing.
+            schema (type | None): Optional Pydantic schema for structured output.
+
+        Returns:
+            CategorizationResult | DaysSinceRequestResponse | ProcessingIdResponse | dict: The configured response
+            or a default response based on the schema type.
+        """
+        if schema == CategorizationResult:
+            if self.categorization_result is None:
+                return CategorizationResult(
+                    category=None,
+                    reasoning="no result",
+                    confidence=0.0,
+                )
+            return self.categorization_result
+        elif schema == DaysSinceRequestResponse:
+            if self.days_since_request_response is None:
+                return DaysSinceRequestResponse(days_since_request=0, reason="default")
+            return self.days_since_request_response
+        elif schema == ProcessingIdResponse:
+            if self.processing_id_response is None:
+                return ProcessingIdResponse(processing_id="", condition_met=False)
+            return self.processing_id_response
+        else:
+            return {}
+
     async def predict_category(self, input: dict, session_id: str | None = None) -> CategorizationResult:
         """
         Return a preset categorization result or a default "no result" CategorizationResult.
@@ -63,13 +102,12 @@ class FakeGenAIHandler:
             CategorizationResult: The configured `categorization_result` if present; otherwise a result with
             `category=None`, `reasoning="no result"`, and `confidence=0.0`.
         """
-        if self.categorization_result is None:
-            return CategorizationResult(
-                category=None,
-                reasoning="no result",
-                confidence=0.0,
-            )
-        return self.categorization_result
+        return await self.invoke(
+            prompt_key="categories",
+            input=input,
+            session_id=session_id,
+            schema=CategorizationResult,
+        )
 
     async def extract_days_since_request(self, input: dict, session_id: str | None = None) -> DaysSinceRequestResponse:
         """
@@ -82,9 +120,12 @@ class FakeGenAIHandler:
         Returns:
             DaysSinceRequestResponse: The configured or default days-since-request response.
         """
-        if self.days_since_request_response is None:
-            return DaysSinceRequestResponse(days_since_request=0, reason="default")
-        return self.days_since_request_response
+        return await self.invoke(
+            prompt_key="days_since_request",
+            input=input,
+            session_id=session_id,
+            schema=DaysSinceRequestResponse,
+        )
 
     async def extract_processing_id(self, input: dict, session_id: str | None = None) -> ProcessingIdResponse:
         """
@@ -97,9 +138,12 @@ class FakeGenAIHandler:
         Returns:
             ProcessingIdResponse: Contains `processing_id` (empty string when none) and `condition_met` (`True` if the condition was met, `False` otherwise).
         """
-        if self.processing_id_response is None:
-            return ProcessingIdResponse(processing_id="", condition_met=False)
-        return self.processing_id_response
+        return await self.invoke(
+            prompt_key="processing_id",
+            input=input,
+            session_id=session_id,
+            schema=ProcessingIdResponse,
+        )
 
 
 class FakeZammadClient:
@@ -385,7 +429,7 @@ async def test_predict_category_handles_genai_exception(patched_triage: Triage) 
     async def _boom(*_args, **_kwargs):
         raise RuntimeError("LLM exploded")
 
-    patched_triage.genai_handler.predict_category = _boom  # type: ignore
+    patched_triage.genai_handler.invoke = _boom  # type: ignore
     with pytest.raises(TriageError) as excinfo:
         await patched_triage.predict_category(message="trigger error", session_id="session-id")
     assert "unexpected error" in str(excinfo.value)
