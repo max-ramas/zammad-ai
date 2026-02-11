@@ -24,7 +24,7 @@ triage_router = APIRouter(
 )
 
 
-@triage_router.post("/")
+@triage_router.post(path="")
 async def triage(
     input: TriageInput,
     triage: Triage = Depends(get_triage),

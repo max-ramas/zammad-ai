@@ -10,7 +10,7 @@ from .kafka import KafkaSettings
 from .qdrant import QdrantSettings
 from .triage import TriageSettings
 from .usecase import UseCaseSettings
-from .zammad import BaseZammadSettings
+from .zammad import ZammadAPISettings, ZammadEAISettings
 
 
 class ZammadAISettings(BaseSettings):
@@ -31,8 +31,9 @@ class ZammadAISettings(BaseSettings):
         default_factory=lambda: GenAISettings(),
     )
 
-    zammad: BaseZammadSettings = Field(
+    zammad: ZammadAPISettings | ZammadEAISettings = Field(
         description="Settings for Zammad integration, including API details and knowledge base configuration.",
+        discriminator="type",
     )
 
     qdrant: QdrantSettings = Field(

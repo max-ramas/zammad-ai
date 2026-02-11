@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Literal
 
-from pydantic import BaseModel, Field, HttpUrl, SecretStr
+from pydantic import BaseModel, Field, HttpUrl, NonNegativeInt, SecretStr
 
 ZammadEndpoint = Literal["api", "eai"]
 
@@ -11,9 +11,6 @@ class BaseZammadSettings(BaseModel, ABC):
     Base settings for Zammad integration, including common configuration options for both API and EAI integrations.
     """
 
-    type: ZammadEndpoint = Field(
-        description="The type of Zammad integration to use. Can be either 'api' for Zammad API integration or 'eai' for Zammad EAI integration.",
-    )
     knowledge_base_id: str | None = Field(
         description="The ID of the knowledge base to use for retrieving documents. If set to None, the knowledge base functionality will be disabled.",
         examples=["1"],
@@ -24,10 +21,9 @@ class BaseZammadSettings(BaseModel, ABC):
         default=30,
         ge=5,
     )
-    max_retries: int = Field(
+    max_retries: NonNegativeInt = Field(
         description="Maximum number of retries for HTTP requests to Zammad in case of failures.",
         default=3,
-        ge=0,
     )
 
 

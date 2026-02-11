@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from logging import Logger
-from typing import Callable
 
 from faststream import AckPolicy
 from faststream.exceptions import AckMessage, NackMessage
@@ -27,16 +27,6 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
 
     Returns:
         tuple[KafkaRouter, Callable]: The configured KafkaRouter and its event handler callable.
-    """
-    """
-    Process a single incoming Kafka event for ticket triage and acknowledge the message.
-    
-    Parameters:
-        event (Event): The incoming Kafka event to process.
-    
-    Raises:
-        AckMessage: Acknowledges the message after processing or when the event is skipped.
-        NackMessage: Signals the broker to retry the message when processing should be retried.
     """
     logger.info("Building Kafka router")
 

@@ -1,22 +1,17 @@
-"""GenAI handler for triage operations.
+"""GenAI handler for language model operations.
 
-This module contains all LangChain/GenAI logic for the triage process.
-All chains are constructed during initialization for efficient invocation.
+This module contains all LangChain/GenAI logic for invoking language models.
+Chains are constructed on-demand based on prompt keys and optional response schemas.
 """
 
 from logging import Logger
-from typing import Any, TypeVar
+from typing import Any, TypeVar, overload
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig, RunnableSequence
 from langfuse import observe
 
 from app.core.settings.genai import GenAISettings
-from app.models.triage import (
-    CategorizationResult,
-    DaysSinceRequestResponse,
-    ProcessingIdResponse,
-)
 from app.observe.observer import LangfuseClient
 from app.utils.logging import getLogger
 
@@ -30,31 +25,30 @@ class GenAIError(Exception):
 
 
 class GenAIHandler:
-    """Handles all GenAI/LangChain operations for triage.
+    """Handles all GenAI/LangChain operations for language model invocation.
 
-    Constructs all chains during initialization and provides clean async methods
-    for invoking them with observability support.
+    Dynamically builds chains based on provided prompts and response schemas.
+    Provides async methods for invoking chains with observability support.
     """
 
     def __init__(self, genai_settings: GenAISettings, prompts: dict[str, str]) -> None:
         """
-        Initialize the GenAIHandler, configure the chat model, and pre-build runnable chains for triage operations.
+        Initialize the GenAIHandler and configure the chat model.
 
         Parameters:
-            genai_settings (GenAISettings): GenAI configuration including `sdk`, model name, temperature, max_retries, and optional `reasoning_effort`.
-            prompts (dict[str, str]): Mapping of prompt templates required by the handler. Expected keys:
-                - "role"
-                - "categories"
-                - "examples"
-                - "days_since_request"
-                - "processing_id"
+            genai_settings (GenAISettings): GenAI configuration including `sdk`, model name, temperature, max_retries.
+            prompts (dict[str, str]): Mapping of prompt keys to their template strings. All values must be non-empty strings.
 
         Raises:
-            ValueError: If an unsupported GenAI SDK is specified.
+            ValueError: If an unsupported GenAI SDK is specified or if prompts is empty/contains empty values.
         """
         self.prompts = prompts
+        self._chains: dict[str, RunnableSequence[Any, Any]] = {}  # Cache for built chains
         # TODO: Refactor langfuse client as optional argument, if not passed there is no tracing and no handler is passed to the chains
         self.langfuse_client = LangfuseClient()
+
+        # Validate that prompts are properly configured
+        self._validate_prompts()
 
         # Initialize LLM based on configured SDK
         match genai_settings.sdk:
@@ -65,151 +59,126 @@ class GenAIHandler:
                     model_name=genai_settings.chat_model,
                     temperature=genai_settings.temperature,
                     max_retries=genai_settings.max_retries,
-                    reasoning={
-                        "effort": genai_settings.reasoning_effort,
-                        "summary": "detailed",
-                    }
-                    if genai_settings.reasoning_effort is not None
-                    else None,
-                    store=False,
+                    reasoning=genai_settings.reasoning_config,
+                    store=genai_settings.store,
                 )
             case _:
                 raise ValueError(f"Unsupported GenAI SDK: {genai_settings.sdk}")
 
-        # Pre-construct chains for each operation
-        self._build_chains()
-
         logger.info("GenAI handler initialized successfully")
 
-    def _build_chains(self) -> None:
+    def _validate_prompts(self) -> None:
         """
-        Construct reusable LangChain runnable sequences for triage operations.
+        Validate that prompts dictionary is properly configured.
 
-        Builds and assigns three instance-level chains:
-        - category_chain: categorization prompt using prompts["categories"] that produces a CategorizationResult.
-        - days_since_request_chain: extraction prompt using prompts["days_since_request"] that produces a DaysSinceRequestResponse.
-        - processing_id_chain: extraction prompt using prompts["processing_id"] that produces a ProcessingIdResponse.
+        Ensures that:
+        - The prompts dictionary is not empty
+        - All prompt values are non-empty strings
+
+        Raises:
+            ValueError: If prompts is empty or contains empty values.
         """
-        # Category prediction chain
-        self.category_chain = RunnableSequence(
-            ChatPromptTemplate(
+        if not self.prompts:
+            error_msg = "Prompts dictionary cannot be empty."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        empty_keys = [key for key, value in self.prompts.items() if not value]
+        if empty_keys:
+            error_msg = f"Empty prompt values for keys: {', '.join(empty_keys)}. All prompts must be non-empty strings."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+    def _build_or_get_chain(self, prompt_key: str, schema: type[T] | None = None) -> RunnableSequence[Any, T | dict[str, Any]]:
+        """
+        Build or retrieve a cached chain for the given prompt key and optional schema.
+
+        Chains are cached with a key combining the prompt_key and schema (if provided) to support
+        the same prompt being used with different output schemas.
+
+        Parameters:
+            prompt_key (str): The key in self.prompts identifying which prompt to use.
+            schema (type[T] | None): Optional Pydantic schema for structured output.
+
+        Returns:
+            RunnableSequence: A chain ready to invoke with input data.
+        """
+        cache_key = f"{prompt_key}_{schema.__name__ if schema else 'raw'}"
+
+        if cache_key not in self._chains:
+            prompt_template = ChatPromptTemplate(
                 messages=[
-                    ("system", self.prompts.get("categories", "")),
+                    ("system", self.prompts[prompt_key]),
                     ("user", "{text}"),
                 ]
-            ),
-            self.chat_model.with_structured_output(schema=CategorizationResult, strict=True),
-        )
+            )
 
-        # Days since request extraction chain
-        self.days_since_request_chain = RunnableSequence(
-            ChatPromptTemplate(
-                messages=[
-                    ("system", self.prompts.get("days_since_request", "")),
-                    ("user", "{text}"),
-                ]
-            ),
-            self.chat_model.with_structured_output(schema=DaysSinceRequestResponse, strict=True),
-        )
+            if schema is not None:
+                chain = RunnableSequence(
+                    prompt_template,
+                    self.chat_model.with_structured_output(schema=schema, strict=True),
+                )
+            else:
+                chain = RunnableSequence(prompt_template, self.chat_model)
 
-        # Processing ID extraction chain
-        self.processing_id_chain = RunnableSequence(
-            ChatPromptTemplate(
-                messages=[
-                    ("system", self.prompts.get("processing_id", "")),
-                    ("user", "{text}"),
-                ]
-            ),
-            self.chat_model.with_structured_output(schema=ProcessingIdResponse, strict=True),
-        )
+            self._chains[cache_key] = chain
 
-    @observe(name="Zammad-AI Triage Predict Category", as_type="span")
-    async def predict_category(
+        return self._chains[cache_key]
+
+    @overload
+    async def invoke(
         self,
+        prompt_key: str,
         input: dict,
+        *,
         session_id: str | None = None,
-    ) -> CategorizationResult:
+        schema: type[T],
+    ) -> T: ...
+
+    @overload
+    async def invoke(
+        self,
+        prompt_key: str,
+        input: dict,
+        *,
+        session_id: str | None = None,
+        schema: None = None,
+    ) -> dict[str, Any]: ...
+
+    @observe(as_type="span")
+    async def invoke(
+        self,
+        prompt_key: str,
+        input: dict,
+        *,
+        session_id: str | None = None,
+        schema: type[T] | None = None,
+    ) -> T | dict[str, Any]:
         """
-        Predicts the category for the provided message and returns classification details.
+        Invoke the language model using a specified prompt and optional output schema.
+
+        Chains are cached based on prompt_key and schema, so repeated invocations with the same
+        prompt_key/schema combination reuse the built chain without rebuilding.
 
         Parameters:
-            input (dict): Payload containing at least the "text" key with the message to categorize; may include additional context.
-            session_id (str | None): Optional Langfuse session ID used for tracing.
+            prompt_key (str): The key in self.prompts identifying which prompt to use.
+            input (dict): Input variables for the prompt template (must include "text" key).
+            session_id (str | None): Optional Langfuse session ID for tracing. Generated if not provided.
+            schema (type[T] | None): Optional Pydantic schema for structured output. If provided, model output
+                will be parsed into this schema. If None, raw model output is returned.
 
         Returns:
-            CategorizationResult: Predicted category, explanatory reasoning, and confidence score.
+            T | dict[str, Any]: Either a structured object matching the schema (if provided) or raw dict output.
+
+        Raises:
+            GenAIError: If the language model invocation fails.
+            KeyError: If the prompt_key doesn't exist in prompts.
         """
-        return await self._invoke_chain(
-            chain=self.category_chain,
-            input=input,
-            session_id=session_id,
-        )
+        if prompt_key not in self.prompts:
+            error_msg = f"Prompt key '{prompt_key}' not found in prompts dictionary."
+            logger.error(error_msg)
+            raise KeyError(error_msg)
 
-    @observe(name="Zammad-AI Triage Days Since Request", as_type="span")
-    async def extract_days_since_request(
-        self,
-        input: dict,
-        session_id: str | None = None,
-    ) -> DaysSinceRequestResponse:
-        """
-        Extract the number of days since a request from the provided input.
-
-        Parameters:
-            input (dict): Dictionary with keys:
-                - "text": Message text to extract the date/reference from.
-                - "today": Current date as a string in YYYY-MM-DD format.
-            session_id (str | None): Optional Langfuse session ID used for tracing.
-
-        Returns:
-            DaysSinceRequestResponse: Response containing the extracted days value.
-        """
-        return await self._invoke_chain(
-            chain=self.days_since_request_chain,
-            input=input,
-            session_id=session_id,
-        )
-
-    @observe(name="Zammad-AI Triage Processing ID", as_type="span")
-    async def extract_processing_id(
-        self,
-        input: dict,
-        session_id: str | None = None,
-    ) -> ProcessingIdResponse:
-        """
-        Extract the processing ID from the provided input message.
-
-        Parameters:
-            input (dict): Input payload containing:
-                - "text": Message text to extract the ID from.
-                - "condition": Condition string used to match or validate the ID.
-            session_id (str | None): Optional Langfuse session ID used for tracing.
-
-        Returns:
-            ProcessingIdResponse: Response object containing the extracted processing ID.
-        """
-        return await self._invoke_chain(
-            chain=self.processing_id_chain,
-            input=input,
-            session_id=session_id,
-        )
-
-    async def _invoke_chain(
-        self,
-        chain: RunnableSequence[Any, T],
-        input: dict,
-        session_id: str | None = None,
-    ) -> T:
-        """
-        Invoke a pre-built RunnableSequence and associate the call with a Langfuse session trace.
-
-        Parameters:
-            chain (RunnableSequence[Any, T]): The pre-built chain to execute.
-            input (dict): Input payload passed to the chain.
-            session_id (str | None): Optional Langfuse session ID to use for tracing; a new session ID is generated if omitted.
-
-        Returns:
-            T: The chain's output.
-        """
         if session_id is None:
             session_id = self.langfuse_client.generate_session_id()
 
@@ -217,8 +186,9 @@ class GenAIHandler:
         config: RunnableConfig = self.langfuse_client.build_config(session_id=session_id)
 
         try:
-            response: T = await chain.ainvoke(input=input, config=config)
+            chain = self._build_or_get_chain(prompt_key=prompt_key, schema=schema)
+            response: T | dict[str, Any] = await chain.ainvoke(input=input, config=config)
             return response
         except Exception as e:
-            logger.error("Error during GenAI chain invocation", exc_info=True)
+            logger.error("Error during GenAI invocation", exc_info=True)
             raise GenAIError("GenAI operation failed") from e

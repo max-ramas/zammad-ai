@@ -19,7 +19,7 @@ class AnswerInput(BaseModel):
     category: str | None = None
 
 
-class HealthCheckReponse(BaseModel):
+class HealthCheckResponse(BaseModel):
     status: str = Field(
         description="Health status of the API. Expected value is 'healthy' when the API is operational.",
         default="healthy",

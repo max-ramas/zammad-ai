@@ -36,10 +36,10 @@ async def process_item(key: str, value: dict) -> tuple[str, str, str, str]:
             If an error occurs during the request, `predicted_category` is "Fehler" and `predicted_action` is an empty string.
     """
     expected_category = value["category"]
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
         # Schritt 1: Triage-Endpunkt aufrufen
         try:
-            triage_response = await client.post(f"{API_BASE_URL}/api/triage", json={"text": value["text"]})
+            triage_response = await client.post(f"{API_BASE_URL}/api/v1/triage", json={"text": value["text"]})
             triage_response.raise_for_status()
             result = triage_response.json()
         except Exception:
