@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 class FrontendSettings(BaseModel):
     """
-    Settings for the optional frontend."
+    Settings for the optional frontend.
     """
 
     enabled: bool = Field(
