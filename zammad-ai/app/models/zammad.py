@@ -19,6 +19,34 @@ class KnowledgeBaseAnswer(BaseModel):
         default_factory=dict,
     )
 
+    @field_validator("content", mode="after")
+    @classmethod
+    def strip_html(cls, text: str) -> str:
+        """
+        Normalize article text by removing HTML tags, unescaping HTML entities, and collapsing whitespace.
+
+        Parameters:
+            text: Input string that may contain HTML.
+
+        Returns:
+            The input string with HTML tags removed, HTML entities unescaped, and runs of whitespace collapsed to single spaces and trimmed.
+        """
+        # Remove HTML tags
+        clean_text: str = re.sub(
+            pattern=r"<[^>]+>",
+            repl="",
+            string=text,
+        )
+        # Unescape HTML entities
+        clean_text = html.unescape(clean_text)
+        # Normalize whitespace
+        clean_text = re.sub(
+            pattern=r"\s+",
+            repl=" ",
+            string=clean_text,
+        ).strip()
+        return clean_text
+
 
 class ZammadTicket(BaseModel):
     id: str = Field(

@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, CliSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict, YamlConfigSettingsSource
 
+from .answer import AnswerSettings
 from .frontend import FrontendSettings
 from .genai import GenAISettings
 from .kafka import KafkaSettings
@@ -52,6 +53,11 @@ class ZammadAISettings(BaseSettings):
     frontend: FrontendSettings = Field(
         description="Settings for optional frontend.",
         default_factory=lambda: FrontendSettings(),
+    )
+
+    answer: AnswerSettings = Field(
+        description="Settings for answer generation step, including prompts and configuration.",
+        default_factory=lambda: AnswerSettings(),
     )
 
     valid_request_types: list[str] = Field(
