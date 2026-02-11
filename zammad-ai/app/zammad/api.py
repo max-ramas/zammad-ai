@@ -1,6 +1,7 @@
 from logging import Logger
 from typing import override
 
+import feedparser
 from httpx import AsyncClient, ConnectError, HTTPStatusError, ReadTimeout, Response, TimeoutException
 from pydantic import SecretStr, TypeAdapter
 from stamina import retry_context
@@ -177,6 +178,148 @@ class ZammadAPIClient(BaseZammadClient):
         except (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) as e:
             logger.error(f"Failed to add tag '{tag}' to ticket {ticket_id} after {self.http_attempts} attempts.", exc_info=True)
             raise ZammadConnectionError(f"Failed to add tag '{tag}' to ticket {ticket_id} after {self.http_attempts} attempts.") from e
+
+    async def parse_rss_feed(self) -> feedparser.FeedParserDict | None:
+        """
+        Parse RSS feed from the knowledge base.
+
+        Returns:
+            feedparser.FeedParserDict: Parsed feed object or None if parsing fails.
+
+        Raises:
+            ZammadConnectionError: If RSS feed fetch fails after retries.
+        """
+        if not self.knowledge_base_id or not self.rss_feed_token:
+            logger.error("Knowledge base ID or RSS feed token not configured")
+            return None
+
+        feed_url = f"/api/v1/knowledge_bases/{self.knowledge_base_id}/de-de/feed?token={self.rss_feed_token.get_secret_value()}"
+
+        try:
+            for attempt in retry_context(
+                on=(HTTPStatusError, ConnectError, TimeoutException, ReadTimeout),
+                attempts=self.http_attempts,
+            ):
+                with attempt:
+                    response: Response = await self.client.get(feed_url)
+                    response.raise_for_status()
+                    # Parse RSS feed content using feedparser
+                    feed = feedparser.parse(response.text)
+                    if getattr(feed, "bozo", False):
+                        logger.warning("Feed may have issues: %s", getattr(feed, "bozo_exception", "unknown"))
+                    return feed
+        except (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) as e:
+            logger.error("Failed to fetch RSS feed after %s attempts.", self.http_attempts, exc_info=True)
+            raise ZammadConnectionError(f"Failed to fetch RSS feed after {self.http_attempts} attempts.") from e
+
+    async def get_kb_answer_by_id(self, answer_id: str) -> dict | None:
+        """
+        Fetch a knowledge base answer by its ID.
+
+        Parameters:
+            answer_id (str): The ID of the answer to fetch.
+
+        Returns:
+            dict: Knowledge base answer data or None if not found.
+
+        Raises:
+            ZammadConnectionError: If the request fails after retries.
+        """
+        if not self.knowledge_base_id:
+            logger.error("Knowledge base ID not configured")
+            return None
+
+        url = f"/api/v1/knowledge_bases/{self.knowledge_base_id}/answers/{answer_id}?include_contents={answer_id}"
+
+        try:
+            for attempt in retry_context(
+                on=(HTTPStatusError, ConnectError, TimeoutException, ReadTimeout),
+                attempts=self.http_attempts,
+            ):
+                with attempt:
+                    response: Response = await self.client.get(url)
+                    response.raise_for_status()
+                    logger.info(f"Successfully fetched KB answer {answer_id}.")
+                    return response.json()
+        except HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning(f"KB answer {answer_id} not found (404).")
+                return None
+            logger.error(f"KB answer fetch failed ({e.response.status_code}) for {answer_id}.", exc_info=True)
+            raise ZammadConnectionError(f"Failed to fetch KB answer {answer_id} after {self.http_attempts} attempts.") from e
+        except (ConnectError, TimeoutException, ReadTimeout) as e:
+            logger.error(f"Failed to fetch KB answer {answer_id} after {self.http_attempts} attempts.", exc_info=True)
+            raise ZammadConnectionError(f"Failed to fetch KB answer {answer_id} after {self.http_attempts} attempts.") from e
+
+    async def fetch_attachment_data(self, url: str) -> str | None:
+        """
+        Fetch an attachment and return its content as text or base64.
+
+        Parameters:
+            url (str): Relative URL of the attachment.
+
+        Returns:
+            str: Decoded text for text/* or JSON; base64 string for binary content.
+            None: On error or if url is falsy.
+
+        Raises:
+            ZammadConnectionError: If attachment fetch fails after retries.
+        """
+        if not url:
+            logger.warning("No URL provided for attachment fetch")
+            return None
+
+        try:
+            for attempt in retry_context(
+                on=(HTTPStatusError, ConnectError, TimeoutException, ReadTimeout),
+                attempts=self.http_attempts,
+            ):
+                with attempt:
+                    response: Response = await self.client.get(url)
+                    response.raise_for_status()
+                    # Decode response content
+                    content_type = (response.headers.get("Content-Type") or "").lower()
+                    if content_type.startswith("application/json") or content_type.startswith("text/"):
+                        return response.text
+                    else:
+                        import base64
+
+                        return base64.b64encode(response.content).decode("ascii")
+        except (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) as e:
+            logger.error(f"Failed to fetch attachment from {url} after {self.http_attempts} attempts.", exc_info=True)
+            raise ZammadConnectionError(f"Failed to fetch attachment from {url} after {self.http_attempts} attempts.") from e
+
+    async def check_if_answer_exists(self, answer_id: str) -> bool:
+        """
+        Check if a knowledge base answer still exists.
+
+        Parameters:
+            answer_id (str): The ID of the answer to check.
+
+        Returns:
+            bool: True if answer exists, False if deleted/not found.
+
+        Raises:
+            ZammadConnectionError: If the request fails for reasons other than 404.
+        """
+        if not self.knowledge_base_id:
+            logger.error("Knowledge base ID not configured")
+            return False
+
+        url = f"/api/v1/knowledge_bases/{self.knowledge_base_id}/answers/{answer_id}?include_contents={answer_id}"
+
+        try:
+            response: Response = await self.client.get(url)
+            response.raise_for_status()
+            return True
+        except HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return False
+            logger.error(f"Error checking KB answer {answer_id}.", exc_info=True)
+            raise ZammadConnectionError(f"Failed to check KB answer {answer_id}.") from e
+        except (ConnectError, TimeoutException, ReadTimeout) as e:
+            logger.error(f"Error checking KB answer {answer_id}.", exc_info=True)
+            raise ZammadConnectionError(f"Failed to check KB answer {answer_id}.") from e
 
     @override
     async def cleanup(self) -> None:

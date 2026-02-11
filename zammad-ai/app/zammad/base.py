@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+import feedparser
+
 from app.models.zammad import ZammadTicket
 
 
@@ -73,6 +75,56 @@ class BaseZammadClient(ABC):
     async def cleanup(self) -> None:
         """
         Perform cleanup of client resources (e.g., closing connections).
+        """
+        ...
+
+    @abstractmethod
+    async def parse_rss_feed(self) -> feedparser.FeedParserDict | None:
+        """
+        Parse RSS feed from the knowledge base.
+
+        Returns:
+            feedparser.FeedParserDict: Parsed feed object or None if parsing fails.
+        """
+        ...
+
+    @abstractmethod
+    async def get_kb_answer_by_id(self, answer_id: str) -> dict | None:
+        """
+        Fetch a knowledge base answer by its ID.
+
+        Parameters:
+            answer_id (str): The ID of the answer to fetch.
+
+        Returns:
+            dict: Knowledge base answer data or None if not found.
+        """
+        ...
+
+    @abstractmethod
+    async def fetch_attachment_data(self, url: str) -> str | None:
+        """
+        Fetch an attachment and return its content as text or base64.
+
+        Parameters:
+            url (str): Relative URL of the attachment.
+
+        Returns:
+            str: Decoded text for text/* or JSON; base64 string for binary content.
+            None: On error or if url is falsy.
+        """
+        ...
+
+    @abstractmethod
+    async def check_if_answer_exists(self, answer_id: str) -> bool:
+        """
+        Check if a knowledge base answer still exists.
+
+        Parameters:
+            answer_id (str): The ID of the answer to check.
+
+        Returns:
+            bool: True if answer exists, False if deleted/not found.
         """
         ...
 

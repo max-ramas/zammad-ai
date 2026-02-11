@@ -159,6 +159,57 @@ class FakeZammadClient:
         """
         raise AssertionError("add_tag_to_ticket should not be called in these tests")
 
+    async def cleanup(self) -> None:
+        """
+        Test stub for cleanup method that doesn't need to do anything in tests.
+        """
+        pass
+
+    async def parse_rss_feed(self) -> dict | None:
+        """
+        Prevent RSS feed parsing during tests by failing if invoked.
+
+        Raises:
+            AssertionError: Always raised to indicate this method must not be called in tests.
+        """
+        raise AssertionError("parse_rss_feed should not be called in these tests")
+
+    async def get_kb_answer_by_id(self, answer_id: str) -> dict | None:
+        """
+        Prevent knowledge base answer fetching during tests by failing if invoked.
+
+        Parameters:
+            answer_id (str): ID of the knowledge base answer that would be fetched.
+
+        Raises:
+            AssertionError: Always raised to indicate this method must not be called in tests.
+        """
+        raise AssertionError("get_kb_answer_by_id should not be called in these tests")
+
+    async def fetch_attachment_data(self, url: str) -> str | None:
+        """
+        Prevent attachment fetching during tests by failing if invoked.
+
+        Parameters:
+            url (str): URL of the attachment that would be fetched.
+
+        Raises:
+            AssertionError: Always raised to indicate this method must not be called in tests.
+        """
+        raise AssertionError("fetch_attachment_data should not be called in these tests")
+
+    async def check_if_answer_exists(self, answer_id: str) -> bool:
+        """
+        Prevent knowledge base answer existence checking during tests by failing if invoked.
+
+        Parameters:
+            answer_id (str): ID of the knowledge base answer that would be checked.
+
+        Raises:
+            AssertionError: Always raised to indicate this method must not be called in tests.
+        """
+        raise AssertionError("check_if_answer_exists should not be called in these tests")
+
 
 def create_mock_settings(action_rules: list[ActionRule] | None = None) -> ZammadAISettings:
     """
