@@ -55,6 +55,7 @@ class FakeGenAIHandler:
         self,
         prompt_key: str,
         input: dict,
+        *,
         session_id: str | None = None,
         schema: type | None = None,
     ) -> CategorizationResult | DaysSinceRequestResponse | ProcessingIdResponse | dict:
@@ -89,61 +90,6 @@ class FakeGenAIHandler:
             return self.processing_id_response
         else:
             return {}
-
-    async def predict_category(self, input: dict, session_id: str | None = None) -> CategorizationResult:
-        """
-        Return a preset categorization result or a default "no result" CategorizationResult.
-
-        Parameters:
-            input (dict): The input payload to be categorized.
-            session_id (str | None): Optional session identifier for tracing.
-
-        Returns:
-            CategorizationResult: The configured `categorization_result` if present; otherwise a result with
-            `category=None`, `reasoning="no result"`, and `confidence=0.0`.
-        """
-        return await self.invoke(
-            prompt_key="categories",
-            input=input,
-            session_id=session_id,
-            schema=CategorizationResult,
-        )
-
-    async def extract_days_since_request(self, input: dict, session_id: str | None = None) -> DaysSinceRequestResponse:
-        """
-        Return the preset days-since-request response if available; otherwise return a default response with days_since_request set to 0 and reason "default".
-
-        Parameters:
-            input (dict): Input payload to extract days-since-request from.
-            session_id (str | None): Optional session identifier (may be unused by this fake handler).
-
-        Returns:
-            DaysSinceRequestResponse: The configured or default days-since-request response.
-        """
-        return await self.invoke(
-            prompt_key="days_since_request",
-            input=input,
-            session_id=session_id,
-            schema=DaysSinceRequestResponse,
-        )
-
-    async def extract_processing_id(self, input: dict, session_id: str | None = None) -> ProcessingIdResponse:
-        """
-        Extracts a processing identifier and whether its associated condition was met from the provided input.
-
-        Parameters:
-            input (dict): The parsed input data used to derive the processing identifier.
-            session_id (str | None): Optional session identifier for tracing; not required for extraction.
-
-        Returns:
-            ProcessingIdResponse: Contains `processing_id` (empty string when none) and `condition_met` (`True` if the condition was met, `False` otherwise).
-        """
-        return await self.invoke(
-            prompt_key="processing_id",
-            input=input,
-            session_id=session_id,
-            schema=ProcessingIdResponse,
-        )
 
 
 class FakeZammadClient:
