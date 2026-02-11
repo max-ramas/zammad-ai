@@ -16,6 +16,7 @@ The Qdrant integration is configured via `app.core.settings.qdrant.QdrantSetting
 ## Data Models
 
 The `QdrantVectorMetadata` model in `zammad-ai/app/models/qdrant.py` defines the structure of the metadata stored alongside vectors:
+
 - `id`: Unique identifier (e.g., Zammad article ID).
 - `title`: Title of the source content.
 - `content`: The raw text content.
