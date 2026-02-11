@@ -1,83 +1,84 @@
+import unittest.mock
+from typing import Generator
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from fastapi.exceptions import RequestValidationError
 from faststream.kafka import TestKafkaBroker
 
-from app.core.core_settings import (
-    CoreSettings,
-    LangfuseSettings,
-    OpenAISettings,
-    QdrantSettings,
-    Usecase,
-    ZammadSettings,
+from app.core.settings import ZammadAISettings
+from app.core.settings.kafka import KafkaSettings
+from app.core.settings.qdrant import QdrantSettings
+from app.core.settings.triage import (
+    Action,
+    Category,
+    StringTriagePrompts,
+    TriageSettings,
 )
-from app.core.settings import KafkaSettings, Settings
-from app.core.triage_settings import Action, ActionRule, Category, LangfusePromptConfig, TriageSettings
+from app.core.settings.zammad import ZammadAPISettings
 from app.kafka.broker import build_router
+from app.models.triage import TriageResult
 
-mock_settings = Settings(
-    valid_request_types=["technischer Bürgersupport"],
-    core=CoreSettings(
-        usecase=Usecase(name="Test Usecase", description="Test usecase for unit testing"),
-        openai=OpenAISettings(
-            api_key="test-api-key",
-            url="https://api.openai.com/v1",
-            completions_model="gpt-4o-mini",
-            embeddings_model="text-embedding-3-large",
-            reasoning_effort="medium",
-            temperature=0.7,
-            max_retries=3,
-        ),
-        langfuse=LangfuseSettings(
-            secret_key="test-secret-key",
-            public_key="test-public-key",
-            base_url="https://cloud.langfuse.com",
-        ),
-        zammad=ZammadSettings(
-            base_url="https://test-zammad.example.com",
-            auth_token="test-auth-token-abcdef",
-            knowledge_base_id="42",
-            rss_feed_token="test-rss-token",
-        ),
-        qdrant=QdrantSettings(
-            host="https://test-qdrant.example.com",
-            api_key="test-qdrant-api-key",
-            collection_name="test-collection",
-            vector_name="test-vector",
-            vector_dimension=1536,
-        ),
-    ),
-    kafka=KafkaSettings(
-        broker_url="localhost:9092",
-        topic="test-ticket-events",
-        group_id="test-consumer-group",
-    ),
-    triage=TriageSettings(
-        categories=[
-            Category(name="Test Category 1", id=1),
-            Category(name="Test Category 2", id=2),
-        ],
-        no_category_id=999,
-        actions=[
-            Action(name="Test Action 1", description="First test action", id=1),
-            Action(name="Test Action 2", description="Second test action", id=2),
-        ],
-        no_action_id=888,
-        action_rules=[
-            ActionRule(category_id=1, action_id=1, conditions=None),
-        ],
-        prompt_config=LangfusePromptConfig(
-            label="test",
-            categories_prompt="test/categories",
-            examples_prompt="test/examples",
-            role_prompt="test/role",
-        ),
-    ),
-)
+
+def create_mock_settings() -> ZammadAISettings:
+    """
+    Builds a complete ZammadAISettings object populated with realistic test values for unit tests.
+
+    Temporarily replaces sys.argv to avoid CLI argument parsing during construction.
+
+    Returns:
+        ZammadAISettings: Settings populated with zammad, qdrant, kafka, triage configuration, and valid_request_types suitable for tests.
+    """
+    import sys
+
+    # Temporarily replace sys.argv to prevent CLI parsing
+    original_argv = sys.argv
+    try:
+        sys.argv = ["zammad-ai"]  # Only the program name, no arguments
+        return ZammadAISettings(
+            mode="unittest",
+            zammad=ZammadAPISettings(
+                base_url="https://example.com",  # type: ignore
+                auth_token="test-token",  # type: ignore
+            ),
+            qdrant=QdrantSettings(
+                host="https://qdrant.example.com",  # type: ignore
+                api_key="test-key",  # type: ignore
+                collection_name="test_collection",
+            ),
+            kafka=KafkaSettings(
+                broker_url="localhost:9092",
+                group_id="test-group",
+                topic="test-topic",
+            ),
+            triage=TriageSettings(
+                categories=[Category(name="Test", id=1)],
+                no_category_id=1,
+                actions=[Action(name="Test", description="Test", id=1)],
+                no_action_id=1,
+                action_rules=[],
+                prompts=StringTriagePrompts(),
+            ),
+            valid_request_types=["technischer Bürgersupport"],
+        )
+    finally:
+        sys.argv = original_argv
 
 
 @pytest.fixture
 def valid_message() -> dict:
-    """Standard valid test message."""
+    """
+    Standard valid Kafka event payload used by tests.
+
+    Returns:
+        dict: Payload with keys:
+            - action: event action (e.g., "created")
+            - ticket: ticket identifier (e.g., "3720")
+            - status: ticket status (e.g., "new")
+            - statusId: status identifier (e.g., "1")
+            - anliegenart: request type (e.g., "technischer Bürgersupport")
+            - lhmExtId: external identifier (empty string when absent)
+    """
     return {
         "action": "created",
         "ticket": "3720",
@@ -88,22 +89,61 @@ def valid_message() -> dict:
     }
 
 
+@pytest.fixture
+def mock_triage() -> MagicMock:
+    """
+    Create a MagicMock that simulates a Triage with a preset async `perform_triage` result.
+
+    Returns:
+        MagicMock: A mock Triage object whose `perform_triage` is an AsyncMock returning a
+        TriageResult with a Category(name="Test", id=1), Action(name="Test", description="Test", id=1),
+        reasoning "Test reasoning", and confidence 0.95.
+    """
+    triage = MagicMock()
+    # Make perform_triage return an async mock that returns a TriageResult
+    triage.perform_triage = AsyncMock(
+        return_value=TriageResult(
+            category=Category(name="Test", id=1),
+            action=Action(name="Test", description="Test", id=1),
+            reasoning="Test reasoning",
+            confidence=0.95,
+        )
+    )
+    return triage
+
+
+@pytest.fixture
+def mock_get_triage(mock_triage) -> Generator[MagicMock, None, None]:
+    """
+    Mock the get_triage function to return a mocked triage instance.
+
+    Parameters:
+        mock_triage (MagicMock): A mock triage object.
+
+    Returns:
+        Generator yielding the mocked get_triage function.
+    """
+    with unittest.mock.patch("app.kafka.broker.get_triage", return_value=mock_triage) as mock:
+        yield mock
+
+
 @pytest.mark.asyncio
-async def test_event_handler_valid_message(valid_message: dict) -> None:
+async def test_event_handler_valid_message(valid_message: dict, mock_triage, mock_get_triage) -> None:
     """Test event handler with a valid message."""
-    settings = mock_settings
+    settings = create_mock_settings()
     router, event_handler = build_router(settings=settings)
     async with TestKafkaBroker(router.broker) as test_broker:
         # copy fixture to avoid mutating the shared dict if a test modifies it
         message = dict(valid_message)
         await test_broker.publish(topic=settings.kafka.topic, message=message)
-        event_handler.mock.assert_called_once_with(message)  # type: ignore
+        # Verify the triage was called with the correct ticket ID
+        mock_triage.perform_triage.assert_called_once_with(id="3720")
 
 
 @pytest.mark.asyncio
-async def test_event_handler_with_requestType_alias(valid_message: dict) -> None:
+async def test_event_handler_with_requestType_alias(valid_message: dict, mock_triage, mock_get_triage) -> None:
     """Test event handler accepts requestType as alias for anliegenart."""
-    settings = mock_settings
+    settings = create_mock_settings()
     router, event_handler = build_router(settings=settings)
     async with TestKafkaBroker(router.broker) as test_broker:
         message = dict(valid_message)
@@ -111,13 +151,14 @@ async def test_event_handler_with_requestType_alias(valid_message: dict) -> None
         message.pop("anliegenart", None)
         message["requestType"] = "technischer Bürgersupport"
         await test_broker.publish(topic=settings.kafka.topic, message=message)
-        event_handler.mock.assert_called_once_with(message)  # type: ignore
+        # Verify the triage was called with the correct ticket ID
+        mock_triage.perform_triage.assert_called_once_with(id="3720")
 
 
 @pytest.mark.asyncio
-async def test_event_handler_invalid_request_type(valid_message: dict, caplog) -> None:
+async def test_event_handler_invalid_request_type(valid_message: dict, mock_triage, mock_get_triage, caplog) -> None:
     """Test event handler skips messages with invalid request types."""
-    settings = mock_settings
+    settings = create_mock_settings()
     router, event_handler = build_router(settings=settings)
     async with TestKafkaBroker(router.broker) as test_broker:
         message = dict(valid_message)
@@ -125,12 +166,14 @@ async def test_event_handler_invalid_request_type(valid_message: dict, caplog) -
         with caplog.at_level("INFO"):
             await test_broker.publish(topic=settings.kafka.topic, message=message)
         assert "Skipping" in caplog.text
+        # Verify triage was NOT called for invalid request types
+        mock_triage.perform_triage.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_event_handler_invalid_message_format() -> None:
+async def test_event_handler_invalid_message_format(mock_triage, mock_get_triage) -> None:
     """Test event handler with malformed message that fails Pydantic validation."""
-    settings = mock_settings
+    settings = create_mock_settings()
     router, event_handler = build_router(settings=settings)
     async with TestKafkaBroker(router.broker) as test_broker:
         # Missing required fields
@@ -143,22 +186,23 @@ async def test_event_handler_invalid_message_format() -> None:
 
 
 @pytest.mark.asyncio
-async def test_event_handler_with_multiple_valid_request_types(valid_message: dict) -> None:
+async def test_event_handler_with_multiple_valid_request_types(valid_message: dict, mock_triage, mock_get_triage) -> None:
     """Test event handler with multiple valid request types configured."""
-    settings = mock_settings
+    settings = create_mock_settings()
     settings.valid_request_types = ["technischer Bürgersupport", "general support", "other"]
     router, event_handler = build_router(settings=settings)
     async with TestKafkaBroker(router.broker) as test_broker:
         message = dict(valid_message)
         message["anliegenart"] = "general support"
         await test_broker.publish(topic=settings.kafka.topic, message=message)
-        event_handler.mock.assert_called_once_with(message)  # type: ignore
+        # Verify the triage was called with the correct ticket ID
+        mock_triage.perform_triage.assert_called_once_with(id="3720")
 
 
 @pytest.mark.asyncio
-async def test_event_handler_case_sensitive_request_type(valid_message: dict, caplog) -> None:
+async def test_event_handler_case_sensitive_request_type(valid_message: dict, mock_triage, mock_get_triage, caplog) -> None:
     """Test that request type validation is case sensitive."""
-    settings = mock_settings
+    settings = create_mock_settings()
     settings.valid_request_types = ["technischer Bürgersupport"]  # exact case
     router, event_handler = build_router(settings=settings)
     async with TestKafkaBroker(router.broker) as test_broker:
@@ -167,3 +211,5 @@ async def test_event_handler_case_sensitive_request_type(valid_message: dict, ca
         with caplog.at_level("INFO"):
             await test_broker.publish(topic=settings.kafka.topic, message=message)
         assert "Skipping event" in caplog.text
+        # Verify triage was NOT called for case mismatch
+        mock_triage.perform_triage.assert_not_called()

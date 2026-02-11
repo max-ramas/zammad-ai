@@ -1,14 +1,6 @@
 from pydantic import BaseModel, Field
 
-from app.core.triage_settings import Action, Category
-
-
-class KnowledgeBaseAnswer(BaseModel):
-    id: str = Field(..., description="The ID of the answer")
-    title: str = Field(..., description="The title of the answer")
-    content: str = Field(..., description="The content of the answer")
-    attachments: dict[str, str] = Field(..., description="Dict of attachments associated with the filename")
-    url: str | None = Field(None, description="URL to the answer in the knowledge base")
+from app.core.settings.triage import Action, Category
 
 
 class CategorizationResult(BaseModel):
@@ -32,27 +24,6 @@ class TriageResult(BaseModel):
     action: Action = Field(description="The recommended action")
     reasoning: str = Field(description="Explanation for the categorization")
     confidence: float = Field(description="Confidence score (0.0 to 1.0)")
-
-
-class Attachment(BaseModel):
-    id: str = Field(..., description="ID of the attachment")
-    filename: str = Field(..., description="Filename of the attachment")
-    size: str = Field(..., description="Size of the attachment")
-    preferences: dict = Field(..., description="Preferences of the attachment")
-
-
-class ZammadArticleModel(BaseModel):
-    id: str = Field(..., description="ID of the article")
-    ticket_id: str = Field(..., description="ID of the associated ticket")
-    text: str = Field(..., description="Body of the article")
-    attachments: list[Attachment] = Field(..., description="List of attachments for the article")
-    internal: bool = Field(..., description="Whether the article is internal")
-    author: str = Field(..., description="Author of the article")
-
-
-class ZammadTicketModel(BaseModel):
-    id: str = Field(..., description="Unique identifier for the ticket")
-    articles: list[ZammadArticleModel] = Field(..., description="List of articles associated with the ticket")
 
 
 class DaysSinceRequestResponse(BaseModel):

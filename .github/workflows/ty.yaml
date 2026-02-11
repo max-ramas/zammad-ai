@@ -1,4 +1,4 @@
-name: Run Python tests
+name: Type check with ty
 on:
   push:
     branches: [main]
@@ -6,8 +6,9 @@ on:
 permissions:
   contents: read
 jobs:
-  test:
+  ty:
     runs-on: ubuntu-latest
+    continue-on-error: true
     defaults:
       run:
         working-directory: ./zammad-ai
@@ -33,6 +34,6 @@ jobs:
         run: |
           uv sync --locked --all-extras
 
-      - name: Run tests
+      - name: Run ty check
         run: |
-          uv run pytest
+          uv run ty check --output-format github
