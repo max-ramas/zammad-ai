@@ -25,8 +25,15 @@ services:
     networks:
       - internal
     healthcheck: &healthcheck
-      test: nc -z localhost 9092 || exit -1
-      start_period: 15s
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions",
+          "--bootstrap-server",
+          "localhost:9092",
+          "--version",
+        ]
+      start_period: 10s
       interval: 5s
       timeout: 10s
       retries: 10
