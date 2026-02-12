@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from abc import ABC
-from typing import Annotated, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, FilePath
+from pydantic import BaseModel, Field, FilePath
 
 
 class KafkaSettings(BaseModel):
@@ -27,25 +26,23 @@ class KafkaSettings(BaseModel):
         default=None,
     )
 
-    security: (
-        Annotated[
-            KafkaMTLSEnvSecurity | KafkaMTLSFileSecurity,
-            Field(discriminator="type"),
-        ]
-        | None
-    ) = Field(
-        default=None,
+    security: MTLSKafkaEnvSecurity | MTLSFileKafkaSecurity | DisableKafkaSecurity = Field(
+        default_factory=lambda: DisableKafkaSecurity(),
         description="Security configuration for Kafka connection.",
+        discriminator="type",
     )
 
 
-class KafkaSecurity(BaseModel, ABC):
-    """Base class for Kafka security configurations."""
+class DisableKafkaSecurity(BaseModel):
+    """Explicitly disable Kafka security (e.g., for plaintext connections)."""
 
-    model_config = ConfigDict(extra="forbid")
+    type: Literal["none"] = Field(
+        description="Discriminator for no-security configuration.",
+        default="none",
+    )
 
 
-class KafkaMTLSEnvSecurity(KafkaSecurity):
+class MTLSKafkaEnvSecurity(BaseModel):
     """mTLS configuration for Kafka connection using environment variables only."""
 
     type: Literal["env"] = Field(
@@ -66,7 +63,7 @@ class KafkaMTLSEnvSecurity(KafkaSecurity):
     )
 
 
-class KafkaMTLSFileSecurity(KafkaSecurity):
+class MTLSFileKafkaSecurity(BaseModel):
     """mTLS configuration for Kafka connection using file paths."""
 
     type: Literal["file"] = Field(
