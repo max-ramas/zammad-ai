@@ -19,6 +19,13 @@ Events have the following structure:
 
 The structure is defined in the dbs/ticketing-eventing service and can be found in its [GitHub repository](https://github.com/it-at-m/dbs/blob/main/ticketing-eventing/handler-core/src/main/java/de/muenchen/oss/dbs/ticketing/eventing/handlercore/domain/model/Event.java).
 
+## Event Filtering
+
+The service does not automatically process every event received from Kafka. It uses the `valid_request_types` configuration to filter events based on the `request_type` (or `anliegenart`) field.
+
+- **Config Key**: `valid_request_types` (list of strings)
+- **Logic**: If the `request_type` of an incoming event is not in this list, the event is acknowledged and ignored. This prevents the service from responding to tickets it is not configured to handle.
+
 ## Kafka Configuration & Security
 
 Kafka settings are nested under the `kafka` key in `config.yaml` and support environment variable overrides using the prefix `ZAMMAD_AI_KAFKA__`. Security settings are further nested under `security`.

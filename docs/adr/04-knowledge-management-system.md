@@ -1,6 +1,6 @@
 # ADR 04: Knowledge Management System Selection
 
-| Status   | proposed       |
+| Status   | accepted       |
 | -------- | -------------- |
 | Author   | LB, PI         |
 | Voters   | LB, PI, FR, GO |
