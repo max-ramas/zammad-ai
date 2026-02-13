@@ -73,8 +73,10 @@ qdrant:
 # ============================================================================
 # Kafka Configuration
 # ============================================================================
+# For local development with docker compose, use broker_url: "localhost:29092"
+# For production or direct docker network access, use "kafka:9092"
 kafka:
-  broker_url: "localhost:9092" # Kafka broker URL
+  broker_url: "localhost:29092" # Kafka broker URL (compose stack)
   topic: "ticket-events" # Kafka topic to consume from
   group_id: "zammad-ai" # Consumer group ID
 

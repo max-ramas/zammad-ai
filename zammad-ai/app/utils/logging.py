@@ -2,12 +2,50 @@ import json
 import logging
 import logging.config
 from datetime import datetime, timezone
+from functools import lru_cache
+from typing import Any
 
 from yaml import safe_load
 
 
+@lru_cache(maxsize=1)
+def get_log_config() -> dict[str, Any]:
+    """Generate logging configuration dict based on settings.
+
+    This function is cached to ensure the configuration is only generated once per process.
+
+    Returns:
+        dict[str, Any]: Logging configuration dictionary.
+    """
+    from app.core.settings import get_settings
+
+    settings = get_settings()
+
+    # Read logconf.yaml as template
+    with open("logconf.yaml", "r", encoding="utf-8") as file:
+        log_config = safe_load(file)
+
+    # Determine formatter based on settings
+    # "plain" format uses the "simple" formatter from logconf.yaml
+    formatter = "simple" if settings.log.format == "plain" else "json"
+
+    # Update all handlers to use the configured formatter
+    for handler_config in log_config.get("handlers", {}).values():
+        if "formatter" in handler_config:
+            handler_config["formatter"] = formatter
+
+    # Set log level for zammad-ai logger
+    if "loggers" in log_config and "zammad-ai" in log_config["loggers"]:
+        log_config["loggers"]["zammad-ai"]["level"] = settings.log.level
+
+    return log_config
+
+
 def getLogger(name: str = "zammad-ai") -> logging.Logger:
     """Configures logging and returns a logger with the specified name.
+
+    Logging configuration is only performed once per process via cached log config.
+    Subsequent calls return loggers without reconfiguring.
 
     Parameters:
         name (str): The name of the logger.
@@ -15,9 +53,7 @@ def getLogger(name: str = "zammad-ai") -> logging.Logger:
     Returns:
         logging.Logger: The logger with the specified name.
     """
-    with open("logconf.yaml", "r", encoding="utf-8") as file:
-        log_config = safe_load(file)
-
+    log_config = get_log_config()
     logging.config.dictConfig(log_config)
     return logging.getLogger(name)
 

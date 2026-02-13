@@ -1,17 +1,28 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, CliSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict, YamlConfigSettingsSource
 
 from .answer import AnswerSettings
 from .frontend import FrontendSettings
 from .genai import GenAISettings
 from .kafka import KafkaSettings
+from .logging import LoggingSettings
 from .qdrant import QdrantSettings
 from .triage import TriageSettings
 from .usecase import UseCaseSettings
 from .zammad import ZammadAPISettings, ZammadEAISettings
+
+
+def _should_enable_cli() -> bool:
+    """Check if CLI parsing should be enabled based on sys.argv."""
+    import sys
+
+    # Disable CLI parsing if pytest or other test runners are detected
+    argv_str = " ".join(sys.argv)
+    test_indicators = ["pytest", "test", "-m", "unittest"]
+    return not any(indicator in argv_str for indicator in test_indicators)
 
 
 class ZammadAISettings(BaseSettings):
@@ -60,6 +71,11 @@ class ZammadAISettings(BaseSettings):
         default_factory=lambda: AnswerSettings(),
     )
 
+    log: LoggingSettings = Field(
+        description="Settings for logging configuration, including format selection.",
+        default_factory=lambda: LoggingSettings(),
+    )
+
     valid_request_types: list[str] = Field(
         min_length=1,
         description="List of valid request types to be processed",
@@ -73,6 +89,15 @@ class ZammadAISettings(BaseSettings):
         default="production",
     )
 
+    @model_validator(mode="after")
+    def set_log_defaults(self) -> "ZammadAISettings":
+        """Set logging format and level based on mode if not explicitly configured."""
+        if self.log.format is None:
+            self.log.format = "plain" if self.mode == "development" else "json"
+        if self.log.level is None:
+            self.log.level = "DEBUG" if self.mode == "development" else "INFO"
+        return self
+
     model_config = SettingsConfigDict(
         env_prefix="ZAMMAD_AI_",
         env_file=".env",
@@ -82,7 +107,7 @@ class ZammadAISettings(BaseSettings):
         nested_model_default_partial_update=True,
         yaml_file="config.yaml",
         yaml_file_encoding="utf-8",
-        cli_parse_args=True,
+        cli_parse_args=_should_enable_cli(),
         cli_kebab_case=True,
         cli_prog_name="zammad-ai",
         extra="ignore",
@@ -104,18 +129,20 @@ class ZammadAISettings(BaseSettings):
         """
         Define the precedence and ordering of configuration sources for the settings class.
 
-        The returned tuple lists settings sources in precedence order (highest priority first): initialization values, CLI arguments, environment variables, dotenv (.env) file, and YAML configuration file.
+        The returned tuple lists settings sources in precedence order (highest priority first): initialization values, CLI arguments (if enabled), environment variables, dotenv (.env) file, and YAML configuration file.
 
         Returns:
             tuple[PydanticBaseSettingsSource, ...]: Settings sources in priority order.
         """
-        return (
-            init_settings,
-            CliSettingsSource(settings_cls),
-            env_settings,
-            dotenv_settings,
-            YamlConfigSettingsSource(settings_cls),
-        )
+        sources = [init_settings]
+
+        # Only add CLI source if CLI parsing is enabled
+        if _should_enable_cli():
+            sources.append(CliSettingsSource(settings_cls))
+
+        sources.extend([env_settings, dotenv_settings, YamlConfigSettingsSource(settings_cls)])
+
+        return tuple(sources)
 
 
 @lru_cache(maxsize=1)

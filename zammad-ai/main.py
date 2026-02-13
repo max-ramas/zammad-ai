@@ -12,7 +12,7 @@ import uvicorn
 
 from app.api.backend import backend
 from app.core.settings import ZammadAISettings, get_settings
-from app.utils.logging import getLogger
+from app.utils.logging import get_log_config, getLogger
 
 if __name__ == "__main__":
     logger: Logger = getLogger()
@@ -28,4 +28,4 @@ if __name__ == "__main__":
         "production": "0.0.0.0",
     }
 
-    uvicorn.run(app=backend, host=hosts[settings.mode], port=8080, log_config="logconf.yaml")
+    uvicorn.run(app=backend, host=hosts[settings.mode], port=8080, log_config=get_log_config())
