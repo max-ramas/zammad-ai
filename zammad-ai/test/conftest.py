@@ -256,7 +256,7 @@ def test_client(monkeypatch: pytest.MonkeyPatch, settings_factory: Callable[...,
 
     import app.api.backend as backend_module
 
-    backend_module = importlib.reload(backend_module)
+    backend_module = importlib.reload(backend_module)  # type: ignore
     monkeypatch.setattr(backend_module, "get_triage", lambda settings=None: triage_stub)
 
     with TestClient(backend_module.backend) as client:
