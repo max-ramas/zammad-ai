@@ -180,6 +180,22 @@ triage:
 frontend:
   enabled: false # Set to true to enable frontend
 
+# Logging configuration
+log:
+  format: "json" # Options: "json", "plain"
+  # Default: "plain" for development mode, "json" for production mode
+  # "json": Structured JSON logs for production/log aggregation
+  # "plain": Human-readable logs for development/debugging
+
+  level: "INFO" # Options: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+  # Default: "DEBUG" for development mode, "INFO" for production mode
+  # Applies to the zammad-ai logger only
+  # "DEBUG": Most verbose, logs everything
+  # "INFO": Standard information messages
+  # "WARNING": Warnings and errors
+  # "ERROR": Errors only
+  # "CRITICAL": Critical errors only
+
 # Langfuse integration toggle
 langfuse_enabled: true # Set to false to disable Langfuse integration
 
