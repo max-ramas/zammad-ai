@@ -8,15 +8,18 @@ class QdrantSettings(BaseModel):
 
     host: HttpUrl = Field(
         description="Qdrant host URL",
-        examples=["https://my-qdrant.example.com"],
+        default=HttpUrl(url="http://localhost:6333"),
+        examples=["https://qdrant.example.com:6333"],
     )
-    api_key: SecretStr = Field(
-        description="Qdrant API key",
+    api_key: SecretStr | None = Field(
+        description="Qdrant API key; always use API keys in production for secure access",
+        default=None,
         examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"],
     )
     collection_name: str = Field(
         description="Qdrant collection name",
-        examples=["my_zammad_ai_collection"],
+        default="zammad-ai_default",
+        examples=["zammad-ai_my-topic"],
     )
     vector_name: str | None = Field(
         description="Qdrant vector name (used for namespacing vectors, optional)",
