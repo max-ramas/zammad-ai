@@ -23,7 +23,11 @@ from test.fakes import FakeGenAIHandler, FakeLangfuseClient, FakeZammadClient
 _TEST_ENV_DEFAULTS: dict[str, str] = {
     "ZAMMAD_AI_MODE": "unittest",
     "ZAMMAD_AI_LANGFUSE_ENABLED": "false",
+    "ZAMMAD_AI_ZAMMAD__TYPE": "api",
+    "ZAMMAD_AI_ZAMMAD__BASE_URL": "https://example.com",
     "ZAMMAD_AI_ZAMMAD__AUTH_TOKEN": "test-token",
+    "ZAMMAD_AI_TRIAGE": '{"categories":[{"name":"Unknown","id":0}],"no_category_id":0,"actions":[{"name":"Default","description":"Default","id":1}],"no_action_id":1,"action_rules":[],"prompts":{"type":"string"}}',
+    "ZAMMAD_AI_VALID_REQUEST_TYPES": '["support"]',
     "ZAMMAD_AI_QDRANT__API_KEY": "test-key",
 }
 
