@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from app.core.settings.triage import Action, Category
+from app.settings.triage import Action, Category
 
 
 class CategorizationResult(BaseModel):

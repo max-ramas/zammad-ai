@@ -6,8 +6,8 @@ from httpx import AsyncClient, ConnectError, HTTPStatusError, ReadTimeout, Respo
 from pydantic import SecretStr, TypeAdapter
 from stamina import retry_context
 
-from app.core.settings.zammad import ZammadAPISettings
 from app.models.zammad import ZammadAnswer, ZammadArticle, ZammadSharedDraft, ZammadSharedDraftArticle, ZammadTagAdd, ZammadTicket
+from app.settings.zammad import ZammadAPISettings
 from app.utils.logging import getLogger
 
 from .base import BaseZammadClient, ZammadConnectionError

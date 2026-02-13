@@ -5,9 +5,9 @@ from logging import Logger
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
-from app.core.settings import ZammadAISettings, get_settings
 from app.kafka.broker import build_router
 from app.models.api_v1 import HealthCheckResponse
+from app.settings import ZammadAISettings, get_settings
 from app.triage.triage import get_triage
 from app.utils.logging import getLogger
 

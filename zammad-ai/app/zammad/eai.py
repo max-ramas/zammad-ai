@@ -1,7 +1,7 @@
 import feedparser
 
-from app.core.settings.zammad import ZammadEAISettings
 from app.models.zammad import ZammadTicket
+from app.settings.zammad import ZammadEAISettings
 
 from .base import BaseZammadClient
 

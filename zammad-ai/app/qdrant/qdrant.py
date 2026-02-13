@@ -7,8 +7,8 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client import AsyncQdrantClient, QdrantClient
 from truststore import inject_into_ssl
 
-from app.core.settings import ZammadAISettings, get_settings
 from app.models.qdrant import QdrantVectorMetadata
+from app.settings import ZammadAISettings, get_settings
 
 load_dotenv()
 inject_into_ssl()

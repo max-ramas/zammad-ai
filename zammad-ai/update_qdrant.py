@@ -3,11 +3,11 @@ from datetime import datetime, timedelta, timezone
 
 import feedparser
 
-from app.core.settings.settings import get_settings
-from app.core.settings.zammad import ZammadAPISettings, ZammadEAISettings
 from app.models.qdrant import QdrantVectorMetadata
 from app.models.zammad import KnowledgeBaseAnswer
 from app.qdrant.qdrant import save_to_qdrant
+from app.settings.settings import get_settings
+from app.settings.zammad import ZammadAPISettings, ZammadEAISettings
 from app.utils.logging import getLogger
 from app.zammad.api import ZammadAPIClient
 from app.zammad.eai import ZammadEAIClient

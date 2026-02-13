@@ -7,8 +7,8 @@ from langchain.tools import BaseTool
 from langchain_core.callbacks import Callbacks
 from langchain_openai import ChatOpenAI
 
-from app.core.settings import ZammadAISettings, get_settings
 from app.models.answer import StructuredAgentResponse
+from app.settings import ZammadAISettings, get_settings
 from app.utils.logging import getLogger
 
 from .tools import retrieve_documents_dlf, retrieve_documents_knowledgebase

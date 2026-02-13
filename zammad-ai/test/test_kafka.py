@@ -6,18 +6,18 @@ import pytest
 from fastapi.exceptions import RequestValidationError
 from faststream.kafka import TestKafkaBroker
 
-from app.core.settings import ZammadAISettings
-from app.core.settings.kafka import KafkaSettings
-from app.core.settings.qdrant import QdrantSettings
-from app.core.settings.triage import (
+from app.kafka.broker import build_router
+from app.models.triage import TriageResult
+from app.settings import ZammadAISettings
+from app.settings.kafka import KafkaSettings
+from app.settings.qdrant import QdrantSettings
+from app.settings.triage import (
     Action,
     Category,
     StringTriagePrompts,
     TriageSettings,
 )
-from app.core.settings.zammad import ZammadAPISettings
-from app.kafka.broker import build_router
-from app.models.triage import TriageResult
+from app.settings.zammad import ZammadAPISettings
 
 
 def create_mock_settings() -> ZammadAISettings:

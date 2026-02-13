@@ -4,8 +4,15 @@ from pathlib import Path
 from dotenv import load_dotenv
 from truststore import inject_into_ssl
 
-from app.core.settings import ZammadAISettings
-from app.core.settings.triage import (
+from app.models.triage import (
+    CategorizationResult,
+    DaysSinceRequestResponse,
+    ProcessingIdResponse,
+    TriageResult,
+)
+from app.models.zammad import ZammadTicket
+from app.settings import ZammadAISettings
+from app.settings.triage import (
     Action,
     ActionRule,
     Category,
@@ -15,14 +22,7 @@ from app.core.settings.triage import (
     StringTriagePrompts,
     TriagePrompt,
 )
-from app.core.settings.zammad import ZammadAPISettings, ZammadEAISettings
-from app.models.triage import (
-    CategorizationResult,
-    DaysSinceRequestResponse,
-    ProcessingIdResponse,
-    TriageResult,
-)
-from app.models.zammad import ZammadTicket
+from app.settings.zammad import ZammadAPISettings, ZammadEAISettings
 from app.utils.logging import getLogger
 from app.zammad import BaseZammadClient, ZammadAPIClient, ZammadConnectionError, ZammadEAIClient
 
@@ -374,7 +374,7 @@ def get_triage(settings: ZammadAISettings | None = None) -> Triage:
     global _triage
     if _triage is None:
         if settings is None:
-            from app.core.settings import get_settings
+            from app.settings import get_settings
 
             settings = get_settings()
         _triage = Triage(settings=settings)

@@ -1,6 +1,6 @@
 import operator as op
 
-from app.core.settings.triage import ConditionOperator
+from app.settings.triage import ConditionOperator
 
 
 def get_operator_function(operator: ConditionOperator):

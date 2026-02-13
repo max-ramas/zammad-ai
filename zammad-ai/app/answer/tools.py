@@ -6,8 +6,8 @@ from langchain.tools import ToolException, tool
 from langchain_core.documents import Document
 from pydantic import BaseModel, Field
 
-from app.core.settings import get_settings
 from app.qdrant.qdrant import get_similar_vectors
+from app.settings import get_settings
 from app.utils.logging import getLogger
 
 logger: Logger = getLogger()

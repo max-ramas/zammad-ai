@@ -6,9 +6,9 @@ from faststream.exceptions import AckMessage, NackMessage
 from faststream.kafka.fastapi import KafkaRouter
 from faststream.security import BaseSecurity
 
-from app.core.settings import ZammadAISettings
 from app.models.kafka import Event
 from app.models.triage import TriageResult
+from app.settings import ZammadAISettings
 from app.triage.triage import get_triage
 from app.utils.logging import getLogger
 

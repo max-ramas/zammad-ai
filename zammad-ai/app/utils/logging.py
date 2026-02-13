@@ -17,7 +17,7 @@ def get_log_config() -> dict[str, Any]:
     Returns:
         dict[str, Any]: Logging configuration dictionary.
     """
-    from app.core.settings import get_settings
+    from app.settings import get_settings
 
     settings = get_settings()
 

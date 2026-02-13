@@ -3,8 +3,8 @@ from langchain_core.runnables.config import RunnableConfig
 from langfuse import observe
 from truststore import inject_into_ssl
 
-from app.core.settings import ZammadAISettings, get_settings
 from app.observe.observer import LangfuseClient
+from app.settings import ZammadAISettings, get_settings
 from app.utils.logging import getLogger
 
 from .agent import StructuredAgentResponse, build_agent

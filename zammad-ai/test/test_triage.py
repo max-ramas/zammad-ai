@@ -5,21 +5,17 @@ from collections.abc import Generator
 import pytest
 from pydantic import HttpUrl, SecretStr
 
-from app.core.settings import ZammadAISettings
-from app.core.settings.genai import GenAISettings
-from app.core.settings.kafka import KafkaSettings
-from app.core.settings.qdrant import QdrantSettings
-from app.core.settings.triage import (
-    Action,
-    ActionRule,
-    Category,
-    Condition,
-    StringTriagePrompts,
-    TriageSettings,
-)
-from app.core.settings.zammad import ZammadAPISettings
 from app.models.triage import CategorizationResult, DaysSinceRequestResponse, ProcessingIdResponse
 from app.models.zammad import ZammadArticle, ZammadTicket
+from app.settings import (
+    GenAISettings,
+    KafkaSettings,
+    QdrantSettings,
+    TriageSettings,
+    ZammadAISettings,
+    ZammadAPISettings,
+)
+from app.settings.triage import Action, ActionRule, Category, Condition, StringTriagePrompts
 from app.triage import triage as triage_module
 from app.triage.triage import Triage, TriageError
 from app.zammad.base import ZammadConnectionError

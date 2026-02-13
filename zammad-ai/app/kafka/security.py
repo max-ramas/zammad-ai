@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import pkcs12
 from faststream.security import BaseSecurity
 
-from app.core.settings.kafka import DisableKafkaSecurity, KafkaSettings, MTLSFileKafkaSecurity, MTLSKafkaEnvSecurity
+from app.settings.kafka import DisableKafkaSecurity, KafkaSettings, MTLSFileKafkaSecurity, MTLSKafkaEnvSecurity
 from app.utils.logging import getLogger
 
 logger: Logger = getLogger("zammad-ai.kafka.security")

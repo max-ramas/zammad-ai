@@ -5,7 +5,7 @@ import httpx
 from dotenv import load_dotenv
 from tqdm.asyncio import tqdm_asyncio
 
-from app.core.settings import get_settings
+from app.settings import get_settings
 from app.triage.triage import Triage
 from app.utils.logging import getLogger
 
