@@ -24,11 +24,11 @@ from app.settings.triage import (
 )
 from app.settings.zammad import ZammadAPISettings, ZammadEAISettings
 from app.utils.logging import getLogger
+from app.utils.prompts import load_prompt
 from app.zammad import BaseZammadClient, ZammadAPIClient, ZammadConnectionError, ZammadEAIClient
 
 from .genai_handler import GenAIError, GenAIHandler
 from .helper import get_operator_function
-from .prompts import SYSTEM_PROMPT_CATEGORIES, SYSTEM_PROMPT_DAYS_SINCE_REQUEST, SYSTEM_PROMPT_PROCESSING_ID
 
 load_dotenv()
 inject_into_ssl()
@@ -39,10 +39,10 @@ class TriageError(Exception):
     """Custom exception for errors during the triage process."""
 
 
-class Triage:
+class TriageService:
     def __init__(self, settings: ZammadAISettings) -> None:
         """
-        Initialize the Triage instance from the provided ZammadAISettings.
+        Initialize the Triage service from the provided ZammadAISettings.
 
         Sets up categories, actions, fallback no_category/no_action, action rules, prompt sources (Langfuse, file, or string), prepares system prompts for GenAI, initializes the GenAI handler, and instantiates the appropriate Zammad client.
 
@@ -84,7 +84,7 @@ class Triage:
         # Prompt setup based on the type of prompts provided in settings
         self.prompts: dict[TriagePrompt, str]
         if isinstance(settings.triage.prompts, LangfuseTriagePrompts):
-            from app.observe.observer import LangfuseClient, LangfuseError
+            from app.observe import LangfuseClient, LangfuseError
 
             langfuse_client = LangfuseClient()
             self.prompts = {}
@@ -111,9 +111,12 @@ class Triage:
 
         # Prepare prompts for GenAI handler with system prompts
         genai_prompts: dict[str, str] = self.prompts.copy()  # type: ignore
-        genai_prompts["categories"] = SYSTEM_PROMPT_CATEGORIES
-        genai_prompts["days_since_request"] = SYSTEM_PROMPT_DAYS_SINCE_REQUEST
-        genai_prompts["processing_id"] = SYSTEM_PROMPT_PROCESSING_ID
+
+        # Load system prompts from markdown files
+        prompts_dir = Path(__file__).parent.parent.parent / "prompts"
+        genai_prompts["categories"] = load_prompt(prompts_dir / "triage_categories.prompt.md")
+        genai_prompts["days_since_request"] = load_prompt(prompts_dir / "triage_days_since_request.prompt.md")
+        genai_prompts["processing_id"] = load_prompt(prompts_dir / "triage_processing_id.prompt.md")
 
         # Initialize GenAI handler with pre-built chains
         self.genai_handler = GenAIHandler(
@@ -357,19 +360,19 @@ class Triage:
         logger.info("Triage resources cleaned up.")
 
 
-_triage: Triage | None = None
+_triage: TriageService | None = None
 
 
-def get_triage(settings: ZammadAISettings | None = None) -> Triage:
+def get_triage_service(settings: ZammadAISettings | None = None) -> TriageService:
     """
-    Get or create the shared Triage instance.
+    Get or create the shared TriageService instance.
 
     Args:
-        settings: Optional settings to initialize the Triage instance.
+        settings: Optional settings to initialize the TriageService instance.
                  If not provided, uses get_settings().
 
     Returns:
-        The shared Triage instance.
+        TriageService: The shared TriageService instance.
     """
     global _triage
     if _triage is None:
@@ -377,5 +380,5 @@ def get_triage(settings: ZammadAISettings | None = None) -> Triage:
             from app.settings import get_settings
 
             settings = get_settings()
-        _triage = Triage(settings=settings)
+        _triage = TriageService(settings=settings)
     return _triage

@@ -11,7 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig, RunnableSequence
 from langfuse import observe
 
-from app.observe.observer import LangfuseClient
+from app.observe import LangfuseClient
 from app.settings.genai import GenAISettings
 from app.utils.logging import getLogger
 
