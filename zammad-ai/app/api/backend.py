@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from logging import Logger
@@ -5,10 +6,12 @@ from logging import Logger
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
+from app.answer import get_answer_service
+from app.frontend import mount_frontend
 from app.kafka.broker import build_router
 from app.models.api_v1 import HealthCheckResponse
 from app.settings import ZammadAISettings, get_settings
-from app.triage.triage import get_triage
+from app.triage import get_triage_service
 from app.utils.logging import getLogger
 
 from .v1.answer import answer_router
@@ -31,17 +34,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings: ZammadAISettings = get_settings()
 
     logger.info("Initializing shared Triage instance")
-    app.state.triage = get_triage(settings=settings)
+    app.state.triage_service = get_triage_service(settings=settings)
+    app.state.answer_service = get_answer_service(settings=settings)
 
-    yield
-
-    # Shutdown: Cleanup resources
-    logger.info("Shutting down shared Triage instance")
-    await app.state.triage.cleanup()
+    try:
+        yield
+    finally:
+        logger.info("Shutting down shared Triage instance")
+        try:
+            await app.state.triage.cleanup()
+        except asyncio.CancelledError:
+            logger.info("Triage cleanup cancelled during shutdown.")
 
 
 settings: ZammadAISettings = get_settings()
-router, _ = build_router(settings=settings)
+kafka_router, _ = build_router(settings=settings)
 
 # Create FastAPI app with lifespan
 backend = FastAPI(
@@ -53,7 +60,9 @@ backend = FastAPI(
 )
 
 # Include Kafka router (this handles broker lifecycle automatically)
-backend.include_router(router=router)
+backend.include_router(
+    router=kafka_router,
+)
 
 # Mount API routers
 backend.include_router(
@@ -65,6 +74,9 @@ backend.include_router(
     router=answer_router,
     prefix="/api/v1",
 )
+
+if settings.frontend.enabled:
+    backend = mount_frontend(app=backend, frontend_settings=settings.frontend)
 
 if not settings.frontend.enabled and settings.mode == "development":
     logger.info("Frontend is disabled, rerouting root path to API docs")
