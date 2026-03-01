@@ -1,52 +1,50 @@
 from logging import Logger
 
-from ag_ui_langgraph import LangGraphAgent
 from langchain.agents import create_agent
-from langchain.agents.structured_output import ProviderStrategy
+from langchain.agents.middleware.types import AgentState, _InputAgentState, _OutputAgentState
 from langchain.tools import BaseTool
-from langchain_core.callbacks import Callbacks
 from langchain_openai import ChatOpenAI
+from langgraph.graph.state import CompiledStateGraph
 
 from app.models.answer import StructuredAgentResponse
-from app.settings import ZammadAISettings, get_settings
+from app.settings import GenAISettings
 from app.utils.logging import getLogger
 
-from .tools import retrieve_documents_dlf, retrieve_documents_knowledgebase
+from .context import AgentContext
+from .dlf import search_dlf
+from .knowledgebase import search_knowledgebase
 
-settings: ZammadAISettings = get_settings()
-logger: Logger = getLogger()
+logger: Logger = getLogger("zammad-ai.answer.agent")
 
 
-async def build_agent(callbacks: Callbacks) -> LangGraphAgent:
+def build_agent(
+    genai_settings: GenAISettings,
+    system_prompt: str,
+) -> CompiledStateGraph[AgentState[StructuredAgentResponse], AgentContext, _InputAgentState, _OutputAgentState[StructuredAgentResponse]]:  # type: ignore
     """Build and return the Zammad AI Answer agent."""
 
     # Build the chat model
     chat_model = ChatOpenAI(
-        model_name=settings.genai.chat_model,
-        temperature=settings.genai.temperature,
-        max_retries=settings.genai.max_retries,
+        model_name=genai_settings.answer_model or genai_settings.chat_model,
+        temperature=genai_settings.temperature,
+        max_retries=genai_settings.max_retries,
     )
 
     # Configure the tools
-    available_tools: list[BaseTool] = [retrieve_documents_dlf, retrieve_documents_knowledgebase]
-
-    system_prompt: str = settings.answer.answer_agent_prompt
+    available_tools: list[BaseTool] = [
+        search_dlf,
+        search_knowledgebase,
+    ]
 
     # Create the agent via the factory method
-    agent = create_agent(
+    agent: CompiledStateGraph[
+        AgentState[StructuredAgentResponse], AgentContext, _InputAgentState, _OutputAgentState[StructuredAgentResponse]  # type: ignore
+    ] = create_agent(
         model=chat_model,
         system_prompt=system_prompt,
         tools=available_tools,
-        response_format=ProviderStrategy(StructuredAgentResponse),
-        # context_schema=AgentContext,
+        response_format=StructuredAgentResponse,
+        context_schema=AgentContext,
     )
 
-    # Wrap the agent in a AG-UI LangGraphAgent
-    return LangGraphAgent(
-        name="Zammad-AI Answer Agent",
-        description="Der Zammad-AI Answer Agent unterstützt bei der Recherche und Analyse von Dokumenten und formuliert präzise Antworten.",
-        graph=agent,
-        config={
-            "callbacks": callbacks,
-        },  # Workaround as LangGraphAgent doesnt yet support context parameter
-    )
+    return agent
