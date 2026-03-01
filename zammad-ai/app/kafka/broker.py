@@ -9,10 +9,10 @@ from faststream.security import BaseSecurity
 from app.models.kafka import Event
 from app.models.triage import TriageResult
 from app.settings import ZammadAISettings
-from app.triage.triage import get_triage
+from app.triage.triage import get_triage_service
 from app.utils.logging import getLogger
 
-from ..triage.triage import Triage
+from ..triage.triage import TriageService
 from .security import setup_security
 
 logger: Logger = getLogger(name="zammad-ai")
@@ -68,7 +68,7 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
         if False:  # TODO: Replace with error handlers
             raise NackMessage()
         try:
-            triage: Triage = get_triage(settings=settings)
+            triage: TriageService = get_triage_service(settings=settings)
             id: str = event.ticket
             result: TriageResult = await triage.perform_triage(id=id)
             logger.debug(f"Triage result for ticket {id}: {result}")
