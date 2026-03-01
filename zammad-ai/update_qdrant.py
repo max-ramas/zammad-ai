@@ -5,7 +5,7 @@ import feedparser
 
 from app.models.qdrant import QdrantVectorMetadata
 from app.models.zammad import KnowledgeBaseAnswer
-from app.qdrant.qdrant import save_to_qdrant
+from app.qdrant import QdrantKBClient
 from app.settings.settings import get_settings
 from app.settings.zammad import ZammadAPISettings, ZammadEAISettings
 from app.utils.logging import getLogger
@@ -52,8 +52,9 @@ def get_ids(feed: feedparser.FeedParserDict, last_updated: datetime | None = Non
 
 
 async def main() -> None:
+    qdrant_client = QdrantKBClient(settings.qdrant, settings.genai)
     if isinstance(settings.zammad, ZammadAPISettings):
-        client: ZammadAPIClient = ZammadAPIClient(settings.zammad)
+        client = ZammadAPIClient(settings.zammad)
     elif isinstance(settings.zammad, ZammadEAISettings):
         client = ZammadEAIClient(settings.zammad)
     else:
@@ -102,7 +103,11 @@ async def main() -> None:
                             url=answer_url,
                         )
 
-                        await save_to_qdrant(page_content=page_content, metadata=metadata, id=answer.id)
+                        await qdrant_client.aadd_document(
+                            content=page_content,
+                            metadata=metadata,  # type: ignore
+                            id=answer.id,
+                        )
                     except Exception as e:
                         logger.error("Failed to process KB answer %s: %s", answer_id, e, exc_info=True)
                 else:

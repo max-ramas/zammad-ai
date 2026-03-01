@@ -8,7 +8,7 @@ from app.models.triage import CategorizationResult, DaysSinceRequestResponse, Pr
 from app.models.zammad import ZammadArticle, ZammadTicket
 from app.settings.triage import ActionRule, Category, Condition
 from app.triage import triage as triage_module
-from app.triage.triage import Triage, TriageError
+from app.triage.triage import TriageError, TriageService
 from test.fakes import FakeGenAIHandler, FakeZammadClient, FakeZammadConnectionError
 
 
@@ -18,7 +18,7 @@ def patched_triage(
     settings_factory,
     fake_genai_handler: FakeGenAIHandler,
     fake_zammad_client: FakeZammadClient,
-) -> Generator[Triage, None, None]:
+) -> Generator[TriageService, None, None]:
     """
     Provide a Triage instance with external dependencies replaced by test fakes.
 
@@ -32,7 +32,7 @@ def patched_triage(
     monkeypatch.setattr(triage_module, "ZammadAPIClient", lambda *args, **kwargs: fake_zammad_client)
     monkeypatch.setattr(triage_module, "ZammadConnectionError", FakeZammadConnectionError)
     settings = settings_factory()
-    triage = Triage(settings=settings)
+    triage = TriageService(settings=settings)
     yield triage
 
 
@@ -42,21 +42,21 @@ def triage_factory(
     settings_factory,
     fake_genai_handler: FakeGenAIHandler,
     fake_zammad_client: FakeZammadClient,
-) -> Callable[[list[ActionRule] | None], Triage]:
+) -> Callable[[list[ActionRule] | None], TriageService]:
     """Build Triage instances with optional action rules and shared fake dependencies."""
     monkeypatch.setattr(triage_module, "GenAIHandler", lambda *args, **kwargs: fake_genai_handler)
     monkeypatch.setattr(triage_module, "ZammadAPIClient", lambda *args, **kwargs: fake_zammad_client)
     monkeypatch.setattr(triage_module, "ZammadConnectionError", FakeZammadConnectionError)
 
-    def _factory(action_rules: list[ActionRule] | None = None) -> Triage:
+    def _factory(action_rules: list[ActionRule] | None = None) -> TriageService:
         settings = settings_factory(action_rules=action_rules)
-        return Triage(settings=settings)
+        return TriageService(settings=settings)
 
     return _factory
 
 
 @pytest.mark.asyncio
-async def test_perform_triage_returns_defaults_when_no_articles(patched_triage: Triage) -> None:
+async def test_perform_triage_returns_defaults_when_no_articles(patched_triage: TriageService) -> None:
     result = await patched_triage.perform_triage(id="123")
     assert result.category == patched_triage.no_category
     assert result.action == patched_triage.no_action
@@ -65,7 +65,7 @@ async def test_perform_triage_returns_defaults_when_no_articles(patched_triage: 
 
 
 @pytest.mark.asyncio
-async def test_predict_category_falls_back_to_no_category(patched_triage: Triage) -> None:
+async def test_predict_category_falls_back_to_no_category(patched_triage: TriageService) -> None:
     patched_triage.genai_handler.categorization_result = CategorizationResult(  # type: ignore
         category=Category(name="Unknown", id=999),
         reasoning="mismatch",
@@ -78,7 +78,7 @@ async def test_predict_category_falls_back_to_no_category(patched_triage: Triage
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_uses_days_since_request_condition(triage_factory: Callable[[list[ActionRule] | None], Triage]) -> None:
+async def test_get_action_id_uses_days_since_request_condition(triage_factory: Callable[[list[ActionRule] | None], TriageService]) -> None:
     action_rules = [
         ActionRule(
             category_id=1,
@@ -108,7 +108,7 @@ async def test_get_action_id_uses_days_since_request_condition(triage_factory: C
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_returns_no_action_for_no_category(patched_triage: Triage) -> None:
+async def test_get_action_id_returns_no_action_for_no_category(patched_triage: TriageService) -> None:
     categorization = CategorizationResult(
         category=patched_triage.no_category,
         reasoning="no category",
@@ -126,7 +126,7 @@ async def test_get_action_id_returns_no_action_for_no_category(patched_triage: T
 
 
 @pytest.mark.asyncio
-async def test_perform_triage_happy_path(patched_triage: Triage) -> None:
+async def test_perform_triage_happy_path(patched_triage: TriageService) -> None:
     """Full triage with a ticket that has an article returns a real category and action."""
     patched_triage.zammad_client.ticket = ZammadTicket(  # type: ignore
         id="42",
@@ -149,7 +149,7 @@ async def test_perform_triage_happy_path(patched_triage: Triage) -> None:
 
 
 @pytest.mark.asyncio
-async def test_perform_triage_raises_triage_error_on_zammad_failure(patched_triage: Triage) -> None:
+async def test_perform_triage_raises_triage_error_on_zammad_failure(patched_triage: TriageService) -> None:
     """A Zammad connection error should be wrapped in TriageError."""
     patched_triage.zammad_client.raise_connection_error = True  # type: ignore
     with pytest.raises(TriageError, match="Zammad connection error"):
@@ -162,7 +162,7 @@ async def test_perform_triage_raises_triage_error_on_zammad_failure(patched_tria
 
 
 @pytest.mark.asyncio
-async def test_predict_category_empty_message(patched_triage: Triage) -> None:
+async def test_predict_category_empty_message(patched_triage: TriageService) -> None:
     """An empty (or whitespace-only) message returns no_category immediately."""
     result = await patched_triage.predict_category(message="   ", session_id="session-id")
     assert result.category == patched_triage.no_category
@@ -176,7 +176,7 @@ async def test_predict_category_empty_message(patched_triage: Triage) -> None:
 
 
 @pytest.mark.asyncio
-async def test_predict_category_valid_category_kept(patched_triage: Triage) -> None:
+async def test_predict_category_valid_category_kept(patched_triage: TriageService) -> None:
     """A valid category returned by GenAI is kept as-is."""
     patched_triage.genai_handler.categorization_result = CategorizationResult(  # type: ignore
         category=Category(name="General", id=1),
@@ -196,7 +196,7 @@ async def test_predict_category_valid_category_kept(patched_triage: Triage) -> N
 
 
 @pytest.mark.asyncio
-async def test_predict_category_handles_genai_exception(patched_triage: Triage) -> None:
+async def test_predict_category_handles_genai_exception(patched_triage: TriageService) -> None:
     """An unexpected exception from the GenAI handler causes a TriageError."""
 
     async def _boom(*_args, **_kwargs):
@@ -209,7 +209,7 @@ async def test_predict_category_handles_genai_exception(patched_triage: Triage) 
 
 
 @pytest.mark.asyncio
-async def test_perform_triage_handles_processing_triage_error(patched_triage: Triage) -> None:
+async def test_perform_triage_handles_processing_triage_error(patched_triage: TriageService) -> None:
     """A TriageError during processing in perform_triage is caught and returns a fallback result."""
 
     async def _boom(*_args, **_kwargs):
@@ -235,7 +235,7 @@ async def test_perform_triage_handles_processing_triage_error(patched_triage: Tr
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_rule_without_conditions(triage_factory: Callable[[list[ActionRule] | None], Triage]) -> None:
+async def test_get_action_id_rule_without_conditions(triage_factory: Callable[[list[ActionRule] | None], TriageService]) -> None:
     """A rule with no conditions directly returns the rule's action_id."""
     action_rules = [
         ActionRule(category_id=1, action_id=3, conditions=None),
@@ -257,7 +257,7 @@ async def test_get_action_id_rule_without_conditions(triage_factory: Callable[[l
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_condition_not_met_falls_through(triage_factory: Callable[[list[ActionRule] | None], Triage]) -> None:
+async def test_get_action_id_condition_not_met_falls_through(triage_factory: Callable[[list[ActionRule] | None], TriageService]) -> None:
     """When a condition's operator check fails, the rule's default action_id is returned."""
     action_rules = [
         ActionRule(
@@ -283,7 +283,7 @@ async def test_get_action_id_condition_not_met_falls_through(triage_factory: Cal
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_processing_id_condition(triage_factory: Callable[[list[ActionRule] | None], Triage]) -> None:
+async def test_get_action_id_processing_id_condition(triage_factory: Callable[[list[ActionRule] | None], TriageService]) -> None:
     """A processing_id condition that matches returns the condition's action_id."""
     action_rules = [
         ActionRule(
@@ -308,7 +308,7 @@ async def test_get_action_id_processing_id_condition(triage_factory: Callable[[l
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_no_matching_rule(triage_factory: Callable[[list[ActionRule] | None], Triage]) -> None:
+async def test_get_action_id_no_matching_rule(triage_factory: Callable[[list[ActionRule] | None], TriageService]) -> None:
     """When no action rule matches the category, no_action is returned."""
     # Rule only for category_id=99, but our categorization has category_id=1
     action_rules = [
@@ -327,7 +327,7 @@ async def test_get_action_id_no_matching_rule(triage_factory: Callable[[list[Act
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_respects_condition_priority(triage_factory: Callable[[list[ActionRule] | None], Triage]) -> None:
+async def test_get_action_id_respects_condition_priority(triage_factory: Callable[[list[ActionRule] | None], TriageService]) -> None:
     """Higher-priority (lower number) conditions are evaluated first."""
     action_rules = [
         ActionRule(
@@ -356,7 +356,7 @@ async def test_get_action_id_respects_condition_priority(triage_factory: Callabl
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_none_category(patched_triage: Triage) -> None:
+async def test_get_action_id_none_category(patched_triage: TriageService) -> None:
     """A None category always returns no_action."""
     categorization = CategorizationResult(category=None, reasoning="no cat", confidence=1.0)
     action_id = await patched_triage.get_action_id(categorization_result=categorization, message="msg", session_id="s")
@@ -368,25 +368,25 @@ async def test_get_action_id_none_category(patched_triage: Triage) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_id_to_category_known(patched_triage: Triage) -> None:
+def test_id_to_category_known(patched_triage: TriageService) -> None:
     """Known category ID returns the matching Category."""
     cat = patched_triage._id_to_category(1)
     assert cat.name == "General"
 
 
-def test_id_to_category_unknown(patched_triage: Triage) -> None:
+def test_id_to_category_unknown(patched_triage: TriageService) -> None:
     """Unknown category ID returns no_category fallback."""
     cat = patched_triage._id_to_category(9999)
     assert cat == patched_triage.no_category
 
 
-def test_id_to_action_known(patched_triage: Triage) -> None:
+def test_id_to_action_known(patched_triage: TriageService) -> None:
     """Known action ID returns the matching Action."""
     action = patched_triage._id_to_action(3)
     assert action.name == "Escalate"
 
 
-def test_id_to_action_unknown(patched_triage: Triage) -> None:
+def test_id_to_action_unknown(patched_triage: TriageService) -> None:
     """Unknown action ID returns no_action fallback."""
     action = patched_triage._id_to_action(9999)
     assert action == patched_triage.no_action

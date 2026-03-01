@@ -70,8 +70,8 @@ def base_settings() -> ZammadAISettings:
             auth_token=SecretStr(secret_value="test-token"),
         ),
         qdrant=QdrantSettings(
-            host=HttpUrl(url="https://qdrant.example.com"),
-            api_key=SecretStr(secret_value="test-key"),
+            url=HttpUrl(url="https://qdrant.example.com"),
+            api_key=None,
             collection_name="test_collection",
         ),
         kafka=KafkaSettings(
