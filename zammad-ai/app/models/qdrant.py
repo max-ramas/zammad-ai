@@ -1,9 +1,9 @@
-from pydantic import BaseModel
+from typing import TypedDict
 
 
-class QdrantVectorMetadata(BaseModel):
+class QdrantVectorMetadata(TypedDict):
     id: str
     title: str
     content: str
-    attachments: dict[str, str] | None = None
-    url: str | None = None
+    attachments: dict[str, str] | None
+    url: str | None
