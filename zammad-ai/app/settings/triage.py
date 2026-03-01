@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, FilePath, NonNegativeInt
+from pydantic import AfterValidator, BaseModel, Field, FilePath, NonNegativeInt
+
+from app.utils.validators import validate_is_prompt
+
+from .langfuse import LangfusePrompt
 
 
 class TriageSettings(BaseModel):
@@ -11,9 +15,8 @@ class TriageSettings(BaseModel):
     actions: list["Action"]
     no_action_id: int
     action_rules: list["ActionRule"]
-    prompts: StringTriagePrompts | FileTriagePrompts | LangfuseTriagePrompts = Field(
+    prompts: TriagePrompts = Field(
         description="Prompts for the triage process. Can be provided as raw strings, file paths, or Langfuse prompt references.",
-        discriminator="type",
     )
 
 
@@ -68,24 +71,19 @@ class StringTriagePrompts(BaseModel):
 
 class FileTriagePrompts(BaseModel):
     type: Literal["file"] = "file"
-    prompt_map: dict[TriagePrompt, FilePath] = Field(
+    prompt_map: dict[TriagePrompt, Annotated[FilePath, AfterValidator(func=validate_is_prompt)]] = Field(
         description="Prompts for the triage process as file paths. The files should contain the prompts as raw text. The keys should be 'categories', 'examples', and 'role'.",
     )
 
 
 class LangfuseTriagePrompts(BaseModel):
     type: Literal["langfuse"] = "langfuse"
-    prompt_map: dict[TriagePrompt, "LangfusePrompt"] = Field(
+    prompt_map: dict[TriagePrompt, LangfusePrompt] = Field(
         description="Prompts for the triage process as LangfusePrompt objects. The keys should be 'categories', 'examples', and 'role'.",
     )
 
 
-class LangfusePrompt(BaseModel):
-    label: str = Field(
-        description="Label of the prompt in Langfuse",
-        default="production",
-    )
-    name: str = Field(
-        description="Name of the prompt in Langfuse",
-        examples=["use_case/triage/prompt_name"],
-    )
+TriagePrompts = Annotated[
+    StringTriagePrompts | FileTriagePrompts | LangfuseTriagePrompts,
+    Field(discriminator="type"),
+]

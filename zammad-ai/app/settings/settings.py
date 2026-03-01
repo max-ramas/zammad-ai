@@ -12,7 +12,7 @@ from .logging import LoggingSettings
 from .qdrant import QdrantSettings
 from .triage import TriageSettings
 from .usecase import UseCaseSettings
-from .zammad import ZammadAPISettings, ZammadEAISettings
+from .zammad import ZammadEndpointSettings
 
 
 def _should_enable_cli() -> bool:
@@ -43,9 +43,8 @@ class ZammadAISettings(BaseSettings):
         default_factory=lambda: GenAISettings(),
     )
 
-    zammad: ZammadAPISettings | ZammadEAISettings = Field(
+    zammad: ZammadEndpointSettings = Field(
         description="Settings for Zammad integration, including API details and knowledge base configuration.",
-        discriminator="type",
     )
 
     qdrant: QdrantSettings = Field(
@@ -62,7 +61,7 @@ class ZammadAISettings(BaseSettings):
     )
 
     frontend: FrontendSettings = Field(
-        description="Settings for optional frontend.",
+        description="Settings for optional mounted frontend, including auth and runtime behavior.",
         default_factory=lambda: FrontendSettings(),
     )
 

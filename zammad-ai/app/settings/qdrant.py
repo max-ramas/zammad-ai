@@ -6,7 +6,7 @@ class QdrantSettings(BaseModel):
     Settings for Qdrant vector database integration, including host URL, API key, collection name, and vector configuration.
     """
 
-    host: HttpUrl = Field(
+    url: HttpUrl = Field(
         description="Qdrant host URL",
         default=HttpUrl(url="http://localhost:6333"),
         examples=["https://qdrant.example.com:6333"],
@@ -28,4 +28,8 @@ class QdrantSettings(BaseModel):
     vector_dimension: PositiveInt = Field(
         description="Dimension of the embeddings stored in Qdrant",
         default=1024,
+    )
+    timeout: PositiveInt = Field(
+        description="Timeout in seconds for Qdrant client operations",
+        default=60,
     )

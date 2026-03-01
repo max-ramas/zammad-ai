@@ -1,3 +1,4 @@
+from .answer import AnswerSettings
 from .frontend import FrontendSettings
 from .genai import GenAISettings
 from .kafka import KafkaSettings
@@ -8,6 +9,7 @@ from .usecase import UseCaseSettings
 from .zammad import BaseZammadSettings, ZammadAPISettings, ZammadEAISettings
 
 __all__: list[str] = [
+    "AnswerSettings",
     "BaseZammadSettings",
     "FrontendSettings",
     "GenAISettings",
