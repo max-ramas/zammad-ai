@@ -85,6 +85,29 @@ Run the application:
 uv run python zammad-ai/main.py
 ```
 
+### 4. Optional: Enable Embedded Frontend
+
+The service can mount a Gradio frontend at `/` for local developer workflows.
+
+In `zammad-ai/config.yaml`:
+
+```yaml
+frontend:
+  enabled: true
+  request_timeout_seconds: 30.0
+  auth_enabled: true
+  auth_required: true
+  auth_username: "admin"
+  auth_password: "change-me"
+```
+
+Then start the service and open:
+
+- Frontend UI: `http://localhost:8080/`
+- OpenAPI docs (development mode): `http://localhost:8080/api/docs`
+
+When frontend mode is enabled, basic auth is required. 
+
 ## 🧪 Testing
 
 Run the test suite using `pytest`:

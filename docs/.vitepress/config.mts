@@ -43,6 +43,10 @@ export default defineConfig({
             text: "Kafka message broker",
             link: "/components/kafka",
           },
+          {
+            text: "Frontend module",
+            link: "/components/frontend",
+          },
         ],
       },
     ],
