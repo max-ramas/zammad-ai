@@ -113,10 +113,10 @@ class TriageService:
         genai_prompts: dict[str, str] = self.prompts.copy()  # type: ignore
 
         # Load system prompts from markdown files
-        prompts_dir = Path(__file__).parent.parent.parent / "prompts"
-        genai_prompts["categories"] = load_prompt(prompts_dir / "triage_categories.prompt.md")
-        genai_prompts["days_since_request"] = load_prompt(prompts_dir / "triage_days_since_request.prompt.md")
-        genai_prompts["processing_id"] = load_prompt(prompts_dir / "triage_processing_id.prompt.md")
+        prompts_dir = Path("prompts")
+        genai_prompts["categories"] = load_prompt(prompts_dir / "triage" / "categories.prompt.md")
+        genai_prompts["days_since_request"] = load_prompt(prompts_dir / "triage" / "days_since_request.prompt.md")
+        genai_prompts["processing_id"] = load_prompt(prompts_dir / "triage" / "processing_id.prompt.md")
 
         # Initialize GenAI handler with pre-built chains
         self.genai_handler = GenAIHandler(

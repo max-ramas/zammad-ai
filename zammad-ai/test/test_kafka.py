@@ -37,7 +37,7 @@ def mock_triage() -> MagicMock:
 @pytest.fixture
 def mock_get_triage(monkeypatch: pytest.MonkeyPatch, mock_triage: MagicMock) -> None:
     """Patch Kafka router triage lookup to return a mocked triage object."""
-    monkeypatch.setattr("app.kafka.broker.get_triage", lambda *args, **kwargs: mock_triage)
+    monkeypatch.setattr("app.kafka.broker.get_triage_service", lambda *args, **kwargs: mock_triage)
 
 
 @pytest.mark.asyncio

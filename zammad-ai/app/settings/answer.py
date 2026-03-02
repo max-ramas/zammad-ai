@@ -48,7 +48,7 @@ class AnswerSettings(BaseModel):
     agent_prompt: StringAnswerPrompt | FileAnswerPrompt | LangfuseAnswerPrompt = Field(
         description="Prompt configuration for the answer generation agent. Can be provided as a raw string, a file path, or a Langfuse prompt reference.",
         default=FileAnswerPrompt(
-            prompt=Path("prompts/answer_agent.prompt.md"),
+            prompt=Path("prompts/answer/agent.prompt.md"),
         ),
     )
     dlf: DLFSettings | None = Field(
