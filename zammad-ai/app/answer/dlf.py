@@ -2,14 +2,11 @@ from __future__ import annotations
 
 from logging import Logger
 
-from httpx import AsyncClient, HTTPError, Response
-from langchain.tools import ToolException, ToolRuntime, tool
+from httpx import AsyncClient, Response
 from pydantic import BaseModel, Field
 
 from app.settings.answer import DLFSettings
 from app.utils.logging import getLogger
-
-from .context import AgentContext
 
 logger: Logger = getLogger("zammad-ai.answer.dlf")
 
@@ -80,20 +77,3 @@ class DLFClient:
         # Parse response
         dlf_response: DLFAPIResponse = DLFAPIResponse.model_validate(response.json())
         return dlf_response.documents
-
-
-@tool(
-    "search_website",
-    description="Search the city of munich website including all public service descriptions and information articles for relevant documents",
-    args_schema=SearchDLFInput,
-    parse_docstring=False,
-    response_format="content",
-)
-async def search_dlf(query: str, runtime: ToolRuntime[AgentContext]) -> list[DLFDocument]:
-    dlf_client: DLFClient = runtime.context.dlf_client
-    try:
-        dlf_docs: list[DLFDocument] = await dlf_client.retrieve_documents(query=query)
-        return dlf_docs
-    except HTTPError as e:
-        logger.error("HTTP error while searching DLF", exc_info=e)
-        raise ToolException("Failed to search the munich city website. Please try other tools for now.")
