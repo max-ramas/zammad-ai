@@ -153,7 +153,7 @@ class BaseZammadClient(ABC):
         ...
 
     def __init__(self, base_url: str, timeout: int, max_retries: int):
-        self.client = AsyncClient(base_url=base_url, timeout=timeout, proxy="socks5://127.0.0.1:10080")
+        self.client = AsyncClient(base_url=base_url, timeout=timeout)
         self.http_attempts = max_retries + 1
 
     @with_retry
