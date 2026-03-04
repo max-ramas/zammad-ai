@@ -21,9 +21,9 @@ class QdrantSettings(BaseModel):
         default="zammad-ai_default",
         examples=["zammad-ai_my-topic"],
     )
-    vector_name: str | None = Field(
+    vector_name: str = Field(
         description="Qdrant vector name (used for namespacing vectors, optional)",
-        default=None,
+        default="",
     )
     vector_dimension: PositiveInt = Field(
         description="Dimension of the embeddings stored in Qdrant",
