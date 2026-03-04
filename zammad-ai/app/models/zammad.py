@@ -90,9 +90,7 @@ class Attachment(BaseModel):
     filename: str = Field(
         description="Filename of the attachment",
     )
-    size: str = Field(
-        description="Size of the attachment",
-    )
+    size: str | None = Field(default=None, description="Size of the attachment")
     preferences: dict = Field(
         description="Preferences of the attachment",
         default_factory=dict,
@@ -110,7 +108,7 @@ class ZammadAnswer(BaseModel):
         description="Whether the article should be marked as internal",
         default=False,
     )
-    subject: str = "Call note"
+    subject: str | None = Field(default=None, description="Optional subject line for the answer")
     content_type: str = "text/html"
     sender: str = "KI Agent"
     type: str = "phone"
@@ -143,7 +141,7 @@ class ZammadSharedDraftArticle(BaseModel):
 
 
 # TODO: Research good defaults for model values
-class ZammadSharedDraft(BaseModel):
+class ZammadSharedDraftAPI(BaseModel):
     form_id: str = "367646073"
     new_article: ZammadSharedDraftArticle
     ticket_attributes: dict[str, str] = Field(
@@ -154,3 +152,7 @@ class ZammadSharedDraft(BaseModel):
             "state_id": "2",
         }
     )
+
+
+class ZammadSharedDraftEAI(BaseModel):
+    body: str = Field(description="The body of the shared draft")

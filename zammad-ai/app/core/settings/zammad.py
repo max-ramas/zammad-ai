@@ -58,6 +58,19 @@ class ZammadEAISettings(BaseZammadSettings):
         description="Zammad EAI API endpoint",
         examples=["https://my-zammad-eai.example.com/api/v1"],
     )
-    secret: SecretStr = Field(
-        description="Zammad EAI secret for authentication",
+
+    # OAuth 2.0 Client Credentials Flow settings
+    client_id: str = Field(
+        description="OAuth 2.0 client identifier for authentication",
+    )
+    client_secret: SecretStr = Field(
+        description="OAuth 2.0 client secret for authentication",
+    )
+    token_url: HttpUrl = Field(
+        description="OAuth 2.0 token endpoint URL",
+        examples=["https://my-zammad-eai.example.com/oauth/token"],
+    )
+    scope: str | None = Field(
+        description="OAuth 2.0 scope for requesting specific permissions",
+        default=None,
     )
