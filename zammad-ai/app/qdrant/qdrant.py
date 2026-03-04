@@ -22,6 +22,9 @@ ZAMMAD_AI_NAMESPACE: UUID = uuid5(
 RETRIEVAL_NUM_DOCUMENTS = 5  # TODO: Move magic number to config or even better to agent
 
 
+# TODO: move to answer.knowledgebase
+
+
 class QdrantKBError(Exception):
     """Custom exception for Qdrant-related errors."""
 
@@ -97,7 +100,7 @@ class QdrantKBClient:
             client=self.client,
             collection_name=qdrant_settings.collection_name,
             embedding=self.embeddings,
-            vector_name="dense" if qdrant_settings.vector_name is None else qdrant_settings.vector_name,
+            vector_name=qdrant_settings.vector_name,
         )
 
         self.retriever: VectorStoreRetriever = self.vectorstore.as_retriever(
