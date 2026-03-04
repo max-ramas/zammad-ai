@@ -8,13 +8,14 @@ from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 
 from app.observe import LangfuseClient, LangfuseError
+from app.qdrant import QdrantKBClient
 from app.settings import ZammadAISettings
 from app.settings.answer import FileAnswerPrompt, LangfuseAnswerPrompt, StringAnswerPrompt
 from app.utils.logging import getLogger
 from app.utils.prompts import load_prompt
 
-from .agent import StructuredAgentResponse, build_agent
-from .context import AgentContext
+from .agent import AgentContext, StructuredAgentResponse, build_agent
+from .dlf import DLFClient
 
 logger: Logger = getLogger("zammad-ai.answer.service")
 
@@ -56,6 +57,15 @@ class AnswerService:
         ] = build_agent(
             genai_settings=settings.genai,
             system_prompt=agent_prompt,
+            dlf_enabled=settings.answer.dlf is not None,
+        )
+
+        self.agent_context: AgentContext = AgentContext(
+            qdrant_kb_client=QdrantKBClient(
+                genai_settings=settings.genai,
+                qdrant_settings=settings.qdrant,
+            ),
+            dlf_client=DLFClient(dlf_settings=settings.answer.dlf) if settings.answer.dlf is not None else None,
         )
 
     async def generate_answer(
@@ -75,7 +85,11 @@ class AnswerService:
         config: RunnableConfig = (
             self.langfuse_client.build_config(session_id=session_id) if self.langfuse_client is not None else RunnableConfig()
         )
-        agent_result: dict = await self.agent.ainvoke(input={"messages": [user_message]}, config=config)
+        agent_result: dict = await self.agent.ainvoke(
+            input={"messages": [user_message]},
+            config=config,
+            context=self.agent_context,
+        )
         print("Agent raw result:", agent_result)  # Debug print to inspect the raw output from the agent
         return agent_result["structured_response"]
 
