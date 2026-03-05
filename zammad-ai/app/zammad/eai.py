@@ -7,7 +7,7 @@ import feedparser
 from pydantic import TypeAdapter
 
 from app.core.settings.zammad import ZammadEAISettings
-from app.models.zammad import KnowledgeBaseAnswer, ZammadAnswer, ZammadArticle, ZammadSharedDraftEAI, ZammadTicket
+from app.models.zammad import KnowledgeBaseAnswer, ZammadAnswer, ZammadArticle, ZammadKnowledgebase, ZammadSharedDraftEAI, ZammadTicket
 from app.utils.logging import getLogger
 
 from .base import BaseZammadClient
@@ -86,6 +86,11 @@ class ZammadEAIClient(BaseZammadClient):
     @override
     async def add_tag_to_ticket(self, ticket_id: str, tag: str) -> None:
         raise NotImplementedError("Adding tag is not implemented yet.")
+
+    @override
+    async def show_kb(self) -> ZammadKnowledgebase | None:
+        data = await self._request("GET", f"/knowledgeBases/{self.kb_id}")
+        return TypeAdapter(ZammadKnowledgebase).validate_python(data) if data else None
 
     @override
     async def parse_rss_feed(self) -> feedparser.FeedParserDict | None:

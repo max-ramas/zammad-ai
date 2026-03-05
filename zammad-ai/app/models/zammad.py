@@ -1,7 +1,78 @@
 import html
 import re
+from datetime import datetime
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator
+
+
+class ZammadKnowledgebase(BaseModel):
+    id: str = Field(
+        description="ID of the knowledge base",
+    )
+    active: bool = Field(
+        description="Whether the knowledge base is active",
+        default=True,
+    )
+    createdAt: str = Field(
+        description="Creation timestamp of the knowledge base",
+    )
+    updatedAt: str = Field(
+        description="Last update timestamp of the knowledge base",
+    )
+    categoryIds: list[str] = Field(
+        description="List of category IDs associated with the knowledge base",
+        default_factory=list,
+    )
+    answerIds: list[str] = Field(
+        description="List of answer IDs associated with the knowledge base",
+        default_factory=list,
+    )
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def cast_id_to_str(cls, value: int | str) -> str:
+        """Cast id to string if it is an integer."""
+        return str(value) if isinstance(value, int) else value
+
+    @field_validator("categoryIds", "answerIds", mode="before")
+    @classmethod
+    def cast_category_ids_to_str(cls, value: list[int | str]) -> list[str]:
+        """Cast category IDs to strings if they are integers."""
+        return [str(v) if isinstance(v, int) else v for v in value]
+
+    @field_validator("createdAt", "updatedAt", mode="before")
+    @classmethod
+    def validate_timestamps(cls, value: str) -> str:
+        """Cast timestamp to ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)."""
+        # If already in correct format, return as-is
+        iso8601_pattern = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
+        if re.match(iso8601_pattern, value):
+            return value
+
+        # Common timestamp formats to try parsing
+        formats_to_try = [
+            "%Y-%m-%dT%H:%M:%S",  # 2024-01-01T12:00:00
+            "%Y-%m-%dT%H:%M:%S.%f",  # 2024-01-01T12:00:00.123456
+            "%Y-%m-%dT%H:%M:%S.%fZ",  # 2024-01-01T12:00:00.123456Z
+            "%Y-%m-%d %H:%M:%S",  # 2024-01-01 12:00:00
+            "%Y-%m-%d",  # 2024-01-01
+            "%d/%m/%Y %H:%M:%S",  # 01/01/2024 12:00:00
+            "%d/%m/%Y",  # 01/01/2024
+            "%d.%m.%Y %H:%M:%S",  # 01.01.2024 12:00:00
+            "%d.%m.%Y",  # 01.01.2024
+        ]
+
+        # Try to parse and convert to ISO 8601
+        for fmt in formats_to_try:
+            try:
+                dt = datetime.strptime(value, fmt)
+                return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            except ValueError:
+                continue
+
+        # If no format matched, raise error
+        raise ValueError(f"Timestamp '{value}' could not be parsed to ISO 8601 format.")
+        return value
 
 
 class KnowledgeBaseAttachment(BaseModel):
@@ -103,15 +174,9 @@ class ZammadArticle(BaseModel):
         default=None,
     )
 
-    @field_validator("id", mode="before")
+    @field_validator("id", "ticket_id", mode="before")
     @classmethod
     def cast_id_to_str(cls, value: int | str) -> str:
-        """Cast id to string if it is an integer."""
-        return str(value) if isinstance(value, int) else value
-
-    @field_validator("ticket_id", mode="before")
-    @classmethod
-    def cast_ticket_id_to_str(cls, value: int | str) -> str:
         """Cast id to string if it is an integer."""
         return str(value) if isinstance(value, int) else value
 

@@ -10,6 +10,7 @@ from app.models.zammad import (
     KnowledgeBaseAttachment,
     ZammadAnswer,
     ZammadArticle,
+    ZammadKnowledgebase,
     ZammadSharedDraftAPI,
     ZammadSharedDraftArticle,
     ZammadTagAdd,
@@ -62,6 +63,22 @@ class ZammadAPIClient(BaseZammadClient):
         payload = ZammadTagAdd(item=tag, o_id=ticket_id)
         await self._request("POST", "/api/v1/tags/add", json=payload.model_dump())
         logger.info(f"Added tag '{tag}' to ticket {ticket_id}")
+
+    @override
+    async def show_kb(self) -> ZammadKnowledgebase | None:
+        data = await self._request("GET", f"/api/v1/knowledge_bases/{self.kb_id}")
+        return (
+            ZammadKnowledgebase(
+                id=data["id"],
+                active=data["active"],
+                createdAt=data["created_at"],
+                updatedAt=data["updated_at"],
+                categoryIds=data.get("category_ids", []),
+                answerIds=data.get("answer_ids", []),
+            )
+            if data
+            else None
+        )
 
     @override
     async def parse_rss_feed(self) -> feedparser.FeedParserDict | None:

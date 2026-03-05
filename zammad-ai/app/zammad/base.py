@@ -6,7 +6,7 @@ import feedparser
 from httpx import AsyncClient, ConnectError, HTTPStatusError, ReadTimeout, TimeoutException
 from stamina import retry_context
 
-from app.models.zammad import KnowledgeBaseAnswer, ZammadTicket
+from app.models.zammad import KnowledgeBaseAnswer, ZammadKnowledgebase, ZammadTicket
 from app.utils.logging import getLogger
 
 logger = getLogger("zammad-ai.base")
@@ -87,6 +87,16 @@ class BaseZammadClient(ABC):
 
         Returns:
             feedparser.FeedParserDict: Parsed feed object or None if parsing fails.
+        """
+        ...
+
+    @abstractmethod
+    async def show_kb(self) -> ZammadKnowledgebase | None:
+        """
+        Fetch and return a list of knowledge base answers.
+
+        Returns:
+            list[KnowledgeBaseAnswer] | None: List of knowledge base answers or None if fetching fails.
         """
         ...
 
