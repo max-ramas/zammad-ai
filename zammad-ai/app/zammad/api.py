@@ -17,7 +17,12 @@ class ZammadAPIClient(BaseZammadClient):
     """Client for interacting with Zammad API to fetch and update ticket information."""
 
     def __init__(self, settings: ZammadAPISettings):
-        super().__init__(base_url=settings.base_url.encoded_string(), timeout=settings.timeout, max_retries=settings.max_retries)
+        super().__init__(
+            base_url=settings.base_url.encoded_string(),
+            timeout=settings.timeout,
+            max_retries=settings.max_retries,
+            proxy_url=settings.proxy_url,
+        )
 
         # Set auth header
         self.client.headers.update({"Authorization": f"Bearer {settings.auth_token.get_secret_value()}"})

@@ -152,8 +152,8 @@ class BaseZammadClient(ABC):
         """
         ...
 
-    def __init__(self, base_url: str, timeout: int, max_retries: int):
-        self.client = AsyncClient(base_url=base_url, timeout=timeout)
+    def __init__(self, base_url: str, timeout: int, max_retries: int, proxy_url: str | None = None) -> None:
+        self.client = AsyncClient(base_url=base_url, timeout=timeout, proxy=proxy_url)
         self.http_attempts = max_retries + 1
 
     @with_retry

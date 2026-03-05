@@ -25,6 +25,10 @@ class BaseZammadSettings(BaseModel, ABC):
         description="Maximum number of retries for HTTP requests to Zammad in case of failures.",
         default=3,
     )
+    proxy_url: str | None = Field(
+        description="Optional proxy URL for routing HTTP requests to Zammad through a proxy server.",
+        default=None,
+    )
 
 
 class ZammadAPISettings(BaseZammadSettings):

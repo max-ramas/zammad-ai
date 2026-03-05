@@ -18,7 +18,12 @@ class ZammadEAIClient(BaseZammadClient):
     """Zammad EAI client implementation for Zammad AI with OAuth 2.0 support."""
 
     def __init__(self, settings: ZammadEAISettings):
-        super().__init__(base_url=settings.eai_url.encoded_string(), timeout=settings.timeout, max_retries=settings.max_retries)
+        super().__init__(
+            base_url=settings.eai_url.encoded_string(),
+            timeout=settings.timeout,
+            max_retries=settings.max_retries,
+            proxy_url=settings.proxy_url,
+        )
 
         self.settings = settings
         self.kb_id = settings.knowledge_base_id
