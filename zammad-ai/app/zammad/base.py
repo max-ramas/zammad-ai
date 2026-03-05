@@ -7,7 +7,7 @@ import feedparser
 from httpx import AsyncClient, ConnectError, HTTPStatusError, ReadTimeout, TimeoutException
 from stamina import retry_context
 
-from app.models.zammad import ZammadTicket
+from app.models.zammad import KnowledgeBaseAnswer, ZammadTicket
 from app.utils.logging import getLogger
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -113,7 +113,7 @@ class BaseZammadClient(ABC):
         ...
 
     @abstractmethod
-    async def get_kb_answer_by_id(self, answer_id: str) -> dict | None:
+    async def get_kb_answer_by_id(self, answer_id: str) -> KnowledgeBaseAnswer | None:
         """
         Fetch a knowledge base answer by its ID.
 
@@ -121,21 +121,36 @@ class BaseZammadClient(ABC):
             answer_id (str): The ID of the answer to fetch.
 
         Returns:
-            dict: Knowledge base answer data or None if not found.
+            KnowledgeBaseAnswer | None: Knowledge base answer data or None if not found.
         """
         ...
 
     @abstractmethod
-    async def fetch_attachment_data(self, url: str) -> str | None:
+    async def fetch_kb_attachment_data(self, id: str) -> str | None:
         """
         Fetch an attachment and return its content as text or base64.
 
         Parameters:
-            url (str): Relative URL of the attachment.
+            id (str): ID of the attachment to fetch.
 
         Returns:
             str: Decoded text for text/* or JSON; base64 string for binary content.
-            None: On error or if url is falsy.
+            None: On error or if id is falsy.
+        """
+        ...
+
+    @abstractmethod
+    async def fetch_ticket_attachment_data(self, ticket_id: str, attachment_id: str, article_id: str) -> str | None:
+        """
+        Fetch an attachment and return its content as text or base64.
+
+        Parameters:
+            ticket_id (str): ID of the ticket to which the attachment belongs.
+            attachment_id (str): ID of the attachment to fetch.
+            article_id (str): ID of the article to which the attachment belongs.
+
+        Returns:
+            str: Decoded text for text/* or JSON; base64 string for binary content.
         """
         ...
 

@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime, timedelta
 from logging import Logger
 from typing import Any, override
@@ -6,7 +7,7 @@ import feedparser
 from pydantic import TypeAdapter
 
 from app.core.settings.zammad import ZammadEAISettings
-from app.models.zammad import ZammadAnswer, ZammadArticle, ZammadSharedDraftEAI, ZammadTicket
+from app.models.zammad import KnowledgeBaseAnswer, ZammadAnswer, ZammadArticle, ZammadSharedDraftEAI, ZammadTicket
 from app.utils.logging import getLogger
 
 from .base import BaseZammadClient
@@ -79,7 +80,7 @@ class ZammadEAIClient(BaseZammadClient):
     @override
     async def post_shared_draft(self, ticket_id: str, text: str) -> None:
         payload = ZammadSharedDraftEAI(body=text)
-        await self._request("POST", f"/tickets/{ticket_id}/shared_draft", json=payload.model_dump())
+        await self._request("PUT", f"/tickets/{ticket_id}/shared_draft", json=payload.model_dump())
         logger.info(f"Posted shared draft to ticket {ticket_id}")
 
     @override
@@ -105,19 +106,30 @@ class ZammadEAIClient(BaseZammadClient):
         return feedparser.parse(text)
 
     @override
-    async def get_kb_answer_by_id(self, answer_id: str) -> dict | None:
+    async def get_kb_answer_by_id(self, answer_id: str) -> KnowledgeBaseAnswer | None:
         if not self.kb_id:
             return None
 
         try:
-            return await self._request("GET", f"/knowledgeBases/{self.kb_id}/answer/{answer_id}")
+            response = await self._request("GET", f"/knowledgeBases/{self.kb_id}/answer/{answer_id}")
+            return TypeAdapter(KnowledgeBaseAnswer).validate_python(response)
         except Exception as e:
             logger.warning(f"Failed to get knowledge base answer {answer_id}: {e}")
             return None
 
     @override
-    async def fetch_attachment_data(self, url: str) -> str | None:
-        return await self._request("GET", url) if url else None
+    async def fetch_kb_attachment_data(self, id: str) -> str | None:
+        data = await self._request("GET", f"/attachments/{id}") if id else None
+        return base64.b64decode(data).decode("utf-8") if id and data else None
+
+    @override
+    async def fetch_ticket_attachment_data(self, ticket_id: str, attachment_id: str, article_id: str) -> str | None:
+        data = (
+            await self._request("GET", f"/attachments/{ticket_id}/{article_id}/{attachment_id}")
+            if ticket_id and attachment_id and article_id
+            else None
+        )
+        return base64.b64decode(data).decode("utf-8") if data else None
 
     @override
     async def check_if_answer_exists(self, answer_id: str) -> bool:

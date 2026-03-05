@@ -4,20 +4,50 @@ import re
 from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 
+class KnowledgeBaseAttachment(BaseModel):
+    id: str = Field(
+        description="ID of the attachment",
+    )
+    filename: str = Field(
+        description="Filename of the attachment",
+    )
+    contentType: str = Field(
+        description="Content type of the attachment",
+    )
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def cast_id_to_str(cls, value: int | str) -> str:
+        """Cast id to string if it is an integer."""
+        return str(value) if isinstance(value, int) else value
+
+
 class KnowledgeBaseAnswer(BaseModel):
     id: str = Field(
         description="The ID of the answer",
     )
-    title: str = Field(
+    answerTitle: str = Field(
         description="The title of the answer",
     )
-    content: str = Field(
+    answerBody: str = Field(
         description="The content of the answer",
     )
-    attachments: dict[str, str] = Field(
-        description="Dict of attachments associated with the filename",
-        default_factory=dict,
+    createdAt: str = Field(
+        description="The creation timestamp of the answer",
     )
+    updatedAt: str = Field(
+        description="The last update timestamp of the answer",
+    )
+    attachments: list[KnowledgeBaseAttachment] = Field(
+        description="List of attachments associated with the answer",
+        default_factory=list,
+    )
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def cast_id_to_str(cls, value: int | str) -> str:
+        """Cast id to string if it is an integer."""
+        return str(value) if isinstance(value, int) else value
 
 
 class ZammadTicket(BaseModel):
@@ -28,6 +58,21 @@ class ZammadTicket(BaseModel):
         description="List of articles associated with the ticket",
         default_factory=list,
     )
+
+
+class ArticleAttachment(BaseModel):
+    id: str = Field(
+        description="ID of the attachment",
+    )
+    filename: str = Field(
+        description="Filename of the attachment",
+    )
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def cast_id_to_str(cls, value: int | str) -> str:
+        """Cast id to string if it is an integer."""
+        return str(value) if isinstance(value, int) else value
 
 
 class ZammadArticle(BaseModel):
@@ -41,7 +86,7 @@ class ZammadArticle(BaseModel):
         description="Body of the article",
         validation_alias=AliasChoices("text", "body"),
     )
-    attachments: list["Attachment"] = Field(
+    attachments: list["ArticleAttachment"] = Field(
         description="List of attachments for the article",
         default_factory=list,
     )
@@ -53,6 +98,22 @@ class ZammadArticle(BaseModel):
         description="Author of the article",
         default="-",
     )
+    subject: str | None = Field(
+        description="Subject of the article",
+        default=None,
+    )
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def cast_id_to_str(cls, value: int | str) -> str:
+        """Cast id to string if it is an integer."""
+        return str(value) if isinstance(value, int) else value
+
+    @field_validator("ticket_id", mode="before")
+    @classmethod
+    def cast_ticket_id_to_str(cls, value: int | str) -> str:
+        """Cast id to string if it is an integer."""
+        return str(value) if isinstance(value, int) else value
 
     @field_validator("text", mode="after")
     @classmethod
@@ -83,20 +144,6 @@ class ZammadArticle(BaseModel):
         return clean_text
 
 
-class Attachment(BaseModel):
-    id: str = Field(
-        description="ID of the attachment",
-    )
-    filename: str = Field(
-        description="Filename of the attachment",
-    )
-    size: str | None = Field(default=None, description="Size of the attachment")
-    preferences: dict = Field(
-        description="Preferences of the attachment",
-        default_factory=dict,
-    )
-
-
 class ZammadAnswer(BaseModel):
     ticket_id: str = Field(
         description="ID of the associated ticket",
@@ -110,9 +157,6 @@ class ZammadAnswer(BaseModel):
     )
     subject: str | None = Field(default=None, description="Optional subject line for the answer")
     content_type: str = "text/html"
-    sender: str = "KI Agent"
-    type: str = "phone"
-    time_unit: str = "15"
 
 
 class ZammadTagAdd(BaseModel):

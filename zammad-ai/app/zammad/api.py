@@ -5,7 +5,16 @@ import feedparser
 from pydantic import TypeAdapter
 
 from app.core.settings.zammad import ZammadAPISettings
-from app.models.zammad import ZammadAnswer, ZammadArticle, ZammadSharedDraftAPI, ZammadSharedDraftArticle, ZammadTagAdd, ZammadTicket
+from app.models.zammad import (
+    KnowledgeBaseAnswer,
+    KnowledgeBaseAttachment,
+    ZammadAnswer,
+    ZammadArticle,
+    ZammadSharedDraftAPI,
+    ZammadSharedDraftArticle,
+    ZammadTagAdd,
+    ZammadTicket,
+)
 from app.utils.logging import getLogger
 
 from .base import BaseZammadClient
@@ -64,18 +73,40 @@ class ZammadAPIClient(BaseZammadClient):
         return feedparser.parse(text)
 
     @override
-    async def get_kb_answer_by_id(self, answer_id: str) -> dict | None:
+    async def get_kb_answer_by_id(self, answer_id: str) -> KnowledgeBaseAnswer | None:
         if not self.kb_id:
             return None
 
         try:
-            return await self._request("GET", f"/api/v1/knowledge_bases/{self.kb_id}/answers/{answer_id}?include_contents={answer_id}")
-        except Exception:
+            response = await self._request("GET", f"/api/v1/knowledge_bases/{self.kb_id}/answers/{answer_id}?include_contents={answer_id}")
+            return KnowledgeBaseAnswer(
+                id=response["id"],
+                answerTitle=response["assets"]["KnowledgeBaseAnswerTranslation"][answer_id]["title"],
+                answerBody=response["assets"]["KnowledgeBaseAnswerTranslationContent"][answer_id]["body"],
+                attachments=[
+                    KnowledgeBaseAttachment(
+                        id=attachment["id"], filename=attachment["filename"], contentType=attachment["preferences"]["Content-Type"]
+                    )
+                    for attachment in response["assets"]["KnowledgeBaseAnswer"][answer_id]["attachments"]
+                ],
+                createdAt=response["assets"]["KnowledgeBaseAnswer"][answer_id]["created_at"],
+                updatedAt=response["assets"]["KnowledgeBaseAnswer"][answer_id]["updated_at"],
+            )
+        except Exception as e:
+            print(f"Error occurred while fetching knowledge base answer: {e}")
             return None
 
     @override
-    async def fetch_attachment_data(self, url: str) -> str | None:
-        return await self._request("GET", url) if url else None
+    async def fetch_kb_attachment_data(self, id: str) -> str | None:
+        return await self._request("GET", f"/api/v1/attachments/{id}") if id else None
+
+    @override
+    async def fetch_ticket_attachment_data(self, ticket_id: str, attachment_id: str, article_id: str) -> str | None:
+        return (
+            await self._request("GET", f"/api/v1/ticket_attachment/{ticket_id}/{article_id}/{attachment_id}")
+            if ticket_id and attachment_id and article_id
+            else None
+        )
 
     @override
     async def check_if_answer_exists(self, answer_id: str) -> bool:
