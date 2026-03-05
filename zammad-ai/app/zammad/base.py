@@ -1,7 +1,6 @@
 import base64
 from abc import ABC, abstractmethod
-from functools import wraps
-from typing import Any, Callable, TypeVar, cast
+from typing import Any
 
 import feedparser
 from httpx import AsyncClient, ConnectError, HTTPStatusError, ReadTimeout, TimeoutException
@@ -10,28 +9,7 @@ from stamina import retry_context
 from app.models.zammad import KnowledgeBaseAnswer, ZammadTicket
 from app.utils.logging import getLogger
 
-F = TypeVar("F", bound=Callable[..., Any])
 logger = getLogger("zammad-ai.base")
-
-
-def with_retry(func: F) -> F:
-    """Decorator to add retry logic to HTTP methods."""
-
-    @wraps(func)
-    async def wrapper(self, *args, **kwargs):
-        method_name = func.__name__
-        try:
-            for attempt in retry_context(
-                on=(HTTPStatusError, ConnectError, TimeoutException, ReadTimeout),
-                attempts=self.http_attempts,
-            ):
-                with attempt:
-                    return await func(self, *args, **kwargs)
-        except (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) as e:
-            logger.error(f"Failed to execute {method_name} after {self.http_attempts} attempts.", exc_info=True)
-            raise ZammadConnectionError(f"Failed to execute {method_name} after {self.http_attempts} attempts.") from e
-
-    return cast(F, wrapper)
 
 
 class BaseZammadClient(ABC):
@@ -171,19 +149,27 @@ class BaseZammadClient(ABC):
         self.client = AsyncClient(base_url=base_url, timeout=timeout, proxy=proxy_url)
         self.http_attempts = max_retries + 1
 
-    @with_retry
     async def _request(self, method: str, url: str, **kwargs) -> Any:
         """Make HTTP request and return JSON or text."""
-        response = await self.client.request(method, url, **kwargs)
-        response.raise_for_status()
+        try:
+            for attempt in retry_context(
+                on=(HTTPStatusError, ConnectError, TimeoutException, ReadTimeout),
+                attempts=self.http_attempts,
+            ):
+                with attempt:
+                    response = await self.client.request(method, url, **kwargs)
+                    response.raise_for_status()
 
-        content_type = response.headers.get("Content-Type", "").lower()
-        if content_type.startswith("application/json"):
-            return response.json()
-        elif content_type.startswith("text/"):
-            return response.text
-        else:
-            return base64.b64encode(response.content).decode("ascii")
+                    content_type = response.headers.get("Content-Type", "").lower()
+                    if content_type.startswith("application/json"):
+                        return response.json()
+                    elif content_type.startswith("text/"):
+                        return response.text
+                    else:
+                        return base64.b64encode(response.content).decode("ascii")
+        except (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) as e:
+            logger.error(f"Failed to execute {method} {url} after {self.http_attempts} attempts.", exc_info=True)
+            raise ZammadConnectionError(f"Failed to execute {method} {url} after {self.http_attempts} attempts.") from e
 
     async def cleanup(self) -> None:
         """Close HTTP client."""
