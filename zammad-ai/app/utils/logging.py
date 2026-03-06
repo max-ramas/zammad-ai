@@ -27,8 +27,7 @@ def get_log_config() -> dict[str, Any]:
 
     # Determine formatter based on settings
     # "plain" format uses the "simple" formatter from logconf.yaml
-    # TODO: also parse development mode from settings to use simple formatter, as it is more human-readable during development
-    formatter = "simple" if settings.log.format == "plain" else "json"
+    formatter = "simple" if (settings.log.format == "plain" or settings.mode == "development") else "json"
 
     # Update all handlers to use the configured formatter
     for handler_config in log_config.get("handlers", {}).values():

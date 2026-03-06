@@ -1,8 +1,7 @@
-from .answer import AnswerSettings
+from .answer import AnswerSettings, QdrantSettings
 from .frontend import FrontendSettings
 from .genai import GenAISettings
 from .kafka import KafkaSettings
-from .qdrant import QdrantSettings
 from .settings import ZammadAISettings, get_settings
 from .triage import TriageSettings
 from .usecase import UseCaseSettings
