@@ -162,9 +162,12 @@ class BaseZammadClient(ABC):
     async def _request(self, method: str, url: str, **kwargs) -> Any:
         """Make HTTP request and return JSON or text."""
         try:
+            safe_methods = {"GET", "HEAD", "OPTIONS"}
+            should_retry = method.upper() in safe_methods
+            retry_on = (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) if should_retry else ()
             for attempt in retry_context(
-                on=(HTTPStatusError, ConnectError, TimeoutException, ReadTimeout),
-                attempts=self.http_attempts,
+                on=retry_on,
+                attempts=self.http_attempts if should_retry else 1,
             ):
                 with attempt:
                     response = await self.client.request(method, url, **kwargs)
