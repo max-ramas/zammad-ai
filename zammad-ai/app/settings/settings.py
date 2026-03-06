@@ -9,7 +9,6 @@ from .frontend import FrontendSettings
 from .genai import GenAISettings
 from .kafka import KafkaSettings
 from .logging import LoggingSettings
-from .qdrant import QdrantSettings
 from .triage import TriageSettings
 from .usecase import UseCaseSettings
 from .zammad import ZammadEndpointSettings
@@ -45,10 +44,6 @@ class ZammadAISettings(BaseSettings):
 
     zammad: ZammadEndpointSettings = Field(
         description="Settings for Zammad integration, including API details and knowledge base configuration.",
-    )
-
-    qdrant: QdrantSettings = Field(
-        description="Settings for Qdrant integration, including host, API key, and collection details.",
     )
 
     kafka: KafkaSettings = Field(

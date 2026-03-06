@@ -3,9 +3,9 @@ from datetime import datetime, timedelta, timezone
 
 import feedparser
 
+from app.answer.knowledgebase import QdrantKBClient
 from app.models.qdrant import QdrantVectorMetadata
 from app.models.zammad import KnowledgeBaseAnswer
-from app.qdrant import QdrantKBClient
 from app.settings.settings import get_settings
 from app.settings.zammad import ZammadAPISettings, ZammadEAISettings
 from app.utils.logging import getLogger
@@ -52,7 +52,7 @@ def get_ids(feed: feedparser.FeedParserDict, last_updated: datetime | None = Non
 
 
 async def main() -> None:
-    qdrant_client = QdrantKBClient(settings.qdrant, settings.genai)
+    qdrant_client = QdrantKBClient(settings.answer.qdrant, settings.genai)
     if isinstance(settings.zammad, ZammadAPISettings):
         client = ZammadAPIClient(settings.zammad)
     elif isinstance(settings.zammad, ZammadEAISettings):

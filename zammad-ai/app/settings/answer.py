@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, Field, FilePath, HttpUrl, PositiveInt
+from pydantic import AfterValidator, BaseModel, Field, FilePath, HttpUrl, PositiveInt, SecretStr
 
 from app.utils.validators import validate_is_prompt
 
@@ -44,6 +44,44 @@ AnswerPrompt = Annotated[
 ]
 
 
+class QdrantSettings(BaseModel):
+    """
+    Settings for Qdrant vector database integration, including host URL, API key, collection name, and vector configuration.
+    """
+
+    url: HttpUrl = Field(
+        description="Qdrant host URL",
+        default=HttpUrl(url="http://localhost:6333"),
+        examples=["https://qdrant.example.com:6333"],
+    )
+    api_key: SecretStr | None = Field(
+        description="Qdrant API key; always use API keys in production for secure access",
+        default=None,
+        examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"],
+    )
+    collection_name: str = Field(
+        description="Qdrant collection name",
+        default="zammad-ai_default",
+        examples=["zammad-ai_my-topic"],
+    )
+    vector_name: str = Field(
+        description="Qdrant vector name (used for namespacing vectors, optional)",
+        default="",
+    )
+    vector_dimension: PositiveInt = Field(
+        description="Dimension of the embeddings stored in Qdrant",
+        default=1024,
+    )
+    timeout: PositiveInt = Field(
+        description="Timeout in seconds for Qdrant client operations",
+        default=60,
+    )
+    retrieval_num_documents: PositiveInt = Field(
+        description="The number of relevant documents to retrieve for each search query.",
+        default=5,
+    )
+
+
 class AnswerSettings(BaseModel):
     agent_prompt: StringAnswerPrompt | FileAnswerPrompt | LangfuseAnswerPrompt = Field(
         description="Prompt configuration for the answer generation agent. Can be provided as a raw string, a file path, or a Langfuse prompt reference.",
@@ -53,6 +91,9 @@ class AnswerSettings(BaseModel):
     )
     dlf: DLFSettings | None = Field(
         default=None,
+    )
+    qdrant: QdrantSettings = Field(
+        default=QdrantSettings(),
     )
 
 

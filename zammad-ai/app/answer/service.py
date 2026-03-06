@@ -8,7 +8,6 @@ from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 
 from app.observe import LangfuseClient, LangfuseError
-from app.qdrant import QdrantKBClient
 from app.settings import ZammadAISettings
 from app.settings.answer import FileAnswerPrompt, LangfuseAnswerPrompt, StringAnswerPrompt
 from app.utils.logging import getLogger
@@ -16,6 +15,7 @@ from app.utils.prompts import load_prompt
 
 from .agent import AgentContext, StructuredAgentResponse, build_agent
 from .dlf import DLFClient
+from .knowledgebase import QdrantKBClient
 
 logger: Logger = getLogger("zammad-ai.answer.service")
 
@@ -63,7 +63,7 @@ class AnswerService:
         self.agent_context: AgentContext = AgentContext(
             qdrant_kb_client=QdrantKBClient(
                 genai_settings=settings.genai,
-                qdrant_settings=settings.qdrant,
+                qdrant_settings=settings.answer.qdrant,
             ),
             dlf_client=DLFClient(dlf_settings=settings.answer.dlf) if settings.answer.dlf is not None else None,
         )

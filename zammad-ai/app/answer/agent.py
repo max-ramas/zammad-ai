@@ -10,12 +10,11 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
 from app.models.answer import StructuredAgentResponse
-from app.qdrant import QdrantKBClient, QdrantKBError
 from app.settings import GenAISettings
 from app.utils.logging import getLogger
 
 from .dlf import DLFClient, DLFDocument
-from .knowledgebase import RetrieveDocumentsKBOutput, SearchQdrantKBInput
+from .knowledgebase import QdrantKBClient, QdrantKBError, RetrieveDocumentsKBOutput, SearchQdrantKBInput
 
 logger: Logger = getLogger("zammad-ai.answer.agent")
 
