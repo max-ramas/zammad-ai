@@ -89,6 +89,9 @@ class ZammadEAIClient(BaseZammadClient):
 
     @override
     async def show_kb(self) -> ZammadKnowledgebase | None:
+        if not self.kb_id:
+            return None
+
         data = await self._request("GET", f"/knowledgeBases/{self.kb_id}")
         return TypeAdapter(ZammadKnowledgebase).validate_python(data) if data else None
 
@@ -118,8 +121,8 @@ class ZammadEAIClient(BaseZammadClient):
         try:
             response = await self._request("GET", f"/knowledgeBases/{self.kb_id}/answer/{answer_id}")
             return TypeAdapter(KnowledgeBaseAnswer).validate_python(response)
-        except Exception as e:
-            logger.warning(f"Failed to get knowledge base answer {answer_id}: {e}")
+        except Exception:
+            logger.warning(f"Failed to get knowledge base answer {answer_id}", exc_info=True)
             return None
 
     @override
@@ -138,11 +141,8 @@ class ZammadEAIClient(BaseZammadClient):
 
     @override
     async def check_if_answer_exists(self, answer_id: str) -> bool:
-        try:
-            await self.get_kb_answer_by_id(answer_id)
-            return True
-        except Exception:
-            return False
+        answer: KnowledgeBaseAnswer | None = await self.get_kb_answer_by_id(answer_id)
+        return answer is not None
 
     @override
     async def cleanup(self) -> None:

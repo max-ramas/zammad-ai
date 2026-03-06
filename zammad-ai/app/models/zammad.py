@@ -72,7 +72,6 @@ class ZammadKnowledgebase(BaseModel):
 
         # If no format matched, raise error
         raise ValueError(f"Timestamp '{value}' could not be parsed to ISO 8601 format.")
-        return value
 
 
 class KnowledgeBaseAttachment(BaseModel):

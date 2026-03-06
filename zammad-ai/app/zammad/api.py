@@ -66,6 +66,9 @@ class ZammadAPIClient(BaseZammadClient):
 
     @override
     async def show_kb(self) -> ZammadKnowledgebase | None:
+        if not self.kb_id:
+            return None
+
         data = await self._request("GET", f"/api/v1/knowledge_bases/{self.kb_id}")
         return (
             ZammadKnowledgebase(
@@ -109,8 +112,8 @@ class ZammadAPIClient(BaseZammadClient):
                 createdAt=response["assets"]["KnowledgeBaseAnswer"][answer_id]["created_at"],
                 updatedAt=response["assets"]["KnowledgeBaseAnswer"][answer_id]["updated_at"],
             )
-        except Exception as e:
-            print(f"Error occurred while fetching knowledge base answer: {e}")
+        except Exception:
+            logger.warning(f"Failed to fetch knowledge base answer {answer_id}", exc_info=True)
             return None
 
     @override
@@ -127,8 +130,5 @@ class ZammadAPIClient(BaseZammadClient):
 
     @override
     async def check_if_answer_exists(self, answer_id: str) -> bool:
-        try:
-            await self.get_kb_answer_by_id(answer_id)
-            return True
-        except Exception:
-            return False
+        answer: KnowledgeBaseAnswer | None = await self.get_kb_answer_by_id(answer_id)
+        return answer is not None
