@@ -9,17 +9,28 @@ Zammad-AI is a Python-based microservice that integrates Generative AI capabilit
 ## 🚀 Features
 
 - **Event-Driven Architecture**: Built with [FastStream](https://faststream.airt.ai/) and Kafka for robust message processing.
-- **Smart Filtering**: Configurable filtering of ticket events based on request types.
+- **AI-Powered Triage**: Classifies tickets and applies automated actions based on configurable rules.
+- **Vector Database Support**: Uses [Qdrant](https://qdrant.tech/) for knowledge retrieval via semantic search.
+- **Full Observability**: Integration with [Langfuse](https://langfuse.com/) for tracing, cost monitoring, and dynamic prompt management.
+- **Zammad Integration**: Supports both REST API and custom EAI integration paths.
 - **Secure Communication**: Supports mTLS for secure Kafka connections using `truststore`.
-- **Modern Stack**: Powered by Python 3.13, Pydantic, and uv.
-- **Configurable**: Flexible configuration via YAML, `.env`, and environment variables.
+- **Modern Stack**: Powered by Python 3.13, Pydantic, and LangChain.
+
+## 📖 Documentation
+
+Detailed documentation is available in the `docs/` folder:
+
+- **[Architecture (ADRs)](docs/adr/index.md)**: Explore the technical decisions and system design.
+- **[Software Components](docs/components/index.md)**: Details on Kafka, Triage, Zammad integration, and Qdrant.
+- **[Configuration Guide](docs/configuration.md)**: How to set up the service and manage secrets.
+- **[REST API Reference](docs/api.md)**: Documentation for the FastAPI endpoints.
 
 ## 🛠️ Architecture
 
-1.  **Ingest**: Listens to the `ticket-events` Kafka topic.
-2.  **Filter**: Validates events based on configured `valid_request_types`.
-3.  **Process**: Fetches ticket details and generates an AI response (GenAI integration).
-4.  **Output**: Posts the draft response back to Zammad.
+1.  **Ingest**: Listens to the Kafka topic or receives synchronous REST API requests.
+2.  **Triage**: Analyzes input using GenAI to determine category, reasoning, and next steps.
+3.  **Action**: Evaluates triggers (conditions) to execute specific tasks (e.g., generate a response).
+4.  **Integration**: Interacts with Zammad to fetch ticket context or post final results.
 
 ## 📋 Prerequisites
 
@@ -29,14 +40,9 @@ Zammad-AI is a Python-based microservice that integrates Generative AI capabilit
 
 ## ⚙️ Configuration
 
-Configuration is managed via `pydantic-settings`. The application looks for configuration in the following order (highest priority first):
+The service is highly configurable via YAML, environment variables, and `.env` files. For a full list of settings and examples, please refer to the **[Configuration Guide](docs/configuration.md)**.
 
-1.  Environment Variables (prefix `ZAMMAD_AI_`)
-2.  `config.yaml`
-3.  `.env` file
-4.  Defaults
-
-### Key Settings
+### Quick Start Settings
 
 | Setting               | Env Variable                    | Description                 | Default          |
 | :-------------------- | :------------------------------ | :-------------------------- | :--------------- |

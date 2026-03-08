@@ -40,3 +40,16 @@ For other use cases like summarization, the service logic can be extended in the
 
 We have decided to implement a single service for the Zammad-AI project. This approach allows for better scalability, maintainability, and integration with existing components.
 The use of a dedicated 'zammad-ai' service will enable us to focus on AI-related functionalities while leveraging the existing Zammad infrastructure.
+
+### Internal Service Structure
+
+To ensure maintainability, the service is structured into the following modules:
+
+- `app/api/`: REST API endpoints and routing (FastAPI).
+- `app/core/`: Central configuration and application settings.
+- `app/kafka/`: Kafka broker connection and security handlers (FastStream).
+- `app/models/`: Shared Pydantic models for data validation.
+- `app/observe/`: Observability, tracing, and prompt management (Langfuse).
+- `app/triage/`: Core business logic for ticket classification and action determination.
+- `app/zammad/`: Specialized clients for Zammad REST API and EAI integration.
+- `app/utils/`: Generic utilities such as logging.

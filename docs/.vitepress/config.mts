@@ -14,9 +14,18 @@ export default defineConfig({
       { text: "Home", link: "/" },
       { text: "ADR", link: "/adr" },
       { text: "Components", link: "/components" },
+      { text: "API", link: "/api" },
+      { text: "Config", link: "/configuration" },
     ],
 
     sidebar: [
+      {
+        text: "Documentation",
+        items: [
+          { text: "Configuration Guide", link: "/configuration" },
+          { text: "REST API Reference", link: "/api" },
+        ],
+      },
       {
         text: "ADR",
         link: "/adr",
@@ -33,6 +42,10 @@ export default defineConfig({
             text: "03: Vector database selection",
             link: "/adr/03-vector-database",
           },
+          {
+            text: "04: Knowledge management system",
+            link: "/adr/04-knowledge-management-system",
+          },
         ],
       },
       {
@@ -46,6 +59,22 @@ export default defineConfig({
           {
             text: "Frontend module",
             link: "/components/frontend",
+          },
+          {
+            text: "Triage",
+            link: "/components/triage",
+          },
+          {
+            text: "Zammad Integration",
+            link: "/components/zammad",
+          },
+          {
+            text: "Qdrant Vector Database",
+            link: "/components/qdrant",
+          },
+          {
+            text: "Observability (Langfuse)",
+            link: "/components/observability",
           },
         ],
       },
