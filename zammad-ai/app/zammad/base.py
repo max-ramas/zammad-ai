@@ -184,7 +184,7 @@ class BaseZammadClient(ABC):
             logger.error(f"Failed to execute {method} {url} after {self.http_attempts} attempts.", exc_info=True)
             raise ZammadConnectionError(f"Failed to execute {method} {url} after {self.http_attempts} attempts.") from e
 
-    async def cleanup(self) -> None:
+    async def close(self) -> None:
         """Close HTTP client."""
         await self.client.aclose()
 

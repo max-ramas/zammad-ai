@@ -146,8 +146,8 @@ class ZammadEAIClient(BaseZammadClient):
         return answer is not None
 
     @override
-    async def cleanup(self) -> None:
+    async def close(self) -> None:
         """Cleanup tokens and close client."""
         self._token = None
         self._token_expires = None
-        await super().cleanup()
+        await super().close()
