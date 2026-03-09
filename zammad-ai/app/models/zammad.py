@@ -13,10 +13,10 @@ class ZammadKnowledgebase(BaseModel):
         description="Whether the knowledge base is active",
         default=True,
     )
-    createdAt: str = Field(
+    createdAt: datetime = Field(
         description="Creation timestamp of the knowledge base",
     )
-    updatedAt: str = Field(
+    updatedAt: datetime = Field(
         description="Last update timestamp of the knowledge base",
     )
     categoryIds: list[int] = Field(
@@ -27,39 +27,6 @@ class ZammadKnowledgebase(BaseModel):
         description="List of answer IDs associated with the knowledge base",
         default_factory=list,
     )
-
-    @field_validator("createdAt", "updatedAt", mode="before")
-    @classmethod
-    def validate_timestamps(cls, value: str) -> str:
-        """Cast timestamp to ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)."""
-        # If already in correct format, return as-is
-        iso8601_pattern = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
-        if re.match(iso8601_pattern, value):
-            return value
-
-        # Common timestamp formats to try parsing
-        formats_to_try = [
-            "%Y-%m-%dT%H:%M:%S",  # 2024-01-01T12:00:00
-            "%Y-%m-%dT%H:%M:%S.%f",  # 2024-01-01T12:00:00.123456
-            "%Y-%m-%dT%H:%M:%S.%fZ",  # 2024-01-01T12:00:00.123456Z
-            "%Y-%m-%d %H:%M:%S",  # 2024-01-01 12:00:00
-            "%Y-%m-%d",  # 2024-01-01
-            "%d/%m/%Y %H:%M:%S",  # 01/01/2024 12:00:00
-            "%d/%m/%Y",  # 01/01/2024
-            "%d.%m.%Y %H:%M:%S",  # 01.01.2024 12:00:00
-            "%d.%m.%Y",  # 01.01.2024
-        ]
-
-        # Try to parse and convert to ISO 8601
-        for fmt in formats_to_try:
-            try:
-                dt = datetime.strptime(value, fmt)
-                return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-            except ValueError:
-                continue
-
-        # If no format matched, raise error
-        raise ValueError(f"Timestamp '{value}' could not be parsed to ISO 8601 format.")
 
 
 class KnowledgeBaseAttachment(BaseModel):
