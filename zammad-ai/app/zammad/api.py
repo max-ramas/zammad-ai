@@ -4,6 +4,7 @@ from typing import override
 
 from feedparser import FeedParserDict
 from feedparser import parse as feedparser
+from httpx import HTTPStatusError
 from pydantic import TypeAdapter
 
 from app.core.settings.zammad import ZammadAPISettings
@@ -20,7 +21,7 @@ from app.models.zammad import (
 )
 from app.utils.logging import getLogger
 
-from .base import BaseZammadClient
+from .base import BaseZammadClient, ZammadConnectionError
 
 logger: Logger = getLogger("zammad-ai.zammad.api")
 
@@ -100,23 +101,34 @@ class ZammadAPIClient(BaseZammadClient):
             return None
 
         try:
-            response = await self._request("GET", f"/api/v1/knowledge_bases/{self.kb_id}/answers/{answer_id}?include_contents={answer_id}")
-            return KnowledgeBaseAnswer(
-                id=response["id"],
-                answerTitle=response["assets"]["KnowledgeBaseAnswerTranslation"][str(answer_id)]["title"],
-                answerBody=response["assets"]["KnowledgeBaseAnswerTranslationContent"][str(answer_id)]["body"],
-                attachments=[
-                    KnowledgeBaseAttachment(
-                        id=attachment["id"], filename=attachment["filename"], contentType=attachment["preferences"]["Content-Type"]
-                    )
-                    for attachment in response["assets"]["KnowledgeBaseAnswer"][str(answer_id)]["attachments"]
-                ],
-                createdAt=response["assets"]["KnowledgeBaseAnswer"][str(answer_id)]["created_at"],
-                updatedAt=response["assets"]["KnowledgeBaseAnswer"][str(answer_id)]["updated_at"],
+            response = await self._request(
+                "GET",
+                f"/api/v1/knowledge_bases/{self.kb_id}/answers/{answer_id}?include_contents={answer_id}",
             )
-        except Exception:
-            logger.warning(f"Failed to fetch knowledge base answer {answer_id}", exc_info=True)
-            return None
+        except ZammadConnectionError as e:
+            cause: BaseException | None = e.__cause__
+            if isinstance(cause, HTTPStatusError) and cause.response.status_code == 404:
+                logger.info(f"Knowledge base answer {answer_id} not found (404).")
+                return None
+            # Auth failures, 5xx, timeouts — re-raise so callers and check_if_answer_exists
+            # don't silently treat them as "answer deleted"
+            raise
+
+        return KnowledgeBaseAnswer(
+            id=response["id"],
+            answerTitle=response["assets"]["KnowledgeBaseAnswerTranslation"][str(answer_id)]["title"],
+            answerBody=response["assets"]["KnowledgeBaseAnswerTranslationContent"][str(answer_id)]["body"],
+            attachments=[
+                KnowledgeBaseAttachment(
+                    id=attachment["id"],
+                    filename=attachment["filename"],
+                    contentType=attachment["preferences"]["Content-Type"],
+                )
+                for attachment in response["assets"]["KnowledgeBaseAnswer"][str(answer_id)]["attachments"]
+            ],
+            createdAt=response["assets"]["KnowledgeBaseAnswer"][str(answer_id)]["created_at"],
+            updatedAt=response["assets"]["KnowledgeBaseAnswer"][str(answer_id)]["updated_at"],
+        )
 
     @override
     async def fetch_kb_attachment_data(self, id: int) -> str | None:

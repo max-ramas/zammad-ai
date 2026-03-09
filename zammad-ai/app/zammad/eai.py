@@ -5,13 +5,14 @@ from typing import Any, override
 
 from feedparser import FeedParserDict
 from feedparser import parse as feedparser
+from httpx import HTTPStatusError
 from pydantic import TypeAdapter
 
 from app.core.settings.zammad import ZammadEAISettings
 from app.models.zammad import KnowledgeBaseAnswer, ZammadAnswer, ZammadArticle, ZammadEAISharedDraft, ZammadKnowledgebase, ZammadTicket
 from app.utils.logging import getLogger
 
-from .base import BaseZammadClient
+from .base import BaseZammadClient, ZammadConnectionError
 
 logger: Logger = getLogger("zammad-ai.zammad.eai")
 
@@ -104,10 +105,7 @@ class ZammadEAIClient(BaseZammadClient):
         response = await self._request("GET", f"/knowledgeBases/{self.kb_id}/rss")
 
         try:
-            # If it's Base64-encoded XML, decode it
-            import base64
-
-            text = base64.b64decode(response).decode("utf-8")
+            text = b64decode(response).decode("utf-8")
         except Exception:
             # If decoding fails, assume it's already plain text
             text = response
@@ -121,10 +119,16 @@ class ZammadEAIClient(BaseZammadClient):
 
         try:
             response = await self._request("GET", f"/knowledgeBases/{self.kb_id}/answer/{answer_id}")
-            return TypeAdapter(KnowledgeBaseAnswer).validate_python(response)
-        except Exception:
-            logger.warning(f"Failed to get knowledge base answer {answer_id}", exc_info=True)
-            return None
+        except ZammadConnectionError as e:
+            cause: BaseException | None = e.__cause__
+            if isinstance(cause, HTTPStatusError) and cause.response.status_code == 404:
+                logger.info(f"Knowledge base answer {answer_id} not found (404).")
+                return None
+            # Auth failures, 5xx, timeouts — re-raise so callers and check_if_answer_exists
+            # don't silently treat them as "answer deleted"
+            raise
+
+        return TypeAdapter(KnowledgeBaseAnswer).validate_python(response)
 
     @override
     async def fetch_kb_attachment_data(self, id: int) -> str | None:
