@@ -2,7 +2,7 @@ import base64
 from abc import ABC, abstractmethod
 from typing import Any
 
-import feedparser
+from feedparser import FeedParserDict
 from httpx import AsyncClient, ConnectError, HTTPStatusError, ReadTimeout, TimeoutException
 from stamina import retry_context
 
@@ -81,7 +81,7 @@ class BaseZammadClient(ABC):
         ...
 
     @abstractmethod
-    async def parse_rss_feed(self) -> feedparser.FeedParserDict | None:
+    async def parse_rss_feed(self) -> FeedParserDict | None:
         """
         Parse RSS feed from the knowledge base.
 

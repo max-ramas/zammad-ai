@@ -1,9 +1,10 @@
-import base64
+from base64 import b64decode
 from datetime import datetime, timedelta
 from logging import Logger
 from typing import Any, override
 
-import feedparser
+from feedparser import FeedParserDict
+from feedparser import parse as feedparser
 from pydantic import TypeAdapter
 
 from app.core.settings.zammad import ZammadEAISettings
@@ -96,7 +97,7 @@ class ZammadEAIClient(BaseZammadClient):
         return TypeAdapter(ZammadKnowledgebase).validate_python(data) if data else None
 
     @override
-    async def parse_rss_feed(self) -> feedparser.FeedParserDict | None:
+    async def parse_rss_feed(self) -> FeedParserDict | None:
         if not self.kb_id:
             return None
 
@@ -111,7 +112,7 @@ class ZammadEAIClient(BaseZammadClient):
             # If decoding fails, assume it's already plain text
             text = response
 
-        return feedparser.parse(text)
+        return feedparser(text)
 
     @override
     async def get_kb_answer_by_id(self, answer_id: str) -> KnowledgeBaseAnswer | None:
@@ -128,7 +129,7 @@ class ZammadEAIClient(BaseZammadClient):
     @override
     async def fetch_kb_attachment_data(self, id: str) -> str | None:
         data = await self._request("GET", f"/attachments/{id}") if id else None
-        return base64.b64decode(data).decode("utf-8") if id and data else None
+        return b64decode(data).decode("utf-8") if id and data else None
 
     @override
     async def fetch_ticket_attachment_data(self, ticket_id: str, attachment_id: str, article_id: str) -> str | None:
@@ -137,7 +138,7 @@ class ZammadEAIClient(BaseZammadClient):
             if ticket_id and attachment_id and article_id
             else None
         )
-        return base64.b64decode(data).decode("utf-8") if data else None
+        return b64decode(data).decode("utf-8") if data else None
 
     @override
     async def check_if_answer_exists(self, answer_id: str) -> bool:

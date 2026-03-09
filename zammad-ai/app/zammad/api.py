@@ -1,8 +1,9 @@
-import base64
+from base64 import b64decode
 from logging import Logger
 from typing import override
 
-import feedparser
+from feedparser import FeedParserDict
+from feedparser import parse as feedparser
 from pydantic import TypeAdapter
 
 from app.core.settings.zammad import ZammadAPISettings
@@ -85,13 +86,13 @@ class ZammadAPIClient(BaseZammadClient):
         )
 
     @override
-    async def parse_rss_feed(self) -> feedparser.FeedParserDict | None:
+    async def parse_rss_feed(self) -> FeedParserDict | None:
         if not self.kb_id or not self.rss_token:
             return None
 
         url = f"/api/v1/knowledge_bases/{self.kb_id}/de-de/feed"
         text = await self._request("GET", url, params={"token": self.rss_token.get_secret_value()})
-        return feedparser.parse(base64.b64decode(text).decode("utf-8"))
+        return feedparser(b64decode(text).decode("utf-8"))
 
     @override
     async def get_kb_answer_by_id(self, answer_id: str) -> KnowledgeBaseAnswer | None:
