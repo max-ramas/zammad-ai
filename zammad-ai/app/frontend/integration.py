@@ -1,9 +1,10 @@
-from logging import Logger, getLogger
+from logging import Logger
 
 import gradio as gr
 from fastapi import FastAPI
 
 from app.settings import FrontendSettings
+from app.utils.logging import getLogger
 
 from .ui import build_frontend
 
