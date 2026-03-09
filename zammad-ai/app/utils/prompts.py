@@ -46,10 +46,10 @@ def extract_frontmatter(content: str) -> tuple[dict[str, Any], str]:
         return {}, content
 
     # Find the end of frontmatter (second `---`)
-    remaining = content[3:].lstrip("\n")
-    lines = remaining.split("\n")
+    remaining: str = content[3:].lstrip("\n")
+    lines: list[str] = remaining.split("\n")
 
-    end_index = None
+    end_index: int | None = None
     for i, line in enumerate(lines):
         if line.strip() == "---":
             end_index = i
@@ -60,18 +60,16 @@ def extract_frontmatter(content: str) -> tuple[dict[str, Any], str]:
         return {}, content
 
     # Extract frontmatter and remaining content
-    frontmatter_text = "\n".join(lines[:end_index]).strip()
-    prompt_text = "\n".join(lines[end_index + 1 :]).lstrip("\n")
+    frontmatter_text: str = "\n".join(lines[:end_index]).strip()
+    prompt_text: str = "\n".join(lines[end_index + 1 :]).lstrip("\n")
 
     # Parse YAML frontmatter
-    metadata = {}
+    metadata: dict[str, Any] = {}
     if frontmatter_text:
         try:
             metadata = safe_load(frontmatter_text) or {}
         except Exception:
             logger.warning("Failed to parse YAML frontmatter.", exc_info=True)
-            # Return empty metadata but still return the detected content boundary
-            prompt_text = "\n".join(lines).lstrip("\n")
 
     return metadata, prompt_text
 
@@ -102,7 +100,7 @@ def load_prompt(file_path: Path | str) -> str:
     if not path.exists():
         raise FileNotFoundError(f"Prompt file not found: {path}")
 
-    content = path.read_text(encoding="utf-8")
+    content: str = path.read_text(encoding="utf-8")
     _, prompt_text = extract_frontmatter(content)
 
     return prompt_text.strip()
