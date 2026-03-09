@@ -234,3 +234,8 @@ class QdrantKBClient:
             id = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=title)
         document = Document(page_content=content, metadata=metadata)
         self.vectorstore.add_documents(documents=[document], ids=[str(id)])
+
+    async def close(self) -> None:
+        """Close the Qdrant client connections."""
+        await self.aclient.close()
+        self.client.close()

@@ -59,13 +59,14 @@ class AnswerService:
             system_prompt=agent_prompt,
             dlf_enabled=settings.answer.dlf is not None,
         )
-
+        self.qdrant_kb_client = QdrantKBClient(
+            genai_settings=settings.genai,
+            qdrant_settings=settings.answer.qdrant,
+        )
+        self.dlf_client: DLFClient | None = DLFClient(dlf_settings=settings.answer.dlf) if settings.answer.dlf is not None else None
         self.agent_context: AgentContext = AgentContext(
-            qdrant_kb_client=QdrantKBClient(
-                genai_settings=settings.genai,
-                qdrant_settings=settings.answer.qdrant,
-            ),
-            dlf_client=DLFClient(dlf_settings=settings.answer.dlf) if settings.answer.dlf is not None else None,
+            qdrant_kb_client=self.qdrant_kb_client,
+            dlf_client=self.dlf_client,
         )
 
     async def generate_answer(
@@ -93,6 +94,12 @@ class AnswerService:
         )
         logger.debug(f"Agent raw result:\n{agent_result}")
         return agent_result["structured_response"]
+
+    async def cleanup(self) -> None:
+        """Clean up resources used by the AnswerService."""
+        await self.qdrant_kb_client.close()
+        if self.dlf_client is not None:
+            await self.dlf_client.close()
 
 
 _service: AnswerService | None = None

@@ -37,14 +37,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.triage_service = get_triage_service(settings=settings)
     app.state.answer_service = get_answer_service(settings=settings)
 
+    yield
+    logger.info("Shutting down shared Triage instance")
     try:
-        yield
-    finally:
-        logger.info("Shutting down shared Triage instance")
-        try:
-            await app.state.triage.cleanup()
-        except asyncio.CancelledError:
-            logger.info("Triage cleanup cancelled during shutdown.")
+        await app.state.triage_service.cleanup()
+        await app.state.answer_service.cleanup()
+
+    except asyncio.CancelledError:
+        logger.info("Cleanup cancelled during shutdown.")
 
 
 settings: ZammadAISettings = get_settings()
