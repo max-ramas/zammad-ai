@@ -54,10 +54,7 @@ KafkaSecurity = Annotated[
 
 
 class KafkaSettings(BaseModel):
-    """
-
-    Settings related to Kafka integration.
-    """
+    """Settings related to Kafka integration."""
 
     broker_url: str = Field(
         description="URL of the Kafka message broker notifying ticket events.",
