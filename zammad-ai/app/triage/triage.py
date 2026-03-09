@@ -88,7 +88,12 @@ class TriageService:
 
             langfuse_client = LangfuseClient()
             self.prompts = {}
-            for name, prompt in settings.triage.prompts.prompt_map.items():
+            prompt_map = settings.triage.prompts.prompt_map
+            for name, prompt in (
+                ("categories", prompt_map.categories),
+                ("examples", prompt_map.examples),
+                ("role", prompt_map.role),
+            ):
                 try:
                     self.prompts[name] = langfuse_client.get_prompt(
                         prompt_name=prompt.name,

@@ -11,16 +11,34 @@ from .kafka import KafkaSettings
 from .logging import LoggingSettings
 from .triage import TriageSettings
 from .usecase import UseCaseSettings
-from .zammad import ZammadEndpointSettings
+from .zammad import ZammadAPISettings, ZammadEAISettings
+
+
+def _is_test_mode() -> bool:
+    """Check if settings are loaded in a test context.
+
+    YAML should only be disabled for pytest runs or when explicitly requested.
+    """
+    import os
+
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return True
+
+    if os.getenv("ZAMMAD_AI_DISABLE_YAML", "").lower() in {"1", "true", "yes"}:
+        return True
+
+    return False
 
 
 def _should_enable_cli() -> bool:
     """Check if CLI parsing should be enabled based on sys.argv."""
     import sys
 
-    # Disable CLI parsing if pytest or other test runners are detected
-    argv_str = " ".join(sys.argv)
-    test_indicators = ["pytest", "test", "-m", "unittest"]
+    if "pytest" in sys.modules:
+        return False
+
+    argv_str = " ".join(sys.argv).lower()
+    test_indicators = ["pytest", "py.test", "unittest"]
     return not any(indicator in argv_str for indicator in test_indicators)
 
 
@@ -42,8 +60,9 @@ class ZammadAISettings(BaseSettings):
         default_factory=lambda: GenAISettings(),
     )
 
-    zammad: ZammadEndpointSettings = Field(
+    zammad: ZammadAPISettings | ZammadEAISettings = Field(
         description="Settings for Zammad integration, including API details and knowledge base configuration.",
+        discriminator="type",
     )
 
     kafka: KafkaSettings = Field(
@@ -134,7 +153,12 @@ class ZammadAISettings(BaseSettings):
         if _should_enable_cli():
             sources.append(CliSettingsSource(settings_cls))
 
-        sources.extend([env_settings, dotenv_settings, YamlConfigSettingsSource(settings_cls)])
+        sources.extend([env_settings, dotenv_settings])
+
+        if _is_test_mode():
+            sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=[]))
+        else:
+            sources.append(YamlConfigSettingsSource(settings_cls))
 
         return tuple(sources)
 

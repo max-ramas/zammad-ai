@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field, FilePath, NonNegativeInt
@@ -15,8 +13,16 @@ class TriageSettings(BaseModel):
     actions: list["Action"]
     no_action_id: int
     action_rules: list["ActionRule"]
-    prompts: TriagePrompts = Field(
+    prompts: "StringTriagePrompts | FileTriagePrompts | LangfuseTriagePrompts" = Field(
         description="Prompts for the triage process. Can be provided as raw strings, file paths, or Langfuse prompt references.",
+        default_factory=lambda: StringTriagePrompts(
+            prompt_map={
+                "categories": "Categorize the following text into one of the following categories: {categories}.",
+                "examples": "Here are some examples of texts and their corresponding categories: {examples}.",
+                "role": "You are a helpful assistant that categorizes text based on the provided categories and examples.",
+            }
+        ),
+        discriminator="type",
     )
 
 
@@ -61,11 +67,6 @@ class StringTriagePrompts(BaseModel):
     type: Literal["string"] = "string"
     prompt_map: dict[TriagePrompt, str] = Field(
         description="Prompts for the triage process as raw strings. The keys should be 'categories', 'examples', and 'role'.",
-        default={
-            "categories": "List of categories: {{categories}}",
-            "examples": "Examples: {{examples}}",
-            "role": "You are a helpful assistant that categorizes support requests into the above categories based on the content of the request.",
-        },
     )
 
 
@@ -76,14 +77,14 @@ class FileTriagePrompts(BaseModel):
     )
 
 
+class LangfuseTriagePromptMap(BaseModel):
+    categories: LangfusePrompt
+    examples: LangfusePrompt
+    role: LangfusePrompt
+
+
 class LangfuseTriagePrompts(BaseModel):
     type: Literal["langfuse"] = "langfuse"
-    prompt_map: dict[TriagePrompt, LangfusePrompt] = Field(
+    prompt_map: LangfuseTriagePromptMap = Field(
         description="Prompts for the triage process as LangfusePrompt objects. The keys should be 'categories', 'examples', and 'role'.",
     )
-
-
-TriagePrompts = Annotated[
-    StringTriagePrompts | FileTriagePrompts | LangfuseTriagePrompts,
-    Field(discriminator="type"),
-]

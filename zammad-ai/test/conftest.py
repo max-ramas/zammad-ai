@@ -4,8 +4,6 @@ This module centralizes test setup for settings, logging, global state cleanup,
 Kafka payloads, and reusable fake dependencies.
 """
 
-from __future__ import annotations
-
 import logging
 import os
 from collections.abc import Callable, Generator
@@ -22,13 +20,20 @@ from test.fakes import FakeGenAIHandler, FakeLangfuseClient, FakeZammadClient
 
 _TEST_ENV_DEFAULTS: dict[str, str] = {
     "ZAMMAD_AI_MODE": "unittest",
+    "ZAMMAD_AI_DISABLE_YAML": "1",
     "ZAMMAD_AI_LANGFUSE_ENABLED": "false",
     "ZAMMAD_AI_ZAMMAD__TYPE": "api",
     "ZAMMAD_AI_ZAMMAD__BASE_URL": "https://example.com",
     "ZAMMAD_AI_ZAMMAD__AUTH_TOKEN": "test-token",
-    "ZAMMAD_AI_TRIAGE": '{"categories":[{"name":"Unknown","id":0}],"no_category_id":0,"actions":[{"name":"Default","description":"Default","id":1}],"no_action_id":1,"action_rules":[],"prompts":{"type":"string"}}',
+    "ZAMMAD_AI_TRIAGE": '{"categories":[{"name":"Unknown","id":0}],"no_category_id":0,"actions":[{"name":"Default","description":"Default","id":1}],"no_action_id":1,"action_rules":[],"prompts":{"type":"string","prompt_map":{"categories":"List of categories: {{categories}}","examples":"Examples: {{examples}}","role":"You are a helpful assistant that categorizes support requests into the above categories based on the content of the request."}}}',
     "ZAMMAD_AI_VALID_REQUEST_TYPES": '["support"]',
     "ZAMMAD_AI_QDRANT__API_KEY": "test-key",
+}
+
+DEFAULT_GENAI_PROMPTS = {
+    "categories": "List of categories: {{categories}}",
+    "examples": "Examples: {{examples}}",
+    "role": "You are a helpful assistant that categorizes support requests into the above categories based on the content of the request.",
 }
 
 
@@ -85,7 +90,7 @@ def base_settings() -> ZammadAISettings:
             actions=[Action(name="Default", description="Default", id=1), Action(name="Escalate", description="Escalate", id=3)],
             no_action_id=1,
             action_rules=[],
-            prompts=StringTriagePrompts(),
+            prompts=StringTriagePrompts(type="string", prompt_map=DEFAULT_GENAI_PROMPTS),  # type: ignore
         ),
         valid_request_types=["support", "technischer Bürgersupport"],
     )
@@ -235,8 +240,11 @@ def fake_langfuse_client() -> FakeLangfuseClient:
 @pytest.fixture
 def fake_genai_handler() -> FakeGenAIHandler:
     """Return a fake GenAI handler with default prompts."""
-    prompts = {str(key): value for key, value in StringTriagePrompts().prompt_map.items()}
-    return FakeGenAIHandler(genai_settings=GenAISettings(), prompts=prompts)
+
+    return FakeGenAIHandler(
+        genai_settings=GenAISettings(),
+        prompts=DEFAULT_GENAI_PROMPTS,
+    )
 
 
 @pytest.fixture

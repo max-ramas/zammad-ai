@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 from collections.abc import Callable, Generator
 
 import pytest
 
 from app.models.triage import CategorizationResult, DaysSinceRequestResponse, ProcessingIdResponse
 from app.models.zammad import ZammadArticle, ZammadTicket
+from app.settings.langfuse import LangfusePrompt
 from app.settings.triage import ActionRule, Category, Condition
 from app.triage import triage as triage_module
 from app.triage.triage import TriageError, TriageService
@@ -319,6 +318,25 @@ async def test_get_action_id_no_matching_rule(triage_factory: Callable[[list[Act
 
     action_id = await triage.get_action_id(categorization_result=categorization, message="msg", session_id="s")
     assert action_id == triage.no_action.id
+
+
+def test_langfuse_prompt_map_values_are_typed() -> None:
+    from app.settings.triage import LangfuseTriagePrompts
+
+    prompts = LangfuseTriagePrompts.model_validate(
+        {
+            "type": "langfuse",
+            "prompt_map": {
+                "categories": {"name": "drivers-licence/categories", "label": "latest"},
+                "examples": {"name": "drivers-licence/examples", "label": "latest"},
+                "role": {"name": "drivers-licence/role", "label": "latest"},
+            },
+        }
+    )
+
+    assert isinstance(prompts.prompt_map.categories, LangfusePrompt)
+    assert isinstance(prompts.prompt_map.examples, LangfusePrompt)
+    assert isinstance(prompts.prompt_map.role, LangfusePrompt)
 
 
 # ---------------------------------------------------------------------------
