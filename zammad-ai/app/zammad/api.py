@@ -90,6 +90,7 @@ class ZammadAPIClient(BaseZammadClient):
     @override
     async def parse_rss_feed(self) -> FeedParserDict | None:
         if not self.kb_id or not self.rss_token:
+            logger.warning("Knowledge base ID or RSS feed token is not set. Cannot parse RSS feed.")
             return None
 
         url = f"/api/v1/knowledge_bases/{self.kb_id}/de-de/feed"

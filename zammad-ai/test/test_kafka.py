@@ -137,7 +137,7 @@ async def test_event_handler_valid_message(valid_message: dict, mock_triage, moc
         message = dict(valid_message)
         await test_broker.publish(topic=settings.kafka.topic, message=message)
         # Verify the triage was called with the correct ticket ID
-        mock_triage.perform_triage.assert_called_once_with(id="3720")
+        mock_triage.perform_triage.assert_called_once_with(id=3720)
 
 
 @pytest.mark.asyncio
@@ -152,7 +152,7 @@ async def test_event_handler_with_requestType_alias(valid_message: dict, mock_tr
         message["requestType"] = "technischer Bürgersupport"
         await test_broker.publish(topic=settings.kafka.topic, message=message)
         # Verify the triage was called with the correct ticket ID
-        mock_triage.perform_triage.assert_called_once_with(id="3720")
+        mock_triage.perform_triage.assert_called_once_with(id=3720)
 
 
 @pytest.mark.asyncio
@@ -196,7 +196,7 @@ async def test_event_handler_with_multiple_valid_request_types(valid_message: di
         message["anliegenart"] = "general support"
         await test_broker.publish(topic=settings.kafka.topic, message=message)
         # Verify the triage was called with the correct ticket ID
-        mock_triage.perform_triage.assert_called_once_with(id="3720")
+        mock_triage.perform_triage.assert_called_once_with(id=3720)
 
 
 @pytest.mark.asyncio
