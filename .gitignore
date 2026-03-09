@@ -338,7 +338,7 @@ dist
 .firebase/
 
 # TernJS port file
-.tern-porthttps://github.com/it-at-m/zammad-ai/pull/86/conflict?name=docs%252F.vitepress%252Fconfig.mts&ancestor_oid=357312c194514d38b47bd372fa96a67727dc636b&base_oid=09f4ed907368922dce2a55a16f538f1da8414d78&head_oid=9144be09a923c0960f20342cf6c55c115b6c581e
+.tern-port
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
