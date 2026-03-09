@@ -57,6 +57,7 @@ async def triage(
             action=action,
             reasoning=categorization.reasoning,
             confidence=categorization.confidence,
+            extracted_values=categorization.extracted_values,
         ),
         id=input.id,
     )

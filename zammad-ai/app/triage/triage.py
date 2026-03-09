@@ -170,6 +170,7 @@ class TriageService:
                 reasoning="Keine Artikel gefunden",
                 confidence=1.0,
                 action=self.no_action,
+                extracted_values=None,
             )
 
         try:
@@ -196,6 +197,7 @@ class TriageService:
                 action=action,
                 reasoning=categorization.reasoning,
                 confidence=categorization.confidence,
+                extracted_values=categorization.extracted_values,
             )
         except TriageError:
             logger.warning(f"Processing failed for ticket {id}, returning fallback TriageResult.")
@@ -204,6 +206,7 @@ class TriageService:
                 action=self.no_action,
                 reasoning="Fehler bei der Triage-Verarbeitung",
                 confidence=1.0,
+                extracted_values=None,
             )
 
     async def predict_category(self, message: str, session_id: str) -> CategorizationResult:
@@ -223,6 +226,7 @@ class TriageService:
                 category=self.no_category,
                 reasoning="Leere Nachricht kann nicht kategorisiert werden",
                 confidence=1.0,
+                extracted_values=None,
             )
 
         try:
