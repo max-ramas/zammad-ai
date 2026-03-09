@@ -1,3 +1,4 @@
+import asyncio
 from base64 import b64decode
 from datetime import datetime, timedelta
 from logging import Logger
@@ -32,33 +33,41 @@ class ZammadEAIClient(BaseZammadClient):
         self.kb_id = settings.knowledge_base_id
         self._token = None
         self._token_expires = None
+        self._auth_lock = asyncio.Lock()
 
     async def _ensure_auth(self) -> None:
         """Ensure OAuth token is valid."""
+        # Fast-path check without lock
         if self._token and self._token_expires and datetime.now() < self._token_expires - timedelta(minutes=5):
             return
 
-        # Get new token
-        token_data = {
-            "grant_type": "client_credentials",
-            "client_id": self.settings.client_id,
-            "client_secret": self.settings.client_secret.get_secret_value(),
-        }
-        if self.settings.scope:
-            token_data["scope"] = self.settings.scope
+        # Double-checked locking to prevent OAuth stampede
+        async with self._auth_lock:
+            # Re-check token validity inside the lock
+            if self._token and self._token_expires and datetime.now() < self._token_expires - timedelta(minutes=5):
+                return
 
-        try:
-            response = await self.client.post(
-                str(self.settings.token_url), data=token_data, headers={"Content-Type": "application/x-www-form-urlencoded"}
-            )
-            response.raise_for_status()
-        except (HTTPStatusError, RequestError) as e:
-            raise ZammadConnectionError(f"Failed to obtain OAuth token from {self.settings.token_url}") from e
+            # Get new token
+            token_data = {
+                "grant_type": "client_credentials",
+                "client_id": self.settings.client_id,
+                "client_secret": self.settings.client_secret.get_secret_value(),
+            }
+            if self.settings.scope:
+                token_data["scope"] = self.settings.scope
 
-        token_resp = response.json()
-        self._token = token_resp["access_token"]
-        expires_in = token_resp.get("expires_in", 3600)
-        self._token_expires = datetime.now() + timedelta(seconds=expires_in)
+            try:
+                response = await self.client.post(
+                    str(self.settings.token_url), data=token_data, headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
+                response.raise_for_status()
+            except (HTTPStatusError, RequestError) as e:
+                raise ZammadConnectionError(f"Failed to obtain OAuth token from {self.settings.token_url}") from e
+
+            token_resp = response.json()
+            self._token = token_resp["access_token"]
+            expires_in = token_resp.get("expires_in", 3600)
+            self._token_expires = datetime.now() + timedelta(seconds=expires_in)
 
     async def _request(self, method: str, url: str, **kwargs) -> Any:
         """Make authenticated request."""
