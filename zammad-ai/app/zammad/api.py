@@ -95,7 +95,12 @@ class ZammadAPIClient(BaseZammadClient):
 
         url = f"/api/v1/knowledge_bases/{self.kb_id}/de-de/feed"
         text = await self._request("GET", url, params={"token": self.rss_token.get_secret_value()})
-        return feedparser(b64decode(text).decode("utf-8"))
+
+        try:
+            decoded_text = b64decode(text).decode("utf-8")
+            return feedparser(decoded_text)
+        except Exception:
+            return feedparser(text)
 
     @override
     async def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
