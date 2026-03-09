@@ -5,7 +5,7 @@ from typing import Any, override
 
 from feedparser import FeedParserDict
 from feedparser import parse as feedparser
-from httpx import HTTPStatusError
+from httpx import HTTPStatusError, RequestError
 from pydantic import TypeAdapter
 
 from app.core.settings.zammad import ZammadEAISettings
@@ -47,10 +47,13 @@ class ZammadEAIClient(BaseZammadClient):
         if self.settings.scope:
             token_data["scope"] = self.settings.scope
 
-        response = await self.client.post(
-            str(self.settings.token_url), data=token_data, headers={"Content-Type": "application/x-www-form-urlencoded"}
-        )
-        response.raise_for_status()
+        try:
+            response = await self.client.post(
+                str(self.settings.token_url), data=token_data, headers={"Content-Type": "application/x-www-form-urlencoded"}
+            )
+            response.raise_for_status()
+        except (HTTPStatusError, RequestError) as e:
+            raise ZammadConnectionError(f"Failed to obtain OAuth token from {self.settings.token_url}") from e
 
         token_resp = response.json()
         self._token = token_resp["access_token"]
