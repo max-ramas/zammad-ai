@@ -11,9 +11,9 @@ from app.models.zammad import (
     KnowledgeBaseAnswer,
     KnowledgeBaseAttachment,
     ZammadAnswer,
+    ZammadAPISharedDraft,
     ZammadArticle,
     ZammadKnowledgebase,
-    ZammadSharedDraftAPI,
     ZammadSharedDraftArticle,
     ZammadTagAdd,
     ZammadTicket,
@@ -56,7 +56,7 @@ class ZammadAPIClient(BaseZammadClient):
 
     @override
     async def post_shared_draft(self, ticket_id: int, text: str) -> None:
-        payload = ZammadSharedDraftAPI(new_article=ZammadSharedDraftArticle(body=text, ticket_id=ticket_id))
+        payload = ZammadAPISharedDraft(new_article=ZammadSharedDraftArticle(body=text, ticket_id=ticket_id))
         await self._request("PUT", f"/api/v1/tickets/{ticket_id}/shared_draft", json=payload.model_dump(by_alias=True))
         logger.info(f"Posted shared draft to ticket {ticket_id}")
 

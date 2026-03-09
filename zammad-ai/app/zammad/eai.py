@@ -8,7 +8,7 @@ from feedparser import parse as feedparser
 from pydantic import TypeAdapter
 
 from app.core.settings.zammad import ZammadEAISettings
-from app.models.zammad import KnowledgeBaseAnswer, ZammadAnswer, ZammadArticle, ZammadKnowledgebase, ZammadSharedDraftEAI, ZammadTicket
+from app.models.zammad import KnowledgeBaseAnswer, ZammadAnswer, ZammadArticle, ZammadEAISharedDraft, ZammadKnowledgebase, ZammadTicket
 from app.utils.logging import getLogger
 
 from .base import BaseZammadClient
@@ -80,7 +80,7 @@ class ZammadEAIClient(BaseZammadClient):
 
     @override
     async def post_shared_draft(self, ticket_id: int, text: str) -> None:
-        payload = ZammadSharedDraftEAI(body=text)
+        payload = ZammadEAISharedDraft(body=text)
         await self._request("PUT", f"/tickets/{ticket_id}/shared_draft", json=payload.model_dump())
         logger.info(f"Posted shared draft to ticket {ticket_id}")
 

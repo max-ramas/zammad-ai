@@ -186,7 +186,7 @@ class ZammadSharedDraftArticle(BaseModel):
 
 
 # TODO: Research good defaults for model values
-class ZammadSharedDraftAPI(BaseModel):
+class ZammadAPISharedDraft(BaseModel):
     form_id: str = "367646073"
     new_article: ZammadSharedDraftArticle
     ticket_attributes: dict[str, str] = Field(
@@ -199,5 +199,5 @@ class ZammadSharedDraftAPI(BaseModel):
     )
 
 
-class ZammadSharedDraftEAI(BaseModel):
+class ZammadEAISharedDraft(BaseModel):
     body: str = Field(description="The body of the shared draft")
