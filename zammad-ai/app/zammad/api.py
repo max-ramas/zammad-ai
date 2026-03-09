@@ -67,7 +67,7 @@ class ZammadAPIClient(BaseZammadClient):
         logger.info(f"Added tag '{tag}' to ticket {ticket_id}")
 
     @override
-    async def show_kb(self) -> ZammadKnowledgebase | None:
+    async def kb_info(self) -> ZammadKnowledgebase | None:
         if not self.kb_id:
             return None
 

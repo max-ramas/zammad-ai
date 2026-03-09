@@ -91,7 +91,7 @@ class BaseZammadClient(ABC):
         ...
 
     @abstractmethod
-    async def show_kb(self) -> ZammadKnowledgebase | None:
+    async def kb_info(self) -> ZammadKnowledgebase | None:
         """
         Fetch and return a list of knowledge base answers.
 

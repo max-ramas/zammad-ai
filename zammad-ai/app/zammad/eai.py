@@ -89,7 +89,7 @@ class ZammadEAIClient(BaseZammadClient):
         raise NotImplementedError("Adding tag is not implemented yet.")
 
     @override
-    async def show_kb(self) -> ZammadKnowledgebase | None:
+    async def kb_info(self) -> ZammadKnowledgebase | None:
         if not self.kb_id:
             return None
 
