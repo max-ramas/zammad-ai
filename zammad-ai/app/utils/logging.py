@@ -41,6 +41,9 @@ def get_log_config() -> dict[str, Any]:
     return log_config
 
 
+_logging_configured = False
+
+
 def getLogger(name: str = "zammad-ai") -> logging.Logger:
     """Configures logging and returns a logger with the specified name.
 
@@ -53,8 +56,11 @@ def getLogger(name: str = "zammad-ai") -> logging.Logger:
     Returns:
         logging.Logger: The logger with the specified name.
     """
-    log_config = get_log_config()
-    logging.config.dictConfig(log_config)
+    global _logging_configured
+    if not _logging_configured:
+        log_config = get_log_config()
+        logging.config.dictConfig(log_config)
+        _logging_configured = True
     return logging.getLogger(name)
 
 
