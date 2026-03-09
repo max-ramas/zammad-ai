@@ -54,7 +54,11 @@ def _format_documents(documents: list[dict[str, Any]]) -> str:
 async def _request_json(client: httpx.AsyncClient, url: str, payload: dict[str, Any]) -> dict[str, Any]:
     response = await client.post(url=url, json=payload)
     response.raise_for_status()
-    return response.json()
+    data = response.json()
+    if not isinstance(data, dict):
+        msg = f"Expected JSON object from {url}, got {type(data).__name__}"
+        raise ValueError(msg)
+    return data
 
 
 async def process_ticket(text: str, *, api_base_url: str, timeout_seconds: float) -> FrontendResult:
@@ -65,7 +69,7 @@ async def process_ticket(text: str, *, api_base_url: str, timeout_seconds: float
         FrontendResult: (category, action, reasoning, confidence, answer, answer_documents)
     """
     if not text.strip():
-        return _empty_result("Keine Eingabe")
+        raise gr.Error("Keine Eingabe")
 
     triage_url = f"{api_base_url}/api/v1/triage"
     answer_url = f"{api_base_url}/api/v1/answer"
@@ -74,14 +78,14 @@ async def process_ticket(text: str, *, api_base_url: str, timeout_seconds: float
         try:
             triage_data = await _request_json(client=client, url=triage_url, payload={"text": text})
         except httpx.ConnectError:
-            return _empty_result(f"Verbindungsfehler: Backend läuft nicht auf {api_base_url}")
+            raise gr.Error(f"Verbindungsfehler: Backend läuft nicht auf {api_base_url}")
         except httpx.TimeoutException:
-            return _empty_result("Timeout: Triage dauert zu lange")
+            raise gr.Error("Timeout: Triage dauert zu lange")
         except httpx.HTTPStatusError as e:
-            return _empty_result(f"HTTP-Fehler {e.response.status_code}: {e.response.text}")
+            raise gr.Error(f"HTTP-Fehler {e.response.status_code}: {e.response.text}")
         except Exception as e:
             logger.error("Failed to process triage request.", exc_info=True, extra={"exception_type": type(e).__name__})
-            return _empty_result("Fehler bei Triage")
+            raise gr.Error("Fehler bei Triage")
 
         triage_result = triage_data.get("triage", {})
         session_id = triage_data.get("id")
@@ -109,8 +113,18 @@ async def process_ticket(text: str, *, api_base_url: str, timeout_seconds: float
                 documents = answer_data.get("documents", [])
                 if isinstance(documents, list):
                     answer_documents = _format_documents(documents=documents)
+            except httpx.ConnectError:
+                gr.Warning(f"Verbindungsfehler bei Answer: Backend läuft nicht auf {api_base_url}")
+                answer = "Fehler bei Answer-Generierung"
+            except httpx.TimeoutException:
+                gr.Warning("Timeout: Answer-Generierung dauert zu lange")
+                answer = "Fehler bei Answer-Generierung"
+            except httpx.HTTPStatusError as e:
+                gr.Warning(f"HTTP-Fehler {e.response.status_code}: {e.response.text}")
+                answer = "Fehler bei Answer-Generierung"
             except Exception as e:
                 logger.error("Failed to process answer request.", exc_info=True, extra={"exception_type": type(e).__name__})
+                gr.Warning("Fehler bei Answer-Generierung")
                 answer = "Fehler bei Answer-Generierung"
 
     confidence_str = f"{confidence * 100:.1f}%"
