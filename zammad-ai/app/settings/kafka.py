@@ -1,8 +1,31 @@
-from __future__ import annotations
-
-from typing import Annotated, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field, FilePath
+
+
+class KafkaSettings(BaseModel):
+    """Settings related to Kafka integration."""
+
+    broker_url: str = Field(
+        description="URL of the Kafka message broker notifying ticket events.",
+        default="localhost:9092",
+    )
+
+    topic: str = Field(
+        description="Kafka topic for ticket events",
+        default="ticket-events",
+    )
+
+    group_id: str | None = Field(
+        description="Kafka consumer group ID",
+        default=None,
+    )
+
+    security: "MTLSKafkaEnvSecurity | MTLSFileKafkaSecurity | DisableKafkaSecurity" = Field(
+        description="Security configuration for Kafka connection.",
+        default_factory=lambda: DisableKafkaSecurity(),
+        discriminator="type",
+    )
 
 
 class DisableKafkaSecurity(BaseModel):
@@ -44,34 +67,4 @@ class MTLSFileKafkaSecurity(BaseModel):
 
     client_key_path: FilePath = Field(
         description="Path to the client private key file (PEM format).",
-    )
-
-
-KafkaSecurity = Annotated[
-    DisableKafkaSecurity | MTLSKafkaEnvSecurity | MTLSFileKafkaSecurity,
-    Field(discriminator="type"),
-]
-
-
-class KafkaSettings(BaseModel):
-    """Settings related to Kafka integration."""
-
-    broker_url: str = Field(
-        description="URL of the Kafka message broker notifying ticket events.",
-        default="localhost:9092",
-    )
-
-    topic: str = Field(
-        description="Kafka topic for ticket events",
-        default="ticket-events",
-    )
-
-    group_id: str | None = Field(
-        description="Kafka consumer group ID",
-        default=None,
-    )
-
-    security: KafkaSecurity = Field(
-        default=DisableKafkaSecurity(),
-        description="Security configuration for Kafka connection.",
     )

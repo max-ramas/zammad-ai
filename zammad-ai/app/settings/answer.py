@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -36,12 +34,6 @@ class LangfuseAnswerPrompt(BaseModel):
     prompt: LangfusePrompt = Field(
         description="The name and label of the Langfuse prompt to use for answer generation.",
     )
-
-
-AnswerPrompt = Annotated[
-    StringAnswerPrompt | FileAnswerPrompt | LangfuseAnswerPrompt,
-    Field(discriminator="type"),
-]
 
 
 class QdrantSettings(BaseModel):
@@ -82,21 +74,6 @@ class QdrantSettings(BaseModel):
     )
 
 
-class AnswerSettings(BaseModel):
-    agent_prompt: StringAnswerPrompt | FileAnswerPrompt | LangfuseAnswerPrompt = Field(
-        description="Prompt configuration for the answer generation agent. Can be provided as a raw string, a file path, or a Langfuse prompt reference.",
-        default=FileAnswerPrompt(
-            prompt=Path("prompts/answer/agent.prompt.md"),
-        ),
-    )
-    dlf: DLFSettings | None = Field(
-        default=None,
-    )
-    qdrant: QdrantSettings = Field(
-        default=QdrantSettings(),
-    )
-
-
 class DLFSettings(BaseModel):
     """Settings for the Dienstleistungsfinder (DLF) integration."""
 
@@ -110,4 +87,20 @@ class DLFSettings(BaseModel):
     timeout: PositiveInt = Field(
         description="Timeout in seconds for requests to the DLF API.",
         default=60,
+    )
+
+
+class AnswerSettings(BaseModel):
+    agent_prompt: StringAnswerPrompt | FileAnswerPrompt | LangfuseAnswerPrompt = Field(
+        description="Prompt configuration for the answer generation agent. Can be provided as a raw string, a file path, or a Langfuse prompt reference.",
+        default=FileAnswerPrompt(
+            prompt=Path("prompts") / "answer" / "agent.prompt.md",
+        ),
+        discriminator="type",
+    )
+    dlf: DLFSettings | None = Field(
+        default=None,
+    )
+    qdrant: QdrantSettings = Field(
+        default=QdrantSettings(),
     )

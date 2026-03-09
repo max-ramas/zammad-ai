@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from logging import Logger
 
 from httpx import AsyncClient, Response
@@ -22,17 +20,17 @@ class DLFAPIPayload(BaseModel):
     rerank: bool = False
 
 
-class DLFAPIResponse(BaseModel):
-    """Response model for the DLF retrieval API."""
-
-    documents: list[DLFDocument] = Field(validation_alias="retrieval_documents")
-
-
 class DLFDocument(BaseModel):
     """A single retrieval document from DLF."""
 
     title: str = Field(validation_alias="name")
     content: str = Field(validation_alias="page_content")
+
+
+class DLFAPIResponse(BaseModel):
+    """Response model for the DLF retrieval API."""
+
+    documents: list[DLFDocument] = Field(validation_alias="retrieval_documents")
 
 
 class SearchDLFInput(BaseModel):

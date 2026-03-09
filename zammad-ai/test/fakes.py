@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from app.models.triage import CategorizationResult, DaysSinceRequestResponse, ProcessingIdResponse
 from app.models.zammad import ZammadTicket
 from app.settings import GenAISettings

@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Annotated, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl, NonNegativeInt, SecretStr
 
@@ -59,9 +59,3 @@ class ZammadEAISettings(BaseZammadSettings):
     secret: SecretStr = Field(
         description="Zammad EAI secret for authentication",
     )
-
-
-ZammadEndpointSettings = Annotated[
-    ZammadAPISettings | ZammadEAISettings,
-    Field(discriminator="type"),
-]
