@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 import feedparser
 
@@ -12,7 +13,7 @@ from app.utils.logging import getLogger
 from app.zammad.api import ZammadAPIClient
 from app.zammad.eai import ZammadEAIClient
 
-INTERVALL = 100  # days
+INTERVAL = 100  # days
 settings = get_settings()
 logger = getLogger("zammad-ai.update_qdrant")
 
@@ -33,9 +34,9 @@ def get_ids(feed: feedparser.FeedParserDict, last_updated: datetime | None = Non
         # Filter by last_updated if possible
         if last_updated is not None:
             try:
-                updated = datetime.fromisoformat(entry.get("updated"))
-            except Exception as e:
-                logger.warning("Could not parse updated time for entry %s: %s", entry.get("id", "unknown"), e)
+                updated: datetime = datetime.fromisoformat(entry.get("updated"))
+            except Exception:
+                logger.warning(msg=f"Could not parse updated time for entry {entry.get('id', 'unknown')}", exc_info=True)
                 continue
             # Ensure both datetimes are timezone-aware for comparison
             if updated.tzinfo is None:
@@ -63,8 +64,8 @@ async def main() -> None:
         feed = await client.parse_rss_feed()
 
         if feed:
-            ids: list[str] = get_ids(feed, datetime.now(timezone.utc) - timedelta(days=INTERVALL))
-            logger.info("Found %d updated answers in the last %d days.", len(ids), INTERVALL)
+            ids: list[str] = get_ids(feed, datetime.now(timezone.utc) - timedelta(days=INTERVAL))
+            logger.info("Found %d updated answers in the last %d days.", len(ids), INTERVAL)
 
             for answer_id in ids:
                 logger.info("Answer ID: %s", answer_id)
@@ -73,7 +74,7 @@ async def main() -> None:
                     try:
                         # Create KnowledgeBaseAnswer instance from dictionary data
                         answer = KnowledgeBaseAnswer(
-                            id=str(answer_data.get("id", answer_id)),
+                            id=UUID(answer_data.get("id", answer_id)),
                             title=answer_data.get("title", ""),
                             content=answer_data.get("content", ""),
                             attachments=answer_data.get("attachments", {}),

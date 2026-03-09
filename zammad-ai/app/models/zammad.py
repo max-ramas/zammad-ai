@@ -1,11 +1,12 @@
 import html
 import re
+from uuid import UUID
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 
 class KnowledgeBaseAnswer(BaseModel):
-    id: str = Field(
+    id: UUID = Field(
         description="The ID of the answer",
     )
     title: str = Field(
