@@ -92,6 +92,7 @@ class ZammadEAIClient(BaseZammadClient):
     @override
     async def kb_info(self) -> ZammadKnowledgebase | None:
         if not self.kb_id:
+            logger.warning("Knowledge base ID is not set. Cannot fetch KB info.")
             return None
 
         data = await self._request("GET", f"/knowledgeBases/{self.kb_id}")
@@ -100,6 +101,7 @@ class ZammadEAIClient(BaseZammadClient):
     @override
     async def parse_rss_feed(self) -> FeedParserDict | None:
         if not self.kb_id:
+            logger.warning("Knowledge base ID is not set. Cannot parse RSS feed.")
             return None
 
         response = await self._request("GET", f"/knowledgeBases/{self.kb_id}/rss")
@@ -115,6 +117,7 @@ class ZammadEAIClient(BaseZammadClient):
     @override
     async def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
         if not self.kb_id:
+            logger.warning("Knowledge base ID is not set. Cannot fetch KB answer.")
             return None
 
         try:

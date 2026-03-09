@@ -70,6 +70,7 @@ class ZammadAPIClient(BaseZammadClient):
     @override
     async def kb_info(self) -> ZammadKnowledgebase | None:
         if not self.kb_id:
+            logger.warning("Knowledge base ID is not set. Cannot fetch KB info.")
             return None
 
         data = await self._request("GET", f"/api/v1/knowledge_bases/{self.kb_id}")
@@ -98,6 +99,7 @@ class ZammadAPIClient(BaseZammadClient):
     @override
     async def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
         if not self.kb_id:
+            logger.warning("Knowledge base ID is not set. Cannot fetch KB answer.")
             return None
 
         try:
