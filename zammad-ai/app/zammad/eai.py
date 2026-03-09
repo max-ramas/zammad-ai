@@ -67,25 +67,25 @@ class ZammadEAIClient(BaseZammadClient):
         return await super()._request(method, url, **kwargs)
 
     @override
-    async def get_ticket(self, id: str) -> ZammadTicket:
+    async def get_ticket(self, id: int) -> ZammadTicket:
         data = await self._request("GET", f"/tickets/byId/{id}")
         articles = TypeAdapter(list[ZammadArticle]).validate_python(data["articles"])
         return ZammadTicket(id=id, articles=articles)
 
     @override
-    async def post_answer(self, ticket_id: str, text: str, subject: str | None = None, internal: bool = False) -> None:
+    async def post_answer(self, ticket_id: int, text: str, subject: str | None = None, internal: bool = False) -> None:
         payload = ZammadAnswer(ticket_id=ticket_id, body=text, internal=internal, subject=subject)
         await self._request("POST", f"/tickets/{ticket_id}/articles", json=payload.model_dump())
         logger.info(f"Posted answer to ticket {ticket_id}")
 
     @override
-    async def post_shared_draft(self, ticket_id: str, text: str) -> None:
+    async def post_shared_draft(self, ticket_id: int, text: str) -> None:
         payload = ZammadSharedDraftEAI(body=text)
         await self._request("PUT", f"/tickets/{ticket_id}/shared_draft", json=payload.model_dump())
         logger.info(f"Posted shared draft to ticket {ticket_id}")
 
     @override
-    async def add_tag_to_ticket(self, ticket_id: str, tag: str) -> None:
+    async def add_tag_to_ticket(self, ticket_id: int, tag: str) -> None:
         raise NotImplementedError("Adding tag is not implemented yet.")
 
     @override
@@ -115,7 +115,7 @@ class ZammadEAIClient(BaseZammadClient):
         return feedparser(text)
 
     @override
-    async def get_kb_answer_by_id(self, answer_id: str) -> KnowledgeBaseAnswer | None:
+    async def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
         if not self.kb_id:
             return None
 
@@ -127,12 +127,12 @@ class ZammadEAIClient(BaseZammadClient):
             return None
 
     @override
-    async def fetch_kb_attachment_data(self, id: str) -> str | None:
+    async def fetch_kb_attachment_data(self, id: int) -> str | None:
         data = await self._request("GET", f"/attachments/{id}") if id else None
         return b64decode(data).decode("utf-8") if id and data else None
 
     @override
-    async def fetch_ticket_attachment_data(self, ticket_id: str, attachment_id: str, article_id: str) -> str | None:
+    async def fetch_ticket_attachment_data(self, ticket_id: int, attachment_id: int, article_id: int) -> str | None:
         data = (
             await self._request("GET", f"/attachments/{ticket_id}/{article_id}/{attachment_id}")
             if ticket_id and attachment_id and article_id
@@ -141,7 +141,7 @@ class ZammadEAIClient(BaseZammadClient):
         return b64decode(data).decode("utf-8") if data else None
 
     @override
-    async def check_if_answer_exists(self, answer_id: str) -> bool:
+    async def check_if_answer_exists(self, answer_id: int) -> bool:
         answer: KnowledgeBaseAnswer | None = await self.get_kb_answer_by_id(answer_id)
         return answer is not None
 

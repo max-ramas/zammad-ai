@@ -18,13 +18,13 @@ class BaseZammadClient(ABC):
     @abstractmethod
     async def get_ticket(
         self,
-        id: str,
+        id: int,
     ) -> ZammadTicket:
         """
         Fetches ticket information for a given Zammad ticket ID.
 
         Parameters:
-            id (str): Zammad ticket ID to retrieve.
+            id (int): Zammad ticket ID to retrieve.
 
         Returns:
             ZammadTicket: Ticket data corresponding to the provided ID.
@@ -34,7 +34,7 @@ class BaseZammadClient(ABC):
     @abstractmethod
     async def post_answer(
         self,
-        ticket_id: str,
+        ticket_id: int,
         text: str,
         subject: str | None = None,
         internal: bool = False,
@@ -53,14 +53,14 @@ class BaseZammadClient(ABC):
     @abstractmethod
     async def post_shared_draft(
         self,
-        ticket_id: str,
+        ticket_id: int,
         text: str,
     ) -> None:
         """
         Post a shared draft to the specified Zammad ticket.
 
         Parameters:
-                ticket_id (str): ID of the ticket to post the shared draft to.
+                ticket_id (int): ID of the ticket to post the shared draft to.
                 text (str): Content of the shared draft.
         """
         ...
@@ -68,14 +68,14 @@ class BaseZammadClient(ABC):
     @abstractmethod
     async def add_tag_to_ticket(
         self,
-        ticket_id: str,
+        ticket_id: int,
         tag: str,
     ) -> None:
         """
         Add a tag to the specified Zammad ticket.
 
         Parameters:
-            ticket_id (str): Zammad ticket identifier.
+            ticket_id (int): Zammad ticket identifier.
             tag (str): Tag text to add to the ticket.
         """
         ...
@@ -101,12 +101,12 @@ class BaseZammadClient(ABC):
         ...
 
     @abstractmethod
-    async def get_kb_answer_by_id(self, answer_id: str) -> KnowledgeBaseAnswer | None:
+    async def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
         """
         Fetch a knowledge base answer by its ID.
 
         Parameters:
-            answer_id (str): The ID of the answer to fetch.
+            answer_id (int): The ID of the answer to fetch.
 
         Returns:
             KnowledgeBaseAnswer | None: Knowledge base answer data or None if not found.
@@ -114,12 +114,12 @@ class BaseZammadClient(ABC):
         ...
 
     @abstractmethod
-    async def fetch_kb_attachment_data(self, id: str) -> str | None:
+    async def fetch_kb_attachment_data(self, id: int) -> str | None:
         """
         Fetch an attachment and return its content as text or base64.
 
         Parameters:
-            id (str): ID of the attachment to fetch.
+            id (int): ID of the attachment to fetch.
 
         Returns:
             str: Decoded text for text/* or JSON; base64 string for binary content.
@@ -128,14 +128,14 @@ class BaseZammadClient(ABC):
         ...
 
     @abstractmethod
-    async def fetch_ticket_attachment_data(self, ticket_id: str, attachment_id: str, article_id: str) -> str | None:
+    async def fetch_ticket_attachment_data(self, ticket_id: int, attachment_id: int, article_id: int) -> str | None:
         """
         Fetch an attachment and return its content as text or base64.
 
         Parameters:
-            ticket_id (str): ID of the ticket to which the attachment belongs.
-            attachment_id (str): ID of the attachment to fetch.
-            article_id (str): ID of the article to which the attachment belongs.
+            ticket_id (int): ID of the ticket to which the attachment belongs.
+            attachment_id (int): ID of the attachment to fetch.
+            article_id (int): ID of the article to which the attachment belongs.
 
         Returns:
             str: Decoded text for text/* or JSON; base64 string for binary content.
@@ -143,12 +143,12 @@ class BaseZammadClient(ABC):
         ...
 
     @abstractmethod
-    async def check_if_answer_exists(self, answer_id: str) -> bool:
+    async def check_if_answer_exists(self, answer_id: int) -> bool:
         """
         Check if a knowledge base answer still exists.
 
         Parameters:
-            answer_id (str): The ID of the answer to check.
+            answer_id (int): The ID of the answer to check.
 
         Returns:
             bool: True if answer exists, False if deleted/not found.

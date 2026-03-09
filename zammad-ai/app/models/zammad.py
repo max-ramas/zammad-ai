@@ -6,7 +6,7 @@ from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 
 class ZammadKnowledgebase(BaseModel):
-    id: str = Field(
+    id: int = Field(
         description="ID of the knowledge base",
     )
     active: bool = Field(
@@ -19,26 +19,14 @@ class ZammadKnowledgebase(BaseModel):
     updatedAt: str = Field(
         description="Last update timestamp of the knowledge base",
     )
-    categoryIds: list[str] = Field(
+    categoryIds: list[int] = Field(
         description="List of category IDs associated with the knowledge base",
         default_factory=list,
     )
-    answerIds: list[str] = Field(
+    answerIds: list[int] = Field(
         description="List of answer IDs associated with the knowledge base",
         default_factory=list,
     )
-
-    @field_validator("id", mode="before")
-    @classmethod
-    def cast_id_to_str(cls, value: int | str) -> str:
-        """Cast id to string if it is an integer."""
-        return str(value) if isinstance(value, int) else value
-
-    @field_validator("categoryIds", "answerIds", mode="before")
-    @classmethod
-    def cast_category_ids_to_str(cls, value: list[int | str]) -> list[str]:
-        """Cast category IDs to strings if they are integers."""
-        return [str(v) if isinstance(v, int) else v for v in value]
 
     @field_validator("createdAt", "updatedAt", mode="before")
     @classmethod
@@ -75,7 +63,7 @@ class ZammadKnowledgebase(BaseModel):
 
 
 class KnowledgeBaseAttachment(BaseModel):
-    id: str = Field(
+    id: int = Field(
         description="ID of the attachment",
     )
     filename: str = Field(
@@ -85,15 +73,9 @@ class KnowledgeBaseAttachment(BaseModel):
         description="Content type of the attachment",
     )
 
-    @field_validator("id", mode="before")
-    @classmethod
-    def cast_id_to_str(cls, value: int | str) -> str:
-        """Cast id to string if it is an integer."""
-        return str(value) if isinstance(value, int) else value
-
 
 class KnowledgeBaseAnswer(BaseModel):
-    id: str = Field(
+    id: int = Field(
         description="The ID of the answer",
     )
     answerTitle: str = Field(
@@ -113,15 +95,9 @@ class KnowledgeBaseAnswer(BaseModel):
         default_factory=list,
     )
 
-    @field_validator("id", mode="before")
-    @classmethod
-    def cast_id_to_str(cls, value: int | str) -> str:
-        """Cast id to string if it is an integer."""
-        return str(value) if isinstance(value, int) else value
-
 
 class ZammadTicket(BaseModel):
-    id: str = Field(
+    id: int = Field(
         description="Unique identifier for the ticket",
     )
     articles: list["ZammadArticle"] = Field(
@@ -131,7 +107,7 @@ class ZammadTicket(BaseModel):
 
 
 class ArticleAttachment(BaseModel):
-    id: str = Field(
+    id: int = Field(
         description="ID of the attachment",
     )
     filename: str = Field(
@@ -146,10 +122,10 @@ class ArticleAttachment(BaseModel):
 
 
 class ZammadArticle(BaseModel):
-    id: str = Field(
+    id: int = Field(
         description="ID of the article",
     )
-    ticket_id: str = Field(
+    ticket_id: int = Field(
         description="ID of the associated ticket",
     )
     text: str = Field(
@@ -172,12 +148,6 @@ class ZammadArticle(BaseModel):
         description="Subject of the article",
         default=None,
     )
-
-    @field_validator("id", "ticket_id", mode="before")
-    @classmethod
-    def cast_id_to_str(cls, value: int | str) -> str:
-        """Cast id to string if it is an integer."""
-        return str(value) if isinstance(value, int) else value
 
     @field_validator("text", mode="after")
     @classmethod
@@ -209,7 +179,7 @@ class ZammadArticle(BaseModel):
 
 
 class ZammadAnswer(BaseModel):
-    ticket_id: str = Field(
+    ticket_id: int = Field(
         description="ID of the associated ticket",
     )
     body: str = Field(
@@ -226,7 +196,7 @@ class ZammadAnswer(BaseModel):
 class ZammadTagAdd(BaseModel):
     item: str = Field(description="The tag name")
     object: str = Field(default="Ticket", description="The object type, usually 'Ticket'")
-    o_id: str = Field(description="The ID of the object (e.g., ticket ID)")
+    o_id: int = Field(description="The ID of the object (e.g., ticket ID)")
 
 
 # TODO: Research good defaults for model values
@@ -240,7 +210,7 @@ class ZammadSharedDraftArticle(BaseModel):
     sender_id: int = 1
     subject: str = ""
     subtype: str = ""
-    ticket_id: str = Field(description="The ID of the ticket")
+    ticket_id: int = Field(description="The ID of the ticket")
     to: str = ""
     type: str = "note"
     type_id: int = 10
