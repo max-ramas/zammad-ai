@@ -114,7 +114,8 @@ class TriageService:
 
         # Load system prompts from markdown files
         prompts_dir = Path("prompts")
-        genai_prompts["categories"] = load_prompt(prompts_dir / "triage" / "categories.prompt.md")
+
+        genai_prompts["triage"] = load_prompt(prompts_dir / "triage" / "triage.prompt.md")
         genai_prompts["days_since_request"] = load_prompt(prompts_dir / "triage" / "days_since_request.prompt.md")
         genai_prompts["processing_id"] = load_prompt(prompts_dir / "triage" / "processing_id.prompt.md")
 
@@ -226,7 +227,7 @@ class TriageService:
 
         try:
             cat_result: CategorizationResult = await self.genai_handler.invoke(
-                prompt_key="categories",
+                prompt_key="triage",
                 input={
                     "text": message,
                     "role_description": self.prompts.get("role", ""),
