@@ -34,7 +34,7 @@ class ZammadAPIClient(BaseZammadClient):
             base_url=settings.base_url.encoded_string(),
             timeout=settings.timeout,
             max_retries=settings.max_retries,
-            proxy_url=settings.proxy_url,
+            proxy_url=settings.http_proxy_url,
         )
 
         # Set auth header

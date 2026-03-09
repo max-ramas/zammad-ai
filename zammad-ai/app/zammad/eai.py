@@ -26,7 +26,7 @@ class ZammadEAIClient(BaseZammadClient):
             base_url=settings.eai_url.encoded_string(),
             timeout=settings.timeout,
             max_retries=settings.max_retries,
-            proxy_url=settings.proxy_url,
+            proxy_url=settings.http_proxy_url,
         )
 
         self.settings = settings
@@ -50,19 +50,19 @@ class ZammadEAIClient(BaseZammadClient):
             # Get new token
             token_data = {
                 "grant_type": "client_credentials",
-                "client_id": self.settings.client_id,
-                "client_secret": self.settings.client_secret.get_secret_value(),
+                "client_id": self.settings.oauth2_client_id,
+                "client_secret": self.settings.oauth2_client_secret.get_secret_value(),
             }
-            if self.settings.scope:
-                token_data["scope"] = self.settings.scope
+            if self.settings.oauth2_scope:
+                token_data["scope"] = self.settings.oauth2_scope
 
             try:
                 response = await self.client.post(
-                    str(self.settings.token_url), data=token_data, headers={"Content-Type": "application/x-www-form-urlencoded"}
+                    str(self.settings.oauth2_token_url), data=token_data, headers={"Content-Type": "application/x-www-form-urlencoded"}
                 )
                 response.raise_for_status()
             except (HTTPStatusError, RequestError) as e:
-                raise ZammadConnectionError(f"Failed to obtain OAuth token from {self.settings.token_url}") from e
+                raise ZammadConnectionError(f"Failed to obtain OAuth token from {self.settings.oauth2_token_url}") from e
 
             token_resp = response.json()
             self._token = token_resp["access_token"]
