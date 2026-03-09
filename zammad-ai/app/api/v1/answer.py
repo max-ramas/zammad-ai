@@ -10,7 +10,7 @@ def answer_dependency(request: Request) -> AnswerService:
     Retrieve the request-scoped AnswerService instance stored on the FastAPI application state.
 
     Parameters:
-        request (Request): FastAPI request whose application state contains the Triage instance.
+        request (Request): FastAPI request whose application state contains the AnswerService instance.
 
     Returns:
         AnswerService: The AnswerService instance found at request.app.state.answer_service.
