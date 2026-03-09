@@ -1,5 +1,5 @@
-import base64
 from abc import ABC, abstractmethod
+from base64 import b64encode
 from typing import Any
 
 from feedparser import FeedParserDict
@@ -164,14 +164,23 @@ class BaseZammadClient(ABC):
         try:
             safe_methods = {"GET", "HEAD", "OPTIONS"}
             should_retry = method.upper() in safe_methods
-            retry_on = (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) if should_retry else ()
+            retry_on = (ConnectError, TimeoutException, ReadTimeout) if should_retry else ()
             for attempt in retry_context(
                 on=retry_on,
                 attempts=self.http_attempts if should_retry else 1,
             ):
                 with attempt:
-                    response = await self.client.request(method, url, **kwargs)
-                    response.raise_for_status()
+                    try:
+                        response = await self.client.request(method, url, **kwargs)
+                        response.raise_for_status()
+                    except HTTPStatusError as e:
+                        # Only retry HTTPStatusError for transient status codes and safe methods
+                        if should_retry and (e.response.status_code == 429 or e.response.status_code >= 500):
+                            # Convert to a retryable exception to trigger retry
+                            raise TimeoutException("Transient HTTP error") from e
+                        else:
+                            # Don't retry for client errors (4xx except 429)
+                            raise
 
                     content_type = response.headers.get("Content-Type", "").lower()
                     if content_type.startswith("application/json"):
@@ -179,7 +188,7 @@ class BaseZammadClient(ABC):
                     elif content_type.startswith("text/"):
                         return response.text
                     else:
-                        return base64.b64encode(response.content).decode("ascii")
+                        return b64encode(response.content).decode("ascii")
         except (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) as e:
             logger.error(f"Failed to execute {method} {url} after {self.http_attempts} attempts.", exc_info=True)
             raise ZammadConnectionError(f"Failed to execute {method} {url} after {self.http_attempts} attempts.") from e
