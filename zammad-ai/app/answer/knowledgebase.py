@@ -138,7 +138,7 @@ class QdrantKBClient:
         snapshot_description: SnapshotDescription | None = await self.aclient.create_snapshot(
             collection_name=self.collection_name, wait=True
         )
-        return snapshot_description is None
+        return snapshot_description is not None
 
     def create_snapshot(self) -> bool:
         """Create a snapshot of the Qdrant collection for backup purposes.
@@ -147,7 +147,7 @@ class QdrantKBClient:
             bool: True if snapshot creation was successful, False otherwise.
         """
         snapshot_description: SnapshotDescription | None = self.client.create_snapshot(collection_name=self.collection_name, wait=True)
-        return snapshot_description is None
+        return snapshot_description is not None
 
     async def asearch_documents(
         self,
@@ -197,7 +197,7 @@ class QdrantKBClient:
             offset=offset,
         )
 
-    async def aadd_document(self, content: str, metadata: dict[str, Any], id: str | None = None) -> None:
+    async def aadd_document(self, content: str, metadata: dict[str, Any], id: UUID | None = None) -> None:
         """Add a document to the Qdrant collection with the given content, metadata, and optional ID.
 
         Args:
@@ -208,11 +208,15 @@ class QdrantKBClient:
         Returns:
             None
         """
-        vector_id: str = id if id is not None else str(uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=content))
+        if id is None:
+            title: str | None = metadata.get("title")
+            if title is None:
+                raise ValueError("ID is not provided and 'title' is missing from metadata, cannot generate UUID for document")
+            id = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=title)
         document = Document(page_content=content, metadata=metadata)
-        await self.vectorstore.aadd_documents(documents=[document], ids=[vector_id])
+        await self.vectorstore.aadd_documents(documents=[document], ids=[str(id)])
 
-    def add_document(self, content: str, metadata: dict[str, Any], id: str | None = None) -> None:
+    def add_document(self, content: str, metadata: dict[str, Any], id: UUID | None = None) -> None:
         """Add a document to the Qdrant collection with the given content, metadata, and optional ID.
 
         Args:
@@ -223,6 +227,10 @@ class QdrantKBClient:
         Returns:
             None
         """
-        vector_id: str = id if id is not None else str(uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=content))
+        if id is None:
+            title: str | None = metadata.get("title")
+            if title is None:
+                raise ValueError("ID is not provided and 'title' is missing from metadata, cannot generate UUID for document")
+            id = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=title)
         document = Document(page_content=content, metadata=metadata)
-        self.vectorstore.add_documents(documents=[document], ids=[vector_id])
+        self.vectorstore.add_documents(documents=[document], ids=[str(id)])
