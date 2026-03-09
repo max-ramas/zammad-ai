@@ -133,7 +133,14 @@ class ZammadEAIClient(BaseZammadClient):
     @override
     async def fetch_kb_attachment_data(self, id: int) -> str | None:
         data = await self._request("GET", f"/attachments/{id}") if id else None
-        return b64decode(data).decode("utf-8") if id and data else None
+        if not (id and data):
+            return None
+        decoded = b64decode(data)
+        try:
+            return decoded.decode("utf-8")
+        except UnicodeDecodeError:
+            # Return raw base64 string for binary attachments
+            return data
 
     @override
     async def fetch_ticket_attachment_data(self, ticket_id: int, attachment_id: int, article_id: int) -> str | None:
@@ -142,7 +149,14 @@ class ZammadEAIClient(BaseZammadClient):
             if ticket_id and attachment_id and article_id
             else None
         )
-        return b64decode(data).decode("utf-8") if data else None
+        if not data:
+            return None
+        decoded = b64decode(data)
+        try:
+            return decoded.decode("utf-8")
+        except UnicodeDecodeError:
+            # Return raw base64 string for binary attachments
+            return data
 
     @override
     async def check_if_answer_exists(self, answer_id: int) -> bool:
