@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from logging import Logger
+from typing import Self
 
 from httpx import AsyncClient, Response
 from pydantic import BaseModel, Field
@@ -77,3 +78,13 @@ class DLFClient:
         # Parse response
         dlf_response: DLFAPIResponse = DLFAPIResponse.model_validate(response.json())
         return dlf_response.documents
+
+    async def close(self) -> None:
+        """Backward-compatible alias for aclose()."""
+        await self.client.aclose()
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(self, *args) -> None:
+        await self.close()
