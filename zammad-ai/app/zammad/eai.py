@@ -1,3 +1,5 @@
+"""Zammad EAI client using OAuth 2.0 authentication."""
+
 import asyncio
 from base64 import b64decode
 from datetime import datetime, timedelta
@@ -22,6 +24,12 @@ class ZammadEAIClient(BaseZammadClient):
     """Zammad EAI client implementation for Zammad AI with OAuth 2.0 support."""
 
     def __init__(self, settings: ZammadEAISettings):
+        """Initialize Zammad EAI client with OAuth 2.0 authentication.
+
+        Args:
+            settings: EAI-specific configuration including OAuth credentials
+
+        """
         super().__init__(
             base_url=settings.eai_url.encoded_string(),
             timeout=settings.timeout,
@@ -36,7 +44,11 @@ class ZammadEAIClient(BaseZammadClient):
         self._auth_lock = asyncio.Lock()
 
     async def _ensure_auth(self) -> None:
-        """Ensure OAuth token is valid."""
+        """Ensure OAuth token is valid, refreshing if needed.
+
+        Uses double-checked locking to prevent OAuth token refresh stampedes
+        in concurrent scenarios. Tokens are refreshed 5 minutes before expiry.
+        """
         # Fast-path check without lock
         if self._token and self._token_expires and datetime.now() < self._token_expires - timedelta(minutes=5):
             return
@@ -70,7 +82,7 @@ class ZammadEAIClient(BaseZammadClient):
             self._token_expires = datetime.now() + timedelta(seconds=expires_in)
 
     async def _request(self, method: str, url: str, **kwargs) -> Any:
-        """Make authenticated request."""
+        """Make authenticated request with OAuth bearer token."""
         await self._ensure_auth()
 
         headers = kwargs.get("headers", {})

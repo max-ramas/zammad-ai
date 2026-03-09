@@ -81,12 +81,6 @@ class ArticleAttachment(BaseModel):
         description="Filename of the attachment",
     )
 
-    @field_validator("id", mode="before")
-    @classmethod
-    def cast_id_to_str(cls, value: int | str) -> str:
-        """Cast id to string if it is an integer."""
-        return str(value) if isinstance(value, int) else value
-
 
 class ZammadArticle(BaseModel):
     id: int = Field(
@@ -122,11 +116,12 @@ class ZammadArticle(BaseModel):
         """
         Normalize article text by removing HTML tags, unescaping HTML entities, and collapsing whitespace.
 
-        Parameters:
+        Args:
             text: Input string that may contain HTML.
 
         Returns:
-            The input string with HTML tags removed, HTML entities unescaped, and runs of whitespace collapsed to single spaces and trimmed.
+            The input string with HTML tags removed, HTML entities unescaped,
+            and runs of whitespace collapsed to single spaces and trimmed.
         """
         # Remove HTML tags
         clean_text: str = re.sub(

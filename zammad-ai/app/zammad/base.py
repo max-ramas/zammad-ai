@@ -1,3 +1,5 @@
+"""Abstract base class for Zammad API clients."""
+
 from abc import ABC, abstractmethod
 from base64 import b64encode
 from typing import Any
@@ -20,14 +22,14 @@ class BaseZammadClient(ABC):
         self,
         id: int,
     ) -> ZammadTicket:
-        """
-        Fetches ticket information for a given Zammad ticket ID.
+        """Fetch ticket information for a given Zammad ticket ID.
 
-        Parameters:
-            id (int): Zammad ticket ID to retrieve.
+        Args:
+            id: Zammad ticket ID to retrieve.
 
         Returns:
             ZammadTicket: Ticket data corresponding to the provided ID.
+
         """
         ...
 
@@ -39,14 +41,14 @@ class BaseZammadClient(ABC):
         subject: str | None = None,
         internal: bool = False,
     ) -> None:
-        """
-        Post an answer to the specified Zammad ticket.
+        """Post an answer to the specified Zammad ticket.
 
-        Parameters:
+        Args:
             ticket_id: ID of the ticket to update.
             text: Answer content to post.
             subject: Optional subject line for the answer.
             internal: If True, post as an internal note not visible to the customer.
+
         """
         ...
 
@@ -56,12 +58,12 @@ class BaseZammadClient(ABC):
         ticket_id: int,
         text: str,
     ) -> None:
-        """
-        Post a shared draft to the specified Zammad ticket.
+        """Post a shared draft to the specified Zammad ticket.
 
-        Parameters:
-                ticket_id (int): ID of the ticket to post the shared draft to.
-                text (str): Content of the shared draft.
+        Args:
+                ticket_id: ID of the ticket to post the shared draft to.
+                text: Content of the shared draft.
+
         """
         ...
 
@@ -71,91 +73,100 @@ class BaseZammadClient(ABC):
         ticket_id: int,
         tag: str,
     ) -> None:
-        """
-        Add a tag to the specified Zammad ticket.
+        """Add a tag to the specified Zammad ticket.
 
-        Parameters:
-            ticket_id (int): Zammad ticket identifier.
-            tag (str): Tag text to add to the ticket.
+        Args:
+            ticket_id: Zammad ticket identifier.
+            tag: Tag text to add to the ticket.
+
         """
         ...
 
     @abstractmethod
     async def parse_rss_feed(self) -> FeedParserDict | None:
-        """
-        Parse RSS feed from the knowledge base.
+        """Parse RSS feed from the knowledge base.
 
         Returns:
             feedparser.FeedParserDict: Parsed feed object or None if parsing fails.
+
         """
         ...
 
     @abstractmethod
     async def kb_info(self) -> ZammadKnowledgebase | None:
-        """
-        Fetch and return a list of knowledge base answers.
+        """Fetch knowledge base information.
 
         Returns:
-            list[KnowledgeBaseAnswer] | None: List of knowledge base answers or None if fetching fails.
+            ZammadKnowledgebase | None: Knowledge base information or None if fetching fails.
+
         """
         ...
 
     @abstractmethod
     async def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
-        """
-        Fetch a knowledge base answer by its ID.
+        """Fetch a knowledge base answer by its ID.
 
-        Parameters:
-            answer_id (int): The ID of the answer to fetch.
+        Args:
+            answer_id: The ID of the answer to fetch.
 
         Returns:
             KnowledgeBaseAnswer | None: Knowledge base answer data or None if not found.
+
         """
         ...
 
     @abstractmethod
     async def fetch_kb_attachment_data(self, id: int) -> str | None:
-        """
-        Fetch an attachment and return its content as text or base64.
+        """Fetch an attachment and return its content as text or base64.
 
-        Parameters:
-            id (int): ID of the attachment to fetch.
+        Args:
+            id: ID of the attachment to fetch.
 
         Returns:
             str: Decoded text for text/* or JSON; base64 string for binary content.
             None: On error or if id is falsy.
+
         """
         ...
 
     @abstractmethod
     async def fetch_ticket_attachment_data(self, ticket_id: int, attachment_id: int, article_id: int) -> str | None:
-        """
-        Fetch an attachment and return its content as text or base64.
+        """Fetch an attachment and return its content as text or base64.
 
-        Parameters:
-            ticket_id (int): ID of the ticket to which the attachment belongs.
-            attachment_id (int): ID of the attachment to fetch.
-            article_id (int): ID of the article to which the attachment belongs.
+        Args:
+            ticket_id: ID of the ticket to which the attachment belongs.
+            attachment_id: ID of the attachment to fetch.
+            article_id: ID of the article to which the attachment belongs.
 
         Returns:
             str: Decoded text for text/* or JSON; base64 string for binary content.
+
         """
         ...
 
     @abstractmethod
     async def check_if_answer_exists(self, answer_id: int) -> bool:
-        """
-        Check if a knowledge base answer still exists.
+        """Check if a knowledge base answer still exists.
 
-        Parameters:
-            answer_id (int): The ID of the answer to check.
+        Args:
+            answer_id: The ID of the answer to check.
 
         Returns:
             bool: True if answer exists, False if deleted/not found.
+
         """
         ...
 
     def __init__(self, base_url: str, timeout: int, max_retries: int, proxy_url: str | None = None) -> None:
+        """Initialize Zammad client with HTTP configuration.
+
+        Args:
+            base_url: Base URL for the Zammad instance
+            timeout: HTTP timeout in seconds
+            max_retries: Maximum number of retry attempts
+            proxy_url: Optional HTTP proxy URL
+
+        """
         self.client = AsyncClient(base_url=base_url, timeout=timeout, proxy=proxy_url)
         self.http_attempts = max_retries + 1
 
@@ -199,6 +210,11 @@ class BaseZammadClient(ABC):
 
 
 class ZammadConnectionError(Exception):
-    """Custom exception for Zammad connection errors."""
+    """Custom exception for Zammad connection errors.
+
+    Raised when HTTP requests to Zammad fail due to network issues,
+    authentication problems, or server errors.
+
+    """
 
     pass

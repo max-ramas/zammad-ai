@@ -1,3 +1,5 @@
+"""Zammad API client using token-based authentication."""
+
 from base64 import b64decode
 from logging import Logger
 from typing import override
@@ -30,6 +32,12 @@ class ZammadAPIClient(BaseZammadClient):
     """Client for interacting with Zammad API to fetch and update ticket information."""
 
     def __init__(self, settings: ZammadAPISettings):
+        """Initialize Zammad API client with token-based authentication.
+
+        Args:
+            settings: API-specific configuration including auth token
+
+        """
         super().__init__(
             base_url=settings.base_url.encoded_string(),
             timeout=settings.timeout,
