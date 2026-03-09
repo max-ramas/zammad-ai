@@ -74,6 +74,7 @@ class AnswerService:
         category: str,
         session_id: str | None = None,
     ) -> StructuredAgentResponse:
+        logger.debug(f"Answer generation with payload:\nuser_text: {user_text}\ncategory: {category}")
         if session_id is None and self.langfuse_client is not None:
             session_id = self.langfuse_client.generate_session_id()
         user_message = HumanMessage(
@@ -90,7 +91,7 @@ class AnswerService:
             config=config,
             context=self.agent_context,
         )
-        print("Agent raw result:", agent_result)  # Debug print to inspect the raw output from the agent
+        logger.debug(f"Agent raw result:\n{agent_result}")
         return agent_result["structured_response"]
 
 
