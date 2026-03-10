@@ -5,17 +5,17 @@ from .triage import TriageResult
 
 class TriageInput(BaseModel):
     text: str
-    id: str | None = None
+    session_id: str | None = None
 
 
 class TriageOutput(BaseModel):
     triage: TriageResult
-    id: str
+    session_id: str
 
 
 class AnswerInput(BaseModel):
     text: str
-    id: str | None = None
+    session_id: str | None = None
     category: str | None = None
 
 

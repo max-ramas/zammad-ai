@@ -133,12 +133,12 @@ class Triage:
 
         logger.info("Triage initialized successfully.")
 
-    async def perform_triage(self, id: str) -> TriageResult:
+    async def perform_triage(self, id: int) -> TriageResult:
         """
         Perform triage for a Zammad ticket identified by its ID.
 
         Parameters:
-            id (str): Zammad ticket identifier.
+            id (int): Zammad ticket identifier.
 
         Returns:
             TriageResult: Result containing the resolved category, selected action, human-readable reasoning, and confidence score.
@@ -208,7 +208,7 @@ class Triage:
 
         Parameters:
             message (str): Customer message to categorize; leading/trailing whitespace is ignored.
-            session_id (str): Langfuse session identifier used for tracing the prediction.
+            session_id (int): Langfuse session identifier used for tracing the prediction.
 
         Returns:
             CategorizationResult: Categorization outcome containing `category`, `reasoning`, and `confidence`. If the message is empty, the predicted category is invalid, or an error occurs, returns a result with `no_category`, an explanatory `reasoning`, and `confidence` set to 1.0.
@@ -353,7 +353,7 @@ class Triage:
         """
         Perform cleanup of Triage-managed resources.
         """
-        await self.zammad_client.cleanup()
+        await self.zammad_client.close()
         logger.info("Triage resources cleaned up.")
 
 

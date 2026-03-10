@@ -107,12 +107,12 @@ class FakeZammadClient:
         self.ticket: ZammadTicket | None = None
         self.raise_connection_error: bool = False
 
-    async def get_ticket(self, id: str) -> ZammadTicket:
+    async def get_ticket(self, id: int) -> ZammadTicket:
         """
         Retrieve a ticket by id from the fake client, returning a preset ticket or a default empty ticket.
 
         Parameters:
-            id (str): The ticket identifier to retrieve.
+            id (int): The ticket identifier to retrieve.
 
         Returns:
             ZammadTicket: The preset ticket if one is stored on the client; otherwise a ZammadTicket with the given `id` and an empty `articles` list.
@@ -227,7 +227,7 @@ def patched_triage(monkeypatch: pytest.MonkeyPatch) -> Generator[Triage, None, N
 
 @pytest.mark.asyncio
 async def test_perform_triage_returns_defaults_when_no_articles(patched_triage: Triage) -> None:
-    result = await patched_triage.perform_triage(id="123")
+    result = await patched_triage.perform_triage(id=123)
     assert result.category == patched_triage.no_category
     assert result.action == patched_triage.no_action
     assert result.reasoning == "Keine Artikel gefunden"
@@ -302,15 +302,15 @@ async def test_get_action_id_returns_no_action_for_no_category(patched_triage: T
 async def test_perform_triage_happy_path(patched_triage: Triage) -> None:
     """Full triage with a ticket that has an article returns a real category and action."""
     patched_triage.zammad_client.ticket = ZammadTicket(  # type: ignore
-        id="42",
-        articles=[ZammadArticle(id="1", ticket_id="42", text="My printer is broken")],
+        id=42,
+        articles=[ZammadArticle(id=1, ticket_id=42, text="My printer is broken")],
     )
     patched_triage.genai_handler.categorization_result = CategorizationResult(  # type: ignore
         category=Category(name="General", id=1),
         reasoning="hardware issue",
         confidence=0.9,
     )
-    result = await patched_triage.perform_triage(id="42")
+    result = await patched_triage.perform_triage(id=42)
     assert result.category.id == 1
     assert result.reasoning == "hardware issue"
     assert result.confidence == 0.9
@@ -326,7 +326,7 @@ async def test_perform_triage_raises_triage_error_on_zammad_failure(patched_tria
     """A Zammad connection error should be wrapped in TriageError."""
     patched_triage.zammad_client.raise_connection_error = True  # type: ignore
     with pytest.raises(TriageError, match="Zammad connection error"):
-        await patched_triage.perform_triage(id="99")
+        await patched_triage.perform_triage(id=99)
 
 
 # ---------------------------------------------------------------------------
@@ -392,9 +392,9 @@ async def test_perform_triage_handles_processing_triage_error(patched_triage: Tr
     patched_triage.predict_category = _boom  # type: ignore
 
     # Ensure there is a ticket with articles so it doesn't return early
-    patched_triage.zammad_client.ticket = ZammadTicket(id="123", articles=[ZammadArticle(id="1", ticket_id="123", text="Help me")])  # type: ignore
+    patched_triage.zammad_client.ticket = ZammadTicket(id=123, articles=[ZammadArticle(id=1, ticket_id=123, text="Help me")])  # type: ignore
 
-    result = await patched_triage.perform_triage(id="123")
+    result = await patched_triage.perform_triage(id=123)
 
     assert result.category == patched_triage.no_category
     assert result.action == patched_triage.no_action
