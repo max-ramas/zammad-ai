@@ -30,7 +30,7 @@ loggers:
     level: DEBUG
     handlers: [console]
     propagate: no
-  zammad-ai:
+  zammad-ai-index:
     level: DEBUG
     propagate: yes
   faststream:
@@ -42,6 +42,10 @@ loggers:
     handlers: [httpx]
     propagate: no
   httpcore:
+    level: WARNING
+    handlers: [httpx]
+    propagate: no
+  openai:
     level: WARNING
     handlers: [httpx]
     propagate: no
