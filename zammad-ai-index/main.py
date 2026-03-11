@@ -1,25 +1,25 @@
 from asyncio import run
 from datetime import datetime, timedelta, timezone
-from uuid import NAMESPACE_DNS, UUID, uuid5
+from logging import Logger
+from typing import Any
+from uuid import UUID, uuid5
 
 from dotenv import load_dotenv
 from langchain_core.documents import Document
-from src.models.qdrant import QdrantVectorMetadata
+from src.models.qdrant import QdrantDocumentItem, QdrantVectorMetadata
 from src.models.zammad import KnowledgeBaseAnswer
-from src.qdrant.qdrant import QdrantKBClient
-from src.settings.settings import get_settings
+from src.qdrant.qdrant import ZAMMAD_AI_NAMESPACE, QdrantKBClient
+from src.settings.settings import ZammadAIIndexSettings, get_settings
 from src.settings.zammad import ZammadAPISettings, ZammadEAISettings
+from src.utils.hash import hash_content, normalize_content
 from src.utils.logging import getLogger
 from src.zammad.api import ZammadAPIClient
 from src.zammad.eai import ZammadEAIClient
 from truststore import inject_into_ssl
 
-settings = get_settings()
-logger = getLogger("zammad-ai.update_qdrant")
-ZAMMAD_AI_NAMESPACE: UUID = uuid5(
-    namespace=NAMESPACE_DNS,
-    name="zammad-ai.muenchen.de",
-)
+settings: ZammadAIIndexSettings = get_settings()
+logger: Logger = getLogger("zammad-ai-index")
+
 inject_into_ssl()
 load_dotenv()
 
@@ -121,13 +121,24 @@ async def fetch_attachments_for_answer(
     """
     attachment_data: dict[int, tuple[str, str | None]] = {}
     for attachment in answer.attachments:
-        attachment_data[attachment.id] = (attachment.filename, await client.fetch_kb_attachment_data(attachment.id))
+        if attachment.contentType.startswith("text/"):
+            data = await client.fetch_kb_attachment_data(attachment.id)
+            attachment_data[attachment.id] = (attachment.filename, data)
+        else:
+            logger.info(
+                "Skipping non-text attachment %s (ID: %d) for answer ID %d due to unsupported content type: %s",
+                attachment.filename,
+                attachment.id,
+                answer.id,
+                attachment.contentType,
+            )
+            attachment_data[attachment.id] = (attachment.filename, None)
     return attachment_data
 
 
 async def get_qdrant_data_for_answers(
     client: ZammadEAIClient | ZammadAPIClient, answers: dict[int, KnowledgeBaseAnswer]
-) -> list[tuple[str, QdrantVectorMetadata]]:
+) -> list[QdrantDocumentItem]:
     """
     Prepare data for Qdrant indexing based on knowledge base answers.
 
@@ -135,104 +146,141 @@ async def get_qdrant_data_for_answers(
         client: Zammad client instance (API or EAI)
         answers: Dictionary of answer ID to KnowledgeBaseAnswer objects
     Returns:
-        List of tuples containing page content and corresponding Qdrant metadata
+        List of QdrantDocumentItem objects containing id, content, and metadata for indexing
     """
-    qdrant_data: list[tuple[str, QdrantVectorMetadata]] = []
+    qdrant_data: list[QdrantDocumentItem] = []
     for answer_id, answer in answers.items():
-        page_content: str = answer.answerTitle + "\n" + answer.answerBody + "\n\n"
+        page_content: str = f"{answer.answerTitle} (ID: {answer.id}, Updated: {answer.updatedAt.strftime('%Y-%m-%d %H:%M:%S')}): \n\n{answer.answerBody}\n\n"
 
         attachment_data: dict[int, tuple[str, str | None]] = await fetch_attachments_for_answer(client, answer)
         for attachment_id, (filename, data) in attachment_data.items():
             if data:
-                page_content += f"Attachment {filename}:\n{data}\n\n"
-            else:
-                logger.warning(f"Failed to fetch data for attachment {attachment_id} of answer {answer_id}")
+                page_content += f"Attachment {filename} (ID: {attachment_id}):\n{data}\n\n"
 
         metadata: QdrantVectorMetadata = QdrantVectorMetadata(
-            id=uuid5(ZAMMAD_AI_NAMESPACE, answer.answerTitle),
-            answer_info=answer,
-            url=f"{settings.zammad.base_url}/de-de/knowledge_bases/{settings.zammad.knowledge_base_id}/answers/{answer_id}",
+            vector_id=uuid5(ZAMMAD_AI_NAMESPACE, answer.answerTitle),
+            vector_updatedAt=datetime.now(timezone.utc),
+            answer_id=answer.id,
+            answer_title=answer.answerTitle,
+            answer_body=answer.answerBody,
+            answer_createdAt=answer.createdAt,
+            answer_updatedAt=answer.updatedAt,
+            answer_attachments=answer.attachments,
+            answer_url=f"{settings.zammad.base_url}#knowledge_base/{settings.zammad.knowledge_base_id}/locale/de-de/answer/{answer.id}"
+            if (settings.zammad.knowledge_base_id and settings.zammad.base_url)
+            else None,
         )
-        qdrant_data.append((page_content, metadata))
+        qdrant_data.append(QdrantDocumentItem(vector_id=metadata.vector_id, page_content=page_content, metadata=metadata))
     return qdrant_data
 
 
-async def filter_for_changed_data(
-    qdrant_client: QdrantKBClient, qdrant_data: list[tuple[str, QdrantVectorMetadata]]
-) -> list[tuple[str, QdrantVectorMetadata]]:
+async def filter_for_changed_data(qdrant_client: QdrantKBClient, qdrant_data: list[QdrantDocumentItem]) -> list[QdrantDocumentItem]:
     """
     Filter the provided Qdrant data to include only entries that have changed since the last indexing.
 
     Args:
         qdrant_client: Instance of QdrantKBClient to query existing indexed data
-        qdrant_data: List of tuples containing page content and corresponding Qdrant metadata
+        qdrant_data: List of QdrantDocumentItem objects containing id, content, and metadata for indexing
     Returns:
-        Filtered list of tuples containing only changed page content and corresponding Qdrant metadata
+        Filtered list of QdrantDocumentItem objects containing only changed documents
     """
-    filtered_data: list[tuple[str, QdrantVectorMetadata]] = []
-    for page_content, metadata in qdrant_data:
-        existing_entry: Document | None = qdrant_client.get_document_by_id(metadata.id)
-        if not existing_entry:
+    filtered_data: list[QdrantDocumentItem] = []
+
+    # Get vector IDs for batch lookup
+    vector_ids: list[UUID] = [item.vector_id for item in qdrant_data]
+
+    # Get all existing documents in one batch call for efficiency
+    qdrant_documents: dict[UUID, Document] = await qdrant_client.get_documents_by_id(vector_ids)
+
+    if qdrant_documents is None:
+        logger.debug("No existing documents found in Qdrant, including all %d items for indexing.", len(qdrant_data))
+        return qdrant_data
+
+    for item in qdrant_data:
+        new_content_hash: str = hash_content(normalize_content(item.page_content))
+        item.metadata.pagecontent_hash = new_content_hash
+        # Check if document exists in the dictionary
+        current_document: Document | None = qdrant_documents.get(item.vector_id)
+
+        if not current_document:
             # No existing entry, include in indexing
-            filtered_data.append((page_content, metadata))
+            logger.debug(f"No existing document found for answer ID {item.metadata.answer_id}, including in indexing.")
+            filtered_data.append(item)
         else:
-            # Compare content and key metadata fields to determine if content has changed
-
-            # Compare page content first (most likely to change)
-            if existing_entry.page_content != page_content:
-                filtered_data.append((page_content, metadata))
-                logger.info(f"Content changes detected for answer ID {metadata.id}, including in re-indexing.")
-                continue
-
-            # Compare answer info from metadata if content is the same
-            existing_answer_info = existing_entry.metadata.get("answer_info") if isinstance(existing_entry.metadata, dict) else None
-            new_answer_info = metadata.answer_info.model_dump()
-
-            if existing_answer_info != new_answer_info:
-                filtered_data.append((page_content, metadata))
-                logger.info(f"Metadata changes detected for answer ID {metadata.id}, including in re-indexing.")
+            if current_document.metadata.get("pagecontent_hash") != new_content_hash:
+                filtered_data.append(item)
+                logger.debug(f"Content changes detected for answer ID {item.vector_id}, including in re-indexing.")
             else:
-                logger.info(f"No changes detected for answer ID {metadata.id}, skipping re-indexing.")
-
+                logger.debug(f"No content changes detected for answer ID {item.vector_id}, skipping re-indexing.")
+    logger.info("Filtered data to %d items with detected changes for indexing.", len(filtered_data))
     return filtered_data
+
+
+async def add_documents_to_qdrant(qdrant_client: QdrantKBClient, qdrant_items: list[QdrantDocumentItem]) -> None:
+    """
+    Add documents to Qdrant in batches.
+
+    Args:
+        qdrant_client: Instance of QdrantKBClient to add documents to
+        qdrant_items: List of QdrantDocumentItem objects containing id, content, and metadata for indexing
+    """
+    for i in range(0, len(qdrant_items), settings.index.batch_size):
+        batch: list[QdrantDocumentItem] = qdrant_items[i : i + settings.index.batch_size]
+
+        batch_ids: list[UUID] = []
+        batch_contents: list[str] = []
+        batch_metadata: list[dict[str, Any]] = []
+
+        for item in batch:
+            batch_ids.append(item.vector_id)
+            batch_contents.append(item.page_content)
+            batch_metadata.append(item.metadata.model_dump())
+
+        logger.info(
+            f"Processing batch {i // settings.index.batch_size + 1}/{(len(qdrant_items) + settings.index.batch_size - 1) // settings.index.batch_size} with {len(batch)} documents"
+        )
+
+        await qdrant_client.aadd_documents(
+            id=batch_ids,
+            content=batch_contents,
+            metadata=batch_metadata,
+        )
 
 
 async def main() -> None:
     # Initialize Zammad client based on configuration
     if isinstance(settings.zammad, ZammadAPISettings):
-        client = ZammadAPIClient(settings.zammad)
+        zammad_client = ZammadAPIClient(settings.zammad)
     elif isinstance(settings.zammad, ZammadEAISettings):
-        client = ZammadEAIClient(settings.zammad)
+        zammad_client = ZammadEAIClient(settings.zammad)
     else:
         raise ValueError(f"Unsupported Zammad client type: {settings.zammad.type}")
 
-    # Determine which answer IDs to fetch based on full indexing or RSS feed
-    answer_ids: list[int] = await retrieve_answer_ids(client)
-    logger.info("Retrieved %d answer IDs for processing.", len(answer_ids))
+    try:
+        # Determine which answer IDs to fetch based on full indexing or RSS feed
+        answer_ids: list[int] = await retrieve_answer_ids(zammad_client)
+        logger.info("Retrieved %d answer IDs for processing.", len(answer_ids))
 
-    # Fetch answer data for the determined IDs
-    answers: dict[int, KnowledgeBaseAnswer] = await get_answers_data(client, answer_ids)
-    logger.info("Fetched data for %d answers.", len(answers))
+        # Fetch answer data for the determined IDs
+        answers: dict[int, KnowledgeBaseAnswer] = await get_answers_data(zammad_client, answer_ids)
+        logger.info("Fetched data for %d answers.", len(answers))
 
-    # Prepare data for Qdrant indexing, including fetching attachment contents
-    qdrant_data: list[tuple[str, QdrantVectorMetadata]] = await get_qdrant_data_for_answers(client, answers)
-    logger.info("Prepared data for %d answers for Qdrant indexing.", len(qdrant_data))
+        # Prepare data for Qdrant indexing, including fetching attachment contents
+        qdrant_data: list[QdrantDocumentItem] = await get_qdrant_data_for_answers(zammad_client, answers)
+        logger.info("Prepared data for %d answers for Qdrant indexing.", len(qdrant_data))
 
-    # Initialize Qdrant client
-    qdrant_client = QdrantKBClient(settings.qdrant, settings.genai)
+        # Initialize Qdrant client
+        qdrant_client = QdrantKBClient(settings.qdrant, settings.genai)
 
-    # Filter data to embed only changed entries since last indexing
-    qdrant_data: list[tuple[str, QdrantVectorMetadata]] = await filter_for_changed_data(qdrant_client, qdrant_data)
+        # Filter data to embed only changed entries since last indexing
+        qdrant_items: list[QdrantDocumentItem] = await filter_for_changed_data(qdrant_client, qdrant_data)
 
-    # Add documents to Qdrant
-    for page_content, metadata in qdrant_data:
-        await qdrant_client.aadd_document(
-            content=page_content,
-            metadata=metadata.model_dump(),
-            id=metadata.id,
-        )
-
-    await client.close()
+        # Add documents to Qdrant in batches for better performance
+        await add_documents_to_qdrant(qdrant_client, qdrant_items)
+    except Exception:
+        logger.error("An error occurred during the indexing process.", exc_info=True)
+    finally:
+        await zammad_client.close()
 
 
 if __name__ == "__main__":
