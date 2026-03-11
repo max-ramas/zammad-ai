@@ -51,10 +51,10 @@ class KnowledgeBaseAnswer(BaseModel):
     answerBody: str = Field(
         description="The content of the answer",
     )
-    createdAt: str = Field(
+    createdAt: datetime = Field(
         description="The creation timestamp of the answer",
     )
-    updatedAt: str = Field(
+    updatedAt: datetime = Field(
         description="The last update timestamp of the answer",
     )
     attachments: list[KnowledgeBaseAttachment] = Field(
