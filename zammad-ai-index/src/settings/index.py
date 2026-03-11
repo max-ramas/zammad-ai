@@ -14,3 +14,7 @@ class IndexJobSettings(BaseModel):
         description="Interval in days to look back for updated answers when fetching from Zammad.",
         default=7,
     )
+    batch_size: NonNegativeInt = Field(
+        description="Number of documents to process in each batch when adding to Qdrant.",
+        default=50,
+    )
