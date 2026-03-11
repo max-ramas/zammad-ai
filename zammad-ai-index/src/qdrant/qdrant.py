@@ -10,12 +10,11 @@ from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
 from qdrant_client import AsyncQdrantClient, QdrantClient
 from qdrant_client.http.exceptions import ApiException
 from qdrant_client.http.models import CollectionInfo
+from qdrant_client.http.models.models import Record
 from qdrant_client.models import SnapshotDescription
 from src.settings.genai import GenAISettings
 from src.settings.qdrant import QdrantSettings
 from src.utils.logging import getLogger
-
-logger: Logger = getLogger("zammad-ai.answer.knowledgebase")
 
 # Create a consistent namespace UUID for generating vector IDs based on content
 ZAMMAD_AI_NAMESPACE: UUID = uuid5(
@@ -56,7 +55,7 @@ class QdrantKBClient:
 
     def __init__(self, qdrant_settings: QdrantSettings, genai_settings: GenAISettings) -> None:
         # Create logger for QdrantClient
-        self.logger: Logger = getLogger("zammad-ai.qdrant")
+        self.logger: Logger = getLogger("zammad-ai-index.qdrant")
 
         self.collection_name: str = qdrant_settings.collection_name
 
@@ -84,7 +83,6 @@ class QdrantKBClient:
             collection_info: CollectionInfo = self.client.get_collection(collection_name=qdrant_settings.collection_name)
             if collection_info.points_count == 0:
                 self.logger.warning(f"Qdrant collection '{qdrant_settings.collection_name}' exists but is empty.")
-                raise QdrantKBError(f"Qdrant collection '{qdrant_settings.collection_name}' exists but is empty.")
 
         except ApiException as e:
             self.logger.error("Error checking Qdrant collection existence or retrieving collection info", exc_info=True)
@@ -197,45 +195,58 @@ class QdrantKBClient:
             offset=offset,
         )
 
-    async def aadd_document(self, content: str, metadata: dict[str, Any], id: UUID | None = None) -> None:
-        """Add a document to the Qdrant collection with the given content, metadata, and optional ID.
+    async def aadd_documents(self, content: list[str], metadata: list[dict[str, Any]], id: list[UUID] = []) -> None:
+        """Add multiple documents to the Qdrant collection with the given content, metadata, and optional IDs.
 
         Args:
-            content (str): The textual content of the document to be added.
-            metadata (dict[str, Any]): A dictionary containing metadata associated with the document.
-            id (str | None, optional): An optional unique identifier for the document. If not provided, a UUID will be generated based on the content. Defaults to None.
+            content (list[str]): A list of textual content for the documents to be added.
+            metadata (list[dict[str, Any]]): A list of dictionaries containing metadata associated with each document.
+            id (list[UUID | None], optional): A list of optional unique identifiers for the documents. If not provided or None for an item, a UUID will be generated based on the document title. Defaults to empty list.
 
         Returns:
             None
         """
-        if id is None:
-            title: str | None = metadata.get("title")
-            if title is None:
-                raise ValueError("ID is not provided and 'title' is missing from metadata, cannot generate UUID for document")
-            id = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=title)
-        document = Document(page_content=content, metadata=metadata)
-        await self.vectorstore.aadd_documents(documents=[document], ids=[str(id)])
+        if len(id) != len(metadata) != len(content):
+            raise ValueError("Length of 'id' list must match length of 'metadata' and 'content' lists")
+        documents_to_add: list[Document] = []
+        ids_to_add: list[str] = []
+        for content_item, metadata_item, id_item in zip(content, metadata, id):
+            if id_item is None:
+                title: str | None = metadata_item.get("title")
+                if title is None:
+                    raise ValueError("ID is not provided and 'title' is missing from metadata, cannot generate UUID for document")
+                id_item = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=title)
+            documents_to_add.append(Document(page_content=content_item, metadata=metadata_item))
+            ids_to_add.append(str(id_item))
+        await self.vectorstore.aadd_documents(documents=documents_to_add, ids=ids_to_add)
 
-    def add_document(self, content: str, metadata: dict[str, Any], id: UUID | None = None) -> None:
-        """Add a document to the Qdrant collection with the given content, metadata, and optional ID.
+    def add_documents(self, content: list[str], metadata: list[dict[str, Any]], id: list[UUID | None] = []) -> None:
+        """Add multiple documents to the Qdrant collection with the given content, metadata, and optional IDs.
 
         Args:
-            content (str): The textual content of the document to be added.
-            metadata (dict[str, Any]): A dictionary containing metadata associated with the document.
-            id (str | None, optional): An optional unique identifier for the document. If not provided, a UUID will be generated based on the content. Defaults to None.
+            content (list[str]): A list of textual content for the documents to be added.
+            metadata (list[dict[str, Any]]): A list of dictionaries containing metadata associated with each document.
+            id (list[UUID | None], optional): A list of optional unique identifiers for the documents. If not provided or None for an item, a UUID will be generated based on the document title. Defaults to empty list.
 
         Returns:
             None
         """
-        if id is None:
-            title: str | None = metadata.get("title")
-            if title is None:
-                raise ValueError("ID is not provided and 'title' is missing from metadata, cannot generate UUID for document")
-            id = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=title)
-        document = Document(page_content=content, metadata=metadata)
-        self.vectorstore.add_documents(documents=[document], ids=[str(id)])
+        if len(id) != len(metadata) != len(content):
+            raise ValueError("Length of 'id' list must match length of 'metadata' and 'content' lists")
+        documents_to_add: list[Document] = []
+        ids_to_add: list[str] = []
+        for content_item, metadata_item, id_item in zip(content, metadata, id):
+            if id_item is None:
+                title: str | None = metadata_item.get("title")
+                if title is None:
+                    raise ValueError("ID is not provided and 'title' is missing from metadata, cannot generate UUID for document")
+                id_item = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=title)
+            document = Document(page_content=content_item, metadata=metadata_item)
+            documents_to_add.append(document)
+            ids_to_add.append(str(id_item))
+        self.vectorstore.add_documents(documents=documents_to_add, ids=ids_to_add)
 
-    def get_document_by_id(self, id: UUID) -> Document | None:
+    async def get_documents_by_id(self, ids: list[UUID]) -> dict[UUID, Document]:
         """Retrieve a document from the Qdrant collection by its unique identifier.
 
         Args:
@@ -244,16 +255,28 @@ class QdrantKBClient:
             Document | None: The retrieved document if found, or None if no document with the given ID exists in the collection.
         """
         try:
-            results: list[tuple[Document, float]] = self.vectorstore.similarity_search_with_relevance_scores(
-                query="", k=1, filter={"id": str(id)}
+            results: list[Record] = self.client.retrieve(
+                collection_name=self.collection_name,
+                ids=ids,
             )
             if results:
-                return results[0][0]  # Return the Document part of the tuple
+                documents: dict[UUID, Document] = {}
+                for result in results:
+                    if result.payload and isinstance(result.id, str):
+                        self.logger.debug(
+                            f"Retrieved document with ID {result.id} from Qdrant: {result.payload.get('metadata', {}).get('answer_title', 'No title in metadata')}"
+                        )
+                        documents[UUID(result.id)] = Document(
+                            page_content=result.payload.get("page_content", ""),
+                            metadata=result.payload.get("metadata", {}),
+                        )
+                return documents
             else:
-                return None
+                self.logger.info(f"No documents found in Qdrant with IDs {ids}")
+                return {}
         except Exception:
-            self.logger.error(f"Error retrieving document with ID {id} from Qdrant", exc_info=True)
-            return None
+            self.logger.error(f"Error retrieving documents with IDs {ids} from Qdrant", exc_info=True)
+            return {}
 
     async def close(self) -> None:
         """Close the Qdrant client connections."""
