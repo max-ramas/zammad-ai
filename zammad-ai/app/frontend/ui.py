@@ -40,16 +40,52 @@ EXAMPLE_PAYLOADS: list[tuple[str, str]] = [
 
 
 def _empty_result(message: str = "") -> FrontendResult:
+    """
+    Create a FrontendResult populated with a head message and empty fields.
+    
+    Parameters:
+        message (str): Text to place in the first element (typically an informational or error message).
+    
+    Returns:
+        FrontendResult: A 6-tuple of strings in the order (category, action, reasoning, confidence, answer, answer_documents)
+        where only the first element contains `message` and the remaining five are empty strings.
+    """
     return message, "", "", "", "", ""
 
 
 def _format_documents(documents: list[dict[str, Any]]) -> str:
+    """
+    Format a list of document dictionaries into a single newline-separated string.
+    
+    Parameters:
+        documents (list[dict[str, Any]]): A list of document objects represented as dictionaries.
+    
+    Returns:
+        str: A single string with each document's string representation on its own line, or an empty string if `documents` is empty.
+    """
     if not documents:
         return ""
     return "\n".join(str(document) for document in documents)
 
 
 async def _request_json(client: httpx.AsyncClient, url: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """
+    Send a JSON POST to the given URL and return the parsed JSON object.
+    
+    Sends `payload` as the request JSON using `client.post`, ensures the HTTP response status is successful, parses the response body as JSON, and verifies the parsed value is a dict.
+    
+    Parameters:
+        client (httpx.AsyncClient): Async HTTP client used to perform the request.
+        url (str): Target URL for the POST request.
+        payload (dict[str, Any]): JSON-serializable payload to send in the request body.
+    
+    Returns:
+        dict[str, Any]: The parsed JSON object from the response.
+    
+    Raises:
+        httpx.HTTPStatusError: If the response status is not successful (`raise_for_status()`).
+        ValueError: If the response JSON is not an object (dict).
+    """
     response = await client.post(url=url, json=payload)
     response.raise_for_status()
     data = response.json()
@@ -61,10 +97,25 @@ async def _request_json(client: httpx.AsyncClient, url: str, payload: dict[str, 
 
 async def process_ticket(text: str, *, api_base_url: str, timeout_seconds: float) -> FrontendResult:
     """
-    Process a ticket text via triage and optionally answer generation.
-
+    Process ticket text through triage and, if the triage action indicates, request an AI-generated answer.
+    
+    Sends the ticket text to the triage endpoint and extracts category, action, reasoning, and confidence. If the triage action is "KI_Antwort" or "ai_response", requests an answer and any supporting documents from the answer endpoint and formats them for the frontend.
+    
+    Parameters:
+        api_base_url (str): Base URL of the backend API (e.g., "http://localhost:8080").
+        timeout_seconds (float): HTTP request timeout in seconds.
+    
     Returns:
-        FrontendResult: (category, action, reasoning, confidence, answer, answer_documents)
+        FrontendResult: A 6-tuple (category, action, reasoning, confidence, answer, answer_documents)
+            - category (str): Detected ticket category (or "Unbekannt").
+            - action (str): Determined action name.
+            - reasoning (str): Explanation or reasoning from triage.
+            - confidence (str): Confidence as a percentage string (e.g., "87.5%").
+            - answer (str): AI-generated answer when available, otherwise an empty string or error message.
+            - answer_documents (str): Formatted supporting documents joined by newlines, or empty string.
+    
+    Raises:
+        gr.Error: If the input text is empty or triage encounters a connection, timeout, HTTP, or other fatal error.
     """
     if not text.strip():
         raise gr.Error("Keine Eingabe")
@@ -133,6 +184,17 @@ def build_frontend(frontend_settings: FrontendSettings) -> gr.Blocks:
     """Build the Gradio frontend Blocks UI."""
 
     async def _process_ticket(text: str) -> FrontendResult:
+        """
+        Process the given ticket text using the module's configured API base URL and the frontend's request timeout.
+        
+        Parameters:
+            text (str): Raw ticket text to be analyzed and (optionally) answered.
+        
+        Returns:
+            tuple[str, str, str, str, str, str]: A 6-tuple containing
+                (category, action, reasoning, confidence, answer, answer_documents).
+                `confidence` is formatted as a percentage string with one decimal place (e.g., "87.5%").
+        """
         return await process_ticket(
             text=text,
             api_base_url=API_BASE_URL,

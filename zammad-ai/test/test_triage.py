@@ -19,13 +19,16 @@ def patched_triage(
     fake_zammad_client: FakeZammadClient,
 ) -> Generator[TriageService, None, None]:
     """
-    Provide a Triage instance with external dependencies replaced by test fakes.
-
+    Provide a TriageService configured with test fakes for GenAI and Zammad.
+    
     Parameters:
-        monkeypatch (pytest.MonkeyPatch): Pytest monkeypatch fixture used to replace GenAIHandler and ZammadAPIClient in the triage module.
-
+        monkeypatch (pytest.MonkeyPatch): Fixture used to patch the triage module's GenAIHandler, ZammadAPIClient, and ZammadConnectionError with the provided fakes.
+        settings_factory: Callable that returns test settings used to construct the TriageService.
+        fake_genai_handler (FakeGenAIHandler): Fake GenAI handler to be injected into the triage module.
+        fake_zammad_client (FakeZammadClient): Fake Zammad client to be injected into the triage module.
+    
     Returns:
-        Generator[Triage, None, None]: Yields a Triage instance configured with mock settings and using FakeGenAIHandler and FakeZammadClient.
+        Generator[TriageService, None, None]: Yields a TriageService instance constructed with the test settings and wired to use the provided fakes.
     """
     monkeypatch.setattr(triage_module, "GenAIHandler", lambda *args, **kwargs: fake_genai_handler)
     monkeypatch.setattr(triage_module, "ZammadAPIClient", lambda *args, **kwargs: fake_zammad_client)
@@ -42,12 +45,26 @@ def triage_factory(
     fake_genai_handler: FakeGenAIHandler,
     fake_zammad_client: FakeZammadClient,
 ) -> Callable[[list[ActionRule] | None], TriageService]:
-    """Build Triage instances with optional action rules and shared fake dependencies."""
+    """
+    Create a factory that produces TriageService instances configured with test fakes and optional action rules.
+    
+    Returns:
+        factory (Callable[[list[ActionRule] | None], TriageService]): A callable that accepts an optional list of ActionRule and returns a TriageService built using the provided settings_factory and the patched fake GenAI and Zammad clients.
+    """
     monkeypatch.setattr(triage_module, "GenAIHandler", lambda *args, **kwargs: fake_genai_handler)
     monkeypatch.setattr(triage_module, "ZammadAPIClient", lambda *args, **kwargs: fake_zammad_client)
     monkeypatch.setattr(triage_module, "ZammadConnectionError", FakeZammadConnectionError)
 
     def _factory(action_rules: list[ActionRule] | None = None) -> TriageService:
+        """
+        Create a TriageService configured with the given action rules.
+        
+        Parameters:
+            action_rules (list[ActionRule] | None): Optional list of action rules to include in the service configuration; if None, default rules are used.
+        
+        Returns:
+            TriageService: A TriageService instance configured with the provided action rules.
+        """
         settings = settings_factory(action_rules=action_rules)
         return TriageService(settings=settings)
 
@@ -199,6 +216,13 @@ async def test_predict_category_handles_genai_exception(patched_triage: TriageSe
     """An unexpected exception from the GenAI handler causes a TriageError."""
 
     async def _boom(*_args, **_kwargs):
+        """
+        Simulates a failing language model by immediately raising a RuntimeError.
+        
+        Always raises RuntimeError with the message "LLM exploded".
+        Raises:
+            RuntimeError: Indicates the simulated LLM failure ("LLM exploded").
+        """
         raise RuntimeError("LLM exploded")
 
     patched_triage.genai_handler.invoke = _boom  # type: ignore
@@ -212,6 +236,14 @@ async def test_perform_triage_handles_processing_triage_error(patched_triage: Tr
     """A TriageError during processing in perform_triage is caught and returns a fallback result."""
 
     async def _boom(*_args, **_kwargs):
+        """
+        Always raises a TriageError to simulate a processing failure.
+        
+        Used in tests to force a processing error path.
+        
+        Raises:
+            TriageError: Always raised with the message "Simulated processing error".
+        """
         raise TriageError("Simulated processing error")
 
     # Mock predict_category to raise TriageError

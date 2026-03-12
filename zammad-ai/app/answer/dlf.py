@@ -44,6 +44,15 @@ class DLFClient:
     """Stateful client for interacting with the Dienstleistungsfinder (DLF) API."""
 
     def __init__(self, dlf_settings: DLFSettings) -> None:
+        """
+        Configure the DLFClient using provided settings by creating an AsyncClient and storing filter categories.
+        
+        Parameters:
+            dlf_settings (DLFSettings): Settings that provide the DLF base URL, request timeout, and filter categories.
+        
+        Raises:
+            ValueError: If `dlf_settings.url` is None.
+        """
         if dlf_settings.url is None:
             raise ValueError("DLF URL must be provided for DLFClient initialization.")
         self.client = AsyncClient(
@@ -53,13 +62,14 @@ class DLFClient:
         self.categories: list[str] = dlf_settings.filter_categories
 
     async def retrieve_documents(self, query: str) -> list[DLFDocument]:
-        """Retrieve relevant documents from the DLF based on a search query.
-
-        Args:
-            query (str): The search query string; maximum length is 200 characters (~ 20 words).
-
+        """
+        Retrieve documents from the DLF matching the given search query.
+        
+        Parameters:
+            query (str): Search query string; maximum length 200 characters.
+        
         Returns:
-            list[DLFDocument]: The list of retrieved DLF documents.
+            list[DLFDocument]: Retrieved documents matching the query.
         """
         # Create payload
         payload = DLFAPIPayload(
@@ -77,5 +87,9 @@ class DLFClient:
         return dlf_response.documents
 
     async def close(self) -> None:
-        """Backward-compatible alias for aclose()."""
+        """
+        Close the underlying HTTPX AsyncClient and release its resources.
+        
+        Awaiting this coroutine closes network connections and frees resources held by the internal AsyncClient.
+        """
         await self.client.aclose()

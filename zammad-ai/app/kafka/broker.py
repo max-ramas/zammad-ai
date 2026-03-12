@@ -20,13 +20,23 @@ logger: Logger = getLogger(name="zammad-ai")
 
 def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
     """
-    Create a configured KafkaRouter and its subscriber event handler for ticket triage.
-
+    Create and configure a KafkaRouter and its subscriber event handler for ticket triage.
+    
     Parameters:
-        settings (ZammadAISettings): Application settings containing Kafka configuration and valid request types.
-
+        settings (ZammadAISettings): Application settings containing Kafka configuration and the set of valid request types.
+    
     Returns:
-        tuple[KafkaRouter, Callable]: The configured KafkaRouter and its event handler callable.
+        tuple[KafkaRouter, Callable]: The configured KafkaRouter and its subscriber event handler.
+    """
+    """
+    Process an incoming Kafka event to perform ticket triage and acknowledge or negatively-acknowledge the message.
+    
+    Parameters:
+        event (Event): The Kafka event to process; contains ticket identifier and request type.
+    
+    Raises:
+        AckMessage: Acknowledges the Kafka message to mark it as processed or intentionally skipped.
+        NackMessage: Signals processing failure to negatively acknowledge the message.
     """
     logger.info("Building Kafka router")
 
@@ -48,15 +58,11 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
         event: Event,
     ) -> None:
         """
-        Process an incoming Kafka event to perform ticket triage and acknowledge the message.
-
-        If the event's request type is not supported, the event is acknowledged and skipped. The handler attempts to perform triage for the event's ticket, logs any processing errors, and acknowledges the event when finished.
-
-        Args:
-            event (Event): The Kafka event to process.
-
+        Process a Kafka event by performing ticket triage and acknowledging or negatively acknowledging the message.
+        
         Raises:
-            AckMessage: Acknowledges the Kafka message to mark it as processed.
+            AckMessage: If the event is successfully processed or intentionally skipped due to unsupported request type.
+            NackMessage: If processing fails.
         """
         logger.debug(f"Received event: {event}")
 

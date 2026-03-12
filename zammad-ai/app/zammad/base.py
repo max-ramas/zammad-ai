@@ -81,50 +81,50 @@ class BaseZammadClient(ABC):
     @abstractmethod
     async def parse_rss_feed(self) -> feedparser.FeedParserDict | None:
         """
-        Parse RSS feed from the knowledge base.
-
+        Parse the knowledge-base RSS feed and produce a parsed feed object.
+        
         Returns:
-            feedparser.FeedParserDict: Parsed feed object or None if parsing fails.
+            feedparser.FeedParserDict | None: Parsed feed data, or `None` if parsing fails or the feed is unavailable.
         """
         ...
 
     @abstractmethod
     async def get_kb_answer_by_id(self, answer_id: str) -> dict | None:
         """
-        Fetch a knowledge base answer by its ID.
-
+        Retrieve a knowledge base answer by its Zammad answer ID.
+        
         Parameters:
-            answer_id (str): The ID of the answer to fetch.
-
+            answer_id (str): Zammad knowledge base answer ID.
+        
         Returns:
-            dict: Knowledge base answer data or None if not found.
+            dict: Answer data as returned by Zammad, or `None` if no answer is found.
         """
         ...
 
     @abstractmethod
     async def fetch_attachment_data(self, url: str) -> str | None:
         """
-        Fetch an attachment and return its content as text or base64.
-
+        Fetch an attachment from the given relative URL and return its content as decoded text or a base64 string.
+        
         Parameters:
-            url (str): Relative URL of the attachment.
-
+            url (str): Relative URL of the attachment to fetch.
+        
         Returns:
-            str: Decoded text for text/* or JSON; base64 string for binary content.
-            None: On error or if url is falsy.
+            str: Decoded text (for text/* MIME types) or JSON string when applicable, or a base64-encoded string for binary content.
+            None: If `url` is falsy or an error occurs while fetching or decoding the attachment.
         """
         ...
 
     @abstractmethod
     async def check_if_answer_exists(self, answer_id: str) -> bool:
         """
-        Check if a knowledge base answer still exists.
-
+        Determine whether a knowledge base answer with the given ID exists.
+        
         Parameters:
-            answer_id (str): The ID of the answer to check.
-
+            answer_id (str): ID of the knowledge base answer to check.
+        
         Returns:
-            bool: True if answer exists, False if deleted/not found.
+            bool: True if the answer exists, False otherwise.
         """
         ...
 

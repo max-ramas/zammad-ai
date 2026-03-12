@@ -75,25 +75,17 @@ def extract_frontmatter(content: str) -> tuple[dict[str, Any], str]:
 
 
 def load_prompt(file_path: Path | str) -> str:
-    """Load a prompt file and return content without frontmatter.
-
-    Reads a markdown or text file, extracts and removes any YAML frontmatter,
-    and returns only the prompt text.
-
-    Args:
-        file_path: Path to the prompt file (str or Path object)
-
+    """
+    Load a prompt file and remove any leading YAML frontmatter.
+    
+    Parameters:
+        file_path (Path | str): Path to the prompt file; may be a string or Path.
+    
     Returns:
-        The prompt text without frontmatter
-
+        The prompt text excluding any YAML frontmatter, with leading and trailing whitespace removed.
+    
     Raises:
-        FileNotFoundError: If the file does not exist
-        IOError: If the file cannot be read
-
-    Examples:
-        >>> prompt = load_prompt("prompts/my_prompt.md")
-        >>> print(prompt)  # doctest: +SKIP
-        Your prompt content...
+        FileNotFoundError: If the file does not exist.
     """
     path = Path(file_path)
 

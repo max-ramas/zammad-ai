@@ -15,9 +15,13 @@ from .zammad import ZammadAPISettings, ZammadEAISettings
 
 
 def _is_test_mode() -> bool:
-    """Check if settings are loaded in a test context.
-
-    YAML should only be disabled for pytest runs or when explicitly requested.
+    """
+    Detect whether configuration loading should treat the environment as a test context.
+    
+    Returns:
+        bool: `True` if the `PYTEST_CURRENT_TEST` environment variable is present or
+        if `ZAMMAD_AI_DISABLE_YAML` is set to `"1"`, `"true"`, or `"yes"` (case-insensitive),
+        `False` otherwise.
     """
     import os
 
@@ -31,7 +35,12 @@ def _is_test_mode() -> bool:
 
 
 def _should_enable_cli() -> bool:
-    """Check if CLI parsing should be enabled based on sys.argv."""
+    """
+    Determine whether command-line argument parsing should be enabled.
+    
+    Returns:
+        bool: `True` if no test runner indicators are detected in the environment or argv (allowing CLI parsing), `False` otherwise.
+    """
     import sys
 
     if "pytest" in sys.modules:
@@ -104,7 +113,14 @@ class ZammadAISettings(BaseSettings):
 
     @model_validator(mode="after")
     def set_log_defaults(self) -> "ZammadAISettings":
-        """Set logging format and level based on mode if not explicitly configured."""
+        """
+        Set default logging format and level when they are not explicitly configured.
+        
+        If `log.format` or `log.level` is unset, populate them based on `mode`: use `"plain"` and `"DEBUG"` when mode is `"development"`, otherwise use `"json"` and `"INFO"`.
+        
+        Returns:
+            ZammadAISettings: The settings instance with `log.format` and `log.level` set when they were previously `None`.
+        """
         if self.log.format is None:
             self.log.format = "plain" if self.mode == "development" else "json"
         if self.log.level is None:

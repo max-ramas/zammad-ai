@@ -23,6 +23,27 @@ logger: Logger = getLogger("zammad-ai.answer.service")
 class AnswerService:
     def __init__(self, settings: ZammadAISettings) -> None:
         # Optionally set up Langfuse client if enabled in settings
+        """
+        Initialize the AnswerService, configuring prompt sources, the agent, and supporting clients from the provided settings.
+        
+        The initializer:
+        - Optionally creates a Langfuse client when langfuse is enabled.
+        - Resolves the agent system prompt from one of: Langfuse, a file, or a string in settings.
+        - Loads the user message template from the prompts directory.
+        - Builds the compiled agent graph using genai settings and the resolved system prompt.
+        - Creates a Qdrant knowledge-base client and an optional DLF client.
+        - Assembles the AgentContext with the KB and DLF clients.
+        
+        Parameters:
+            settings (ZammadAISettings): Configuration used to enable integrations and supply prompts, GenAI, Qdrant, and DLf settings.
+        
+        Raises:
+            ValueError: If Langfuse is referenced as the prompt source but Langfuse is not enabled in settings.
+            ValueError: If `settings.answer.agent_prompt` is not a supported prompt source type.
+        
+        Notes:
+            If fetching the prompt from Langfuse fails, the process exits with status code 1.
+        """
         self.langfuse_client: LangfuseClient | None = None
         if settings.langfuse_enabled:
             self.langfuse_client = LangfuseClient()
@@ -75,6 +96,17 @@ class AnswerService:
         category: str,
         session_id: str | None = None,
     ) -> StructuredAgentResponse:
+        """
+        Generate a structured answer for the given user text and category, optionally associating the request with a provided Langfuse session.
+        
+        Parameters:
+            user_text (str): The user's input text to be answered.
+            category (str): The category or topic context to include in the user message.
+            session_id (str | None): Optional session identifier used for Langfuse tracing; if omitted and Langfuse is enabled, a session id will be generated.
+        
+        Returns:
+            StructuredAgentResponse: The agent's structured response containing the answer and associated metadata (for example retrieval context and tracing information).
+        """
         logger.debug(f"Answer generation with payload:\nuser_text: {user_text}\ncategory: {category}")
         if session_id is None and self.langfuse_client is not None:
             session_id = self.langfuse_client.generate_session_id()
@@ -96,7 +128,11 @@ class AnswerService:
         return agent_result["structured_response"]
 
     async def cleanup(self) -> None:
-        """Clean up resources used by the AnswerService."""
+        """
+        Close internal clients and reset the module-level service reference.
+        
+        Attempts to close the Qdrant KB client and, if present, the DLF client. Always resets the module-level `_service` reference to `None` so the service can be recreated.
+        """
         try:
             await self.qdrant_kb_client.close()
             if self.dlf_client is not None:

@@ -36,6 +36,18 @@ class AgentContext(BaseModel):
     response_format="content",
 )
 async def search_dlf(runtime: ToolRuntime[AgentContext], query: str) -> list[DLFDocument]:
+    """
+    Search the Munich city (DLF) site using the runtime's DLF client and return retrieved documents.
+    
+    Parameters:
+        query (str): Query string to send to the DLF site.
+    
+    Returns:
+        list[DLFDocument]: Documents retrieved from the DLF client matching the query.
+    
+    Raises:
+        ToolException: If the DLF client is not initialized in the runtime context or if an HTTP error occurs during retrieval.
+    """
     if runtime.context.dlf_client is None:
         logger.error("DLF client is not initialized in the agent context.")
         raise ToolException("Failed to search the munich city website. Please try other tools for now.")
@@ -62,16 +74,19 @@ async def search_knowledgebase(
     offset: int = 0,
 ) -> RetrieveDocumentsKBOutput:
     """
-    Retrieve relevant documents based on a query.
-
-    Args:
-        query (str): The search query string.
-
+    Retrieve relevant documents from the knowledge base for a given query.
+    
+    Parameters:
+        runtime (ToolRuntime[AgentContext]): Tool runtime whose context provides a QdrantKBClient.
+        query (str): Query text to search for.
+        num_documents (int): Maximum number of documents to return.
+        offset (int): Number of top results to skip before collecting documents.
+    
     Returns:
-        RetrieveDocumentsKBOutput: A dictionary containing lists of retrieved documents.
-
+        RetrieveDocumentsKBOutput: Contains `documents_with_relevance_score`, a list of `(Document, float)` tuples ordered by relevance.
+    
     Raises:
-        ToolException: If the retrieval process fails.
+        ToolException: If the knowledge base retrieval fails.
     """
     qdrant_client: QdrantKBClient = runtime.context.qdrant_kb_client
     try:
@@ -91,7 +106,18 @@ def build_agent(
     system_prompt: str,
     dlf_enabled: bool = True,
 ) -> CompiledStateGraph[AgentState[StructuredAgentResponse], AgentContext, AgentState, AgentState[StructuredAgentResponse]]:  # type: ignore
-    """Build and return the Zammad AI Answer agent."""
+    """
+    Constructs a LangChain agent configured for Zammad AI Answer using the provided model settings, system prompt, and tools.
+    
+    Parameters:
+        genai_settings (GenAISettings): Model and generation parameters used to create the chat model.
+        system_prompt (str): System prompt supplied to the agent.
+        dlf_enabled (bool): If True, include the DLF website search tool in the agent's toolset.
+    
+    Returns:
+        CompiledStateGraph[AgentState[StructuredAgentResponse], AgentContext, AgentState, AgentState[StructuredAgentResponse]]:
+            A compiled agent configured with a ChatOpenAI model, the supplied system prompt, the knowledge-base search tool (and optionally the DLF tool), producing StructuredAgentResponse outputs and using AgentContext for runtime clients.
+    """
 
     # Build the chat model
     chat_model = ChatOpenAI(

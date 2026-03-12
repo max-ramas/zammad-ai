@@ -30,13 +30,13 @@ async def answer(
     service: AnswerService = Depends(answer_dependency),
 ) -> AnswerOutput:
     """
-    Handle an answer request by invoking the answer agent with the provided question and category.
-
+    Process an answer request and produce the agent's response based on the provided input.
+    
     Parameters:
-        input (AnswerInput): Request payload containing `question` (the user's question) and `category` (the triage category).
-
+        input (AnswerInput): Request payload containing `text` (the user's query), optional `category` (triage category), and optional `id` (session identifier). If `category` is falsy, "Uncategorized" is used.
+    
     Returns:
-        AnswerOutput: Contains the agent's structured response to the question.
+        AnswerOutput: The agent's response and any supporting documents.
     """
     result: StructuredAgentResponse = await service.generate_answer(
         user_text=input.text,

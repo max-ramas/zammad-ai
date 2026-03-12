@@ -42,15 +42,14 @@ class TriageError(Exception):
 class TriageService:
     def __init__(self, settings: ZammadAISettings) -> None:
         """
-        Initialize the Triage service from the provided ZammadAISettings.
-
-        Sets up categories, actions, fallback no_category/no_action, action rules, prompt sources (Langfuse, file, or string), prepares system prompts for GenAI, initializes the GenAI handler, and instantiates the appropriate Zammad client.
-
+        Initialize the TriageService with the provided configuration, preparing category/action maps, prompt sources, the GenAI handler, and the Zammad client.
+        
         Parameters:
-            settings (ZammadAISettings): Configuration containing triage categories, actions, action rules, prompt definitions, GenAI settings, and Zammad settings.
-
+            settings (ZammadAISettings): Configuration containing triage categories, actions, action rules, prompt definitions (Langfuse, file, or string), GenAI settings, and Zammad settings.
+        
         Raises:
-            ValueError: If the configured triage prompts type is unsupported or if the Zammad settings type is unsupported.
+            ValueError: If the configured triage prompts type or Zammad settings type is unsupported.
+            TriageError: If Langfuse prompt retrieval fails during prompt initialization.
         """
         # Triage setup
         self.categories: list[Category] = settings.triage.categories
@@ -149,16 +148,16 @@ class TriageService:
 
     async def perform_triage(self, id: str) -> TriageResult:
         """
-        Perform triage for a Zammad ticket identified by its ID.
-
+        Triage a Zammad ticket by analyzing its customer message to determine category, action, and any extracted values.
+        
         Parameters:
             id (str): Zammad ticket identifier.
-
+        
         Returns:
-            TriageResult: Result containing the resolved category, selected action, human-readable reasoning, and confidence score.
-
+            TriageResult: Result containing the resolved category, selected action, human-readable reasoning, confidence score, and any extracted values (or `None`).
+        
         Raises:
-            TriageError: When the ticket cannot be retrieved from Zammad (e.g., connection failures).
+            TriageError: If the ticket cannot be retrieved from Zammad (for example, due to a connection failure).
         """
         # Step 1: Fetch ticket data from Zammad
         try:
@@ -221,14 +220,17 @@ class TriageService:
 
     async def predict_category(self, message: str, session_id: str) -> CategorizationResult:
         """
-        Predict the triage category for a customer message using the GenAI handler.
-
+        Predict the appropriate triage category for a customer message.
+        
         Parameters:
             message (str): Customer message to categorize; leading/trailing whitespace is ignored.
-            session_id (str): Langfuse session identifier used for tracing the prediction.
-
+            session_id (str): Tracing session identifier used for the GenAI call.
+        
         Returns:
-            CategorizationResult: Categorization outcome containing `category`, `reasoning`, and `confidence`. If the message is empty, the predicted category is invalid, or an error occurs, returns a result with `no_category`, an explanatory `reasoning`, and `confidence` set to 1.0.
+            CategorizationResult: Object containing `category`, `reasoning`, `confidence`, and optional `extracted_values`. If the message is empty or the model returns an invalid category, the `category` will be the service's `no_category`, `reasoning` will explain the fallback, and `confidence` will be 1.0.
+        
+        Raises:
+            TriageError: If categorization fails due to GenAI errors or other unexpected exceptions.
         """
         if len(message.strip()) == 0:
             logger.warning("Empty message provided for categorization")
@@ -369,7 +371,9 @@ class TriageService:
 
     async def cleanup(self) -> None:
         """
-        Perform cleanup of Triage-managed resources.
+        Release resources held by the TriageService and clear the global singleton.
+        
+        This closes the underlying Zammad client and resets the module-level service reference so a new instance can be created on next request.
         """
         try:
             await self.zammad_client.cleanup()
@@ -384,12 +388,11 @@ _service: TriageService | None = None
 
 def get_triage_service(settings: ZammadAISettings | None = None) -> TriageService:
     """
-    Get or create the shared TriageService instance.
-
-    Args:
-        settings: Optional settings to initialize the TriageService instance.
-                 If not provided, uses get_settings().
-
+    Return the shared TriageService singleton, creating and initializing it if necessary.
+    
+    Parameters:
+        settings (ZammadAISettings | None): Optional settings to initialize the service. If None, the application settings from get_settings() are used.
+    
     Returns:
         TriageService: The shared TriageService instance.
     """
