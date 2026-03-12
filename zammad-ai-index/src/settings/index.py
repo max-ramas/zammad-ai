@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, NonNegativeInt
+from pydantic import BaseModel, Field, NonNegativeInt, field_validator
 
 
 class IndexJobSettings(BaseModel):
@@ -18,3 +18,10 @@ class IndexJobSettings(BaseModel):
         description="Number of documents to process in each batch when adding to Qdrant.",
         default=50,
     )
+
+
+@field_validator("interval", "batch_size", mode="before")
+def validate_non_negative(cls, value, field):
+    if value < 0:
+        raise ValueError(f"{field.name} must be a non-negative and non-zero integer")
+    return value
