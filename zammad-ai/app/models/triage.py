@@ -15,7 +15,7 @@ class CategorizationResult(BaseModel):
         ge=0.0,
         le=1.0,
     )
-    extracted_values: dict[str, str | int | float] | None = Field(
+    extracted_values: dict[str, str | int | float | bool] | None = Field(
         default=None, description="Any extracted values as specified by the category definition"
     )
 
@@ -27,7 +27,7 @@ class TriageResult(BaseModel):
     action: Action = Field(description="The recommended action")
     reasoning: str = Field(description="Explanation for the categorization")
     confidence: float = Field(description="Confidence score (0.0 to 1.0)")
-    extracted_values: dict[str, str | int | float] | None = Field(
+    extracted_values: dict[str, str | int | float | bool] | None = Field(
         default=None, description="Any extracted values as specified by the category definition"
     )
 
