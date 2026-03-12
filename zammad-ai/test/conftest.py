@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from faststream.kafka import TestKafkaBroker
 from pydantic import HttpUrl, SecretStr
 
-from app.settings import GenAISettings, KafkaSettings, QdrantSettings, TriageSettings, ZammadAISettings, ZammadAPISettings
+from app.settings import GenAISettings, KafkaSettings, TriageSettings, ZammadAISettings, ZammadAPISettings
 from app.settings.triage import Action, ActionRule, Category, StringTriagePrompts
 from test.fakes import FakeGenAIHandler, FakeLangfuseClient, FakeZammadClient
 
@@ -73,11 +73,6 @@ def base_settings() -> ZammadAISettings:
         zammad=ZammadAPISettings(
             base_url=HttpUrl(url="https://example.com"),
             auth_token=SecretStr(secret_value="test-token"),
-        ),
-        qdrant=QdrantSettings(
-            url=HttpUrl(url="https://qdrant.example.com"),
-            api_key=None,
-            collection_name="test_collection",
         ),
         kafka=KafkaSettings(
             broker_url="localhost:9092",

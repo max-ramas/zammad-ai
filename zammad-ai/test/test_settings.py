@@ -1,4 +1,4 @@
-from app.settings.settings import get_settings
+from app.settings.settings import ZammadAISettings, get_settings
 
 
 def test_get_settings_ignores_local_yaml_in_unittest_mode(tmp_path, monkeypatch) -> None:
@@ -10,7 +10,10 @@ def test_get_settings_ignores_local_yaml_in_unittest_mode(tmp_path, monkeypatch)
     monkeypatch.setenv("ZAMMAD_AI_DISABLE_YAML", "1")
 
     get_settings.cache_clear()
-    settings = get_settings()
+    try:
+        settings: ZammadAISettings = get_settings()
+    finally:
+        get_settings.cache_clear()
 
     assert settings.mode == "unittest"
     assert settings.triage.prompts.type == "string"
