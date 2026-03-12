@@ -16,11 +16,9 @@ class TriageSettings(BaseModel):
     prompts: "StringTriagePrompts | FileTriagePrompts | LangfuseTriagePrompts" = Field(
         description="Prompts for the triage process. Can be provided as raw strings, file paths, or Langfuse prompt references.",
         default_factory=lambda: StringTriagePrompts(
-            prompt_map={
-                "categories": "Categorize the following text into one of the following categories: {categories}.",
-                "examples": "Here are some examples of texts and their corresponding categories: {examples}.",
-                "role": "You are a helpful assistant that categorizes text based on the provided categories and examples.",
-            }
+            categories="Categorize the following text into one of the following categories: {categories}.",
+            examples="Here are some examples of texts and their corresponding categories: {examples}.",
+            role="You are a helpful assistant that categorizes text based on the provided categories and examples.",
         ),
         discriminator="type",
     )
@@ -65,26 +63,38 @@ TriagePrompt = Literal["categories", "examples", "role"]
 
 class StringTriagePrompts(BaseModel):
     type: Literal["string"] = "string"
-    prompt_map: dict[TriagePrompt, str] = Field(
-        description="Prompts for the triage process as raw strings. The keys should be 'categories', 'examples', and 'role'.",
+    categories: str = Field(
+        description="Prompt for categorizing text.",
+    )
+    examples: str = Field(
+        description="Prompt with examples of categorization.",
+    )
+    role: str = Field(
+        description="Role/system prompt for the text categorization assistant.",
     )
 
 
 class FileTriagePrompts(BaseModel):
     type: Literal["file"] = "file"
-    prompt_map: dict[TriagePrompt, Annotated[FilePath, AfterValidator(func=validate_is_prompt)]] = Field(
-        description="Prompts for the triage process as file paths. The files should contain the prompts as raw text. The keys should be 'categories', 'examples', and 'role'.",
+    categories: Annotated[FilePath, AfterValidator(func=validate_is_prompt)] = Field(
+        description="Path to file containing the categorization prompt.",
     )
-
-
-class LangfuseTriagePromptMap(BaseModel):
-    categories: LangfusePrompt
-    examples: LangfusePrompt
-    role: LangfusePrompt
+    examples: Annotated[FilePath, AfterValidator(func=validate_is_prompt)] = Field(
+        description="Path to file containing the examples prompt.",
+    )
+    role: Annotated[FilePath, AfterValidator(func=validate_is_prompt)] = Field(
+        description="Path to file containing the role/system prompt.",
+    )
 
 
 class LangfuseTriagePrompts(BaseModel):
     type: Literal["langfuse"] = "langfuse"
-    prompt_map: LangfuseTriagePromptMap = Field(
-        description="Prompts for the triage process as LangfusePrompt objects. The keys should be 'categories', 'examples', and 'role'.",
+    categories: LangfusePrompt = Field(
+        description="Langfuse prompt reference for categorizing text.",
+    )
+    examples: LangfusePrompt = Field(
+        description="Langfuse prompt reference with examples of categorization.",
+    )
+    role: LangfusePrompt = Field(
+        description="Langfuse prompt reference for the role/system prompt.",
     )

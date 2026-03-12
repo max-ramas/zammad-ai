@@ -25,7 +25,7 @@ _TEST_ENV_DEFAULTS: dict[str, str] = {
     "ZAMMAD_AI_ZAMMAD__TYPE": "api",
     "ZAMMAD_AI_ZAMMAD__BASE_URL": "https://example.com",
     "ZAMMAD_AI_ZAMMAD__AUTH_TOKEN": "test-token",
-    "ZAMMAD_AI_TRIAGE": '{"categories":[{"name":"Unknown","id":0}],"no_category_id":0,"actions":[{"name":"Default","description":"Default","id":1}],"no_action_id":1,"action_rules":[],"prompts":{"type":"string","prompt_map":{"categories":"List of categories: {{categories}}","examples":"Examples: {{examples}}","role":"You are a helpful assistant that categorizes support requests into the above categories based on the content of the request."}}}',
+    "ZAMMAD_AI_TRIAGE": '{"categories":[{"name":"Unknown","id":0}],"no_category_id":0,"actions":[{"name":"Default","description":"Default","id":1}],"no_action_id":1,"action_rules":[],"prompts":{"type":"string","categories":"List of categories: {{categories}}","examples":"Examples: {{examples}}","role":"You are a helpful assistant that categorizes support requests into the above categories based on the content of the request."}}',
     "ZAMMAD_AI_VALID_REQUEST_TYPES": '["support"]',
     "ZAMMAD_AI_QDRANT__API_KEY": "test-key",
 }
@@ -90,7 +90,12 @@ def base_settings() -> ZammadAISettings:
             actions=[Action(name="Default", description="Default", id=1), Action(name="Escalate", description="Escalate", id=3)],
             no_action_id=1,
             action_rules=[],
-            prompts=StringTriagePrompts(type="string", prompt_map=DEFAULT_GENAI_PROMPTS),  # type: ignore
+            prompts=StringTriagePrompts(
+                type="string",
+                categories=DEFAULT_GENAI_PROMPTS["categories"],
+                examples=DEFAULT_GENAI_PROMPTS["examples"],
+                role=DEFAULT_GENAI_PROMPTS["role"],
+            ),
         ),
         valid_request_types=["support", "technischer Bürgersupport"],
     )

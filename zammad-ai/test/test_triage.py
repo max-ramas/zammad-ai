@@ -326,17 +326,15 @@ def test_langfuse_prompt_map_values_are_typed() -> None:
     prompts = LangfuseTriagePrompts.model_validate(
         {
             "type": "langfuse",
-            "prompt_map": {
-                "categories": {"name": "drivers-licence/categories", "label": "latest"},
-                "examples": {"name": "drivers-licence/examples", "label": "latest"},
-                "role": {"name": "drivers-licence/role", "label": "latest"},
-            },
+            "categories": {"name": "drivers-licence/categories", "label": "latest"},
+            "examples": {"name": "drivers-licence/examples", "label": "latest"},
+            "role": {"name": "drivers-licence/role", "label": "latest"},
         }
     )
 
-    assert isinstance(prompts.prompt_map.categories, LangfusePrompt)
-    assert isinstance(prompts.prompt_map.examples, LangfusePrompt)
-    assert isinstance(prompts.prompt_map.role, LangfusePrompt)
+    assert isinstance(prompts.categories, LangfusePrompt)
+    assert isinstance(prompts.examples, LangfusePrompt)
+    assert isinstance(prompts.role, LangfusePrompt)
 
 
 # ---------------------------------------------------------------------------

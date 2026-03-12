@@ -88,11 +88,10 @@ class TriageService:
 
             langfuse_client = LangfuseClient()
             self.prompts = {}
-            prompt_map = settings.triage.prompts.prompt_map
             for name, prompt in (
-                ("categories", prompt_map.categories),
-                ("examples", prompt_map.examples),
-                ("role", prompt_map.role),
+                ("categories", settings.triage.prompts.categories),
+                ("examples", settings.triage.prompts.examples),
+                ("role", settings.triage.prompts.role),
             ):
                 try:
                     self.prompts[name] = langfuse_client.get_prompt(
@@ -107,10 +106,16 @@ class TriageService:
                     raise TriageError("Triage initialization failed due to Langfuse prompt retrieval error.") from e
         elif isinstance(settings.triage.prompts, FileTriagePrompts):
             self.prompts = {
-                name: Path(file_path).read_text(encoding="utf-8") for name, file_path in settings.triage.prompts.prompt_map.items()
+                "categories": Path(settings.triage.prompts.categories).read_text(encoding="utf-8"),
+                "examples": Path(settings.triage.prompts.examples).read_text(encoding="utf-8"),
+                "role": Path(settings.triage.prompts.role).read_text(encoding="utf-8"),
             }
         elif isinstance(settings.triage.prompts, StringTriagePrompts):
-            self.prompts = settings.triage.prompts.prompt_map
+            self.prompts = {
+                "categories": settings.triage.prompts.categories,
+                "examples": settings.triage.prompts.examples,
+                "role": settings.triage.prompts.role,
+            }
         else:
             raise ValueError("Invalid type for triage prompts in configuration")
 
