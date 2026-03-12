@@ -89,15 +89,6 @@ class IndexingApplication:
         self.logger.info("Starting indexing process...")
 
         try:
-            # Step 0: Create Qdrant snapshot
-            snapshot_success: bool = await self.qdrant_client.acreate_snapshot()
-
-            if snapshot_success:
-                self.logger.info("Successfully created Qdrant snapshot before indexing.")
-            else:
-                self.logger.warning("Failed to create Qdrant snapshot before indexing. Exiting.")
-                return
-
             # Step 1: Retrieve answer IDs for processing
             answer_ids: list[int] = await self.data_retrieval_service.retrieve_answer_ids()
 
@@ -125,7 +116,16 @@ class IndexingApplication:
             else:
                 self.logger.info("Prepared %d documents for Qdrant indexing.", len(qdrant_items))
 
-            # Step 4: Add documents to Qdrant
+            # Step 4: Create Qdrant snapshot
+            snapshot_success: bool = await self.qdrant_client.acreate_snapshot()
+
+            if snapshot_success:
+                self.logger.info("Successfully created Qdrant snapshot before indexing.")
+            else:
+                self.logger.warning("Failed to create Qdrant snapshot before indexing. Exiting.")
+                return
+
+            # Step 5: Add documents to Qdrant
             success: bool = await self.indexing_service.add_documents_to_qdrant(qdrant_items)
 
             if success:
@@ -177,13 +177,26 @@ class IndexingApplication:
         resource leaks. This method is called in the finally block of run_indexing
         to ensure cleanup occurs even if errors are encountered.
         """
+        cleanup_errors: list[Exception] = []
+
         if self.zammad_client:
-            await self.zammad_client.close()
-            self.logger.debug("Closed Zammad client connection")
+            try:
+                await self.zammad_client.close()
+                self.logger.debug("Closed Zammad client connection")
+            except Exception as e:
+                self.logger.error("Failed to close Zammad client connection", exc_info=True)
+                cleanup_errors.append(e)
 
         if self.qdrant_client:
-            await self.qdrant_client.close()
-            self.logger.debug("Closed Qdrant client connection")
+            try:
+                await self.qdrant_client.close()
+                self.logger.debug("Closed Qdrant client connection")
+            except Exception as e:
+                self.logger.error("Failed to close Qdrant client connection", exc_info=True)
+                cleanup_errors.append(e)
+
+        if cleanup_errors:
+            self.logger.warning("Cleanup finished with %d error(s).", len(cleanup_errors))
 
 
 async def main() -> None:
@@ -198,6 +211,7 @@ async def main() -> None:
         await app.run_indexing()
     except Exception:
         getLogger("zammad-ai-index").error("Application encountered a critical error", exc_info=True)
+        raise
 
 
 if __name__ == "__main__":
