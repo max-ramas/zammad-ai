@@ -7,17 +7,10 @@ from typing import override
 from feedparser import FeedParserDict
 from feedparser import parse as feedparser
 from httpx import HTTPStatusError
-from pydantic import TypeAdapter
 from src.models.zammad import (
     KnowledgeBaseAnswer,
     KnowledgeBaseAttachment,
-    ZammadAnswer,
-    ZammadAPISharedDraft,
-    ZammadArticle,
     ZammadKnowledgebase,
-    ZammadSharedDraftArticle,
-    ZammadTagAdd,
-    ZammadTicket,
 )
 from src.settings.zammad import ZammadAPISettings
 from src.utils.logging import getLogger
@@ -45,34 +38,10 @@ class ZammadAPIClient(BaseZammadClient):
         )
 
         # Set auth header
-        self.client.headers.update({"Authorization": f"Bearer {settings.auth_token.get_secret_value()}"})
+        self.client.headers.update({"Authorization": f"Token token={settings.auth_token.get_secret_value()}"})
 
         self.kb_id = settings.knowledge_base_id
         self.rss_token = settings.rss_feed_token
-
-    @override
-    async def get_ticket(self, id: int) -> ZammadTicket:
-        data = await self._request("GET", f"/api/v1/ticket_articles/by_ticket/{id}")
-        articles = TypeAdapter(list[ZammadArticle]).validate_python(data)
-        return ZammadTicket(id=id, articles=articles)
-
-    @override
-    async def post_answer(self, ticket_id: int, text: str, subject: str | None = None, internal: bool = False) -> None:
-        payload = ZammadAnswer(ticket_id=ticket_id, body=text, internal=internal, subject=subject)
-        await self._request("POST", "/api/v1/ticket_articles", json=payload.model_dump())
-        logger.info(f"Posted answer to ticket {ticket_id}")
-
-    @override
-    async def post_shared_draft(self, ticket_id: int, text: str) -> None:
-        payload = ZammadAPISharedDraft(new_article=ZammadSharedDraftArticle(body=text, ticket_id=ticket_id))
-        await self._request("PUT", f"/api/v1/tickets/{ticket_id}/shared_draft", json=payload.model_dump(by_alias=True))
-        logger.info(f"Posted shared draft to ticket {ticket_id}")
-
-    @override
-    async def add_tag_to_ticket(self, ticket_id: int, tag: str) -> None:
-        payload = ZammadTagAdd(item=tag, o_id=ticket_id)
-        await self._request("POST", "/api/v1/tags/add", json=payload.model_dump())
-        logger.info(f"Added tag '{tag}' to ticket {ticket_id}")
 
     @override
     async def kb_info(self) -> ZammadKnowledgebase | None:
@@ -148,14 +117,6 @@ class ZammadAPIClient(BaseZammadClient):
     @override
     async def fetch_kb_attachment_data(self, id: int) -> str | None:
         return await self._request("GET", f"/api/v1/attachments/{id}") if id else None
-
-    @override
-    async def fetch_ticket_attachment_data(self, ticket_id: int, attachment_id: int, article_id: int) -> str | None:
-        return (
-            await self._request("GET", f"/api/v1/ticket_attachment/{ticket_id}/{article_id}/{attachment_id}")
-            if ticket_id and attachment_id and article_id
-            else None
-        )
 
     @override
     async def check_if_answer_exists(self, answer_id: int) -> bool:

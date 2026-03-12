@@ -6,7 +6,7 @@ from typing import Any
 
 from feedparser import FeedParserDict
 from httpx import AsyncClient, ConnectError, HTTPStatusError, ReadTimeout, TimeoutException
-from src.models.zammad import KnowledgeBaseAnswer, ZammadKnowledgebase, ZammadTicket
+from src.models.zammad import KnowledgeBaseAnswer, ZammadKnowledgebase
 from src.utils.logging import getLogger
 from stamina import retry_context
 
@@ -15,71 +15,6 @@ logger = getLogger("zammad-ai.base")
 
 class BaseZammadClient(ABC):
     """Abstract base class for Zammad API clients."""
-
-    @abstractmethod
-    async def get_ticket(
-        self,
-        id: int,
-    ) -> ZammadTicket:
-        """Fetch ticket information for a given Zammad ticket ID.
-
-        Args:
-            id: Zammad ticket ID to retrieve.
-
-        Returns:
-            ZammadTicket: Ticket data corresponding to the provided ID.
-
-        """
-        ...
-
-    @abstractmethod
-    async def post_answer(
-        self,
-        ticket_id: int,
-        text: str,
-        subject: str | None = None,
-        internal: bool = False,
-    ) -> None:
-        """Post an answer to the specified Zammad ticket.
-
-        Args:
-            ticket_id: ID of the ticket to update.
-            text: Answer content to post.
-            subject: Optional subject line for the answer.
-            internal: If True, post as an internal note not visible to the customer.
-
-        """
-        ...
-
-    @abstractmethod
-    async def post_shared_draft(
-        self,
-        ticket_id: int,
-        text: str,
-    ) -> None:
-        """Post a shared draft to the specified Zammad ticket.
-
-        Args:
-                ticket_id: ID of the ticket to post the shared draft to.
-                text: Content of the shared draft.
-
-        """
-        ...
-
-    @abstractmethod
-    async def add_tag_to_ticket(
-        self,
-        ticket_id: int,
-        tag: str,
-    ) -> None:
-        """Add a tag to the specified Zammad ticket.
-
-        Args:
-            ticket_id: Zammad ticket identifier.
-            tag: Tag text to add to the ticket.
-
-        """
-        ...
 
     @abstractmethod
     async def parse_rss_feed(self) -> FeedParserDict | None:
@@ -124,21 +59,6 @@ class BaseZammadClient(ABC):
         Returns:
             str: Decoded text for text/* or JSON; base64 string for binary content.
             None: On error or if id is falsy.
-
-        """
-        ...
-
-    @abstractmethod
-    async def fetch_ticket_attachment_data(self, ticket_id: int, attachment_id: int, article_id: int) -> str | None:
-        """Fetch an attachment and return its content as text or base64.
-
-        Args:
-            ticket_id: ID of the ticket to which the attachment belongs.
-            attachment_id: ID of the attachment to fetch.
-            article_id: ID of the article to which the attachment belongs.
-
-        Returns:
-            str: Decoded text for text/* or JSON; base64 string for binary content.
 
         """
         ...

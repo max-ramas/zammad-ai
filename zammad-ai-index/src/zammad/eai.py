@@ -10,7 +10,7 @@ from feedparser import FeedParserDict
 from feedparser import parse as feedparser
 from httpx import HTTPStatusError, RequestError
 from pydantic import TypeAdapter
-from src.models.zammad import KnowledgeBaseAnswer, ZammadAnswer, ZammadArticle, ZammadEAISharedDraft, ZammadKnowledgebase, ZammadTicket
+from src.models.zammad import KnowledgeBaseAnswer, ZammadKnowledgebase
 from src.settings.zammad import ZammadEAISettings
 from src.utils.logging import getLogger
 
@@ -91,28 +91,6 @@ class ZammadEAIClient(BaseZammadClient):
         return await super()._request(method, url, **kwargs)
 
     @override
-    async def get_ticket(self, id: int) -> ZammadTicket:
-        data = await self._request("GET", f"/tickets/byId/{id}")
-        articles = TypeAdapter(list[ZammadArticle]).validate_python(data["articles"])
-        return ZammadTicket(id=id, articles=articles)
-
-    @override
-    async def post_answer(self, ticket_id: int, text: str, subject: str | None = None, internal: bool = False) -> None:
-        payload = ZammadAnswer(ticket_id=ticket_id, body=text, internal=internal, subject=subject)
-        await self._request("POST", f"/tickets/{ticket_id}/articles", json=payload.model_dump())
-        logger.info(f"Posted answer to ticket {ticket_id}")
-
-    @override
-    async def post_shared_draft(self, ticket_id: int, text: str) -> None:
-        payload = ZammadEAISharedDraft(body=text)
-        await self._request("PUT", f"/tickets/{ticket_id}/shared_draft", json=payload.model_dump())
-        logger.info(f"Posted shared draft to ticket {ticket_id}")
-
-    @override
-    async def add_tag_to_ticket(self, ticket_id: int, tag: str) -> None:
-        raise NotImplementedError("Adding tag is not implemented yet.")
-
-    @override
     async def kb_info(self) -> ZammadKnowledgebase | None:
         if not self.kb_id:
             logger.warning("Knowledge base ID is not set. Cannot fetch KB info.")
@@ -160,22 +138,6 @@ class ZammadEAIClient(BaseZammadClient):
     async def fetch_kb_attachment_data(self, id: int) -> str | None:
         data = await self._request("GET", f"/attachments/{id}") if id else None
         if not (id and data):
-            return None
-        decoded = b64decode(data)
-        try:
-            return decoded.decode("utf-8")
-        except UnicodeDecodeError:
-            # Return raw base64 string for binary attachments
-            return data
-
-    @override
-    async def fetch_ticket_attachment_data(self, ticket_id: int, attachment_id: int, article_id: int) -> str | None:
-        data = (
-            await self._request("GET", f"/attachments/{ticket_id}/{article_id}/{attachment_id}")
-            if ticket_id and attachment_id and article_id
-            else None
-        )
-        if not data:
             return None
         decoded = b64decode(data)
         try:
