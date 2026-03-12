@@ -174,7 +174,7 @@ class DataProcessingService:
         vector_ids: list[UUID] = [item.vector_id for item in qdrant_data]
 
         # Get all existing documents in one batch call for efficiency
-        qdrant_documents: dict[UUID, Document] = await qdrant_client.get_documents_by_id(vector_ids)
+        qdrant_documents: dict[UUID, Document] = await qdrant_client.get_documents_by_ids(vector_ids)
 
         if not qdrant_documents:
             self.logger.info("No existing documents found in Qdrant, including all %d items for indexing.", len(qdrant_data))

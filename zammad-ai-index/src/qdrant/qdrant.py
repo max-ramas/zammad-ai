@@ -258,16 +258,18 @@ class QdrantKBClient:
             ids_to_add.append(str(id_item))
         self.vectorstore.add_documents(documents=documents_to_add, ids=ids_to_add)
 
-    async def get_documents_by_id(self, ids: list[UUID]) -> dict[UUID, Document]:
+    async def get_documents_by_ids(self, ids: list[UUID]) -> dict[UUID, Document]:
         """Retrieve a document from the Qdrant collection by its unique identifier.
 
         Args:
-            id (UUID): The unique identifier of the document to retrieve.
+            ids (list[UUID]): The unique identifiers of the documents to retrieve.
         Returns:
-            Document | None: The retrieved document if found, or None if no document with the given ID exists in the collection.
+            dict[UUID, Document]: A dictionary mapping the provided UUIDs to their corresponding Document objects. If a document with a given UUID is not found, it will not be included in the returned dictionary.
+        Raises:
+            QdrantKBError: If there is an error during retrieval from Qdrant, a QdrantKBError will be raised with details about the failure.
         """
         try:
-            results: list[Record] = self.client.retrieve(
+            results: list[Record] = await self.aclient.retrieve(
                 collection_name=self.collection_name,
                 ids=ids,
             )
@@ -286,9 +288,9 @@ class QdrantKBClient:
             else:
                 self.logger.info(f"No documents found in Qdrant with IDs {ids}")
                 return {}
-        except Exception:
+        except Exception as e:
             self.logger.error(f"Error retrieving documents with IDs {ids} from Qdrant", exc_info=True)
-            return {}
+            raise QdrantKBError("Failed to retrieve documents from Qdrant") from e
 
     async def close(self) -> None:
         """Close the Qdrant client connections."""
