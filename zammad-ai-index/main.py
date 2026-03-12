@@ -1,286 +1,194 @@
+"""Zammad AI Knowledge Base Indexing Application
+
+This application indexes knowledge base articles from Zammad into a Qdrant vector database
+for use with AI-powered ticket triage systems.
+
+The indexing process supports both full and incremental indexing modes:
+- Full indexing: Processes all knowledge base articles
+- Incremental indexing: Processes only recently updated articles based on RSS feed
+"""
+
 from asyncio import run
-from datetime import datetime, timedelta, timezone
 from logging import Logger
-from typing import Any
-from uuid import UUID, uuid5
 
 from dotenv import load_dotenv
-from langchain_core.documents import Document
-from src.models.qdrant import QdrantDocumentItem, QdrantVectorMetadata
+from src.models.qdrant import QdrantDocumentItem
 from src.models.zammad import KnowledgeBaseAnswer
-from src.qdrant.qdrant import ZAMMAD_AI_NAMESPACE, QdrantKBClient
+from src.qdrant.qdrant import QdrantKBClient
+from src.services import DataProcessingService, DataRetrievalService, IndexingService
 from src.settings.settings import ZammadAIIndexSettings, get_settings
 from src.settings.zammad import ZammadAPISettings, ZammadEAISettings
-from src.utils.hash import hash_content, normalize_content
 from src.utils.logging import getLogger
 from src.zammad.api import ZammadAPIClient
 from src.zammad.eai import ZammadEAIClient
 from truststore import inject_into_ssl
 
-settings: ZammadAIIndexSettings = get_settings()
-logger: Logger = getLogger("zammad-ai-index")
-
+# Enable system trust store for SSL connections
 inject_into_ssl()
 load_dotenv()
 
 
-async def retrieve_answer_ids(client: ZammadEAIClient | ZammadAPIClient) -> list[int]:
-    """
-    Retrieve knowledge base answer IDs for indexing.
+class IndexingApplication:
+    """Main application class for orchestrating the knowledge base indexing process."""
 
-    Depending on configuration, either performs full indexing (all answers)
-    or incremental indexing based on RSS feed (recent updates only).
+    def __init__(self) -> None:
+        """Initialize the indexing application with all required services.
 
-    Args:
-        client: Zammad client instance (API or EAI)
+        Sets up Zammad client (API or EAI based on configuration), Qdrant client,
+        and service layer components (data retrieval, processing, and indexing services).
 
-    Returns:
-        List of answer IDs to be processed
+        Raises:
+            ValueError: If an unsupported Zammad client type is configured.
 
-    Raises:
-        No exceptions raised - errors are logged and empty list returned
-    """
+        """
+        self.settings: ZammadAIIndexSettings = get_settings()
+        self.logger: Logger = getLogger("zammad-ai-index")
 
-    if settings.index.full_indexing:
-        logger.info("Performing full indexing.")
-        knowledgebase = await client.kb_info()
-        if knowledgebase:
-            logger.info("Found %d answers in the knowledge base.", len(knowledgebase.answerIds))
-            return knowledgebase.answerIds
+        # Initialize Zammad client based on configuration
+        if isinstance(self.settings.zammad, ZammadAPISettings):
+            self.zammad_client = ZammadAPIClient(self.settings.zammad)
+            self.logger.info("Initialized Zammad API-Client")
+        elif isinstance(self.settings.zammad, ZammadEAISettings):
+            self.zammad_client = ZammadEAIClient(self.settings.zammad)
+            self.logger.info("Initialized Zammad EAI-Client")
         else:
-            logger.error("Failed to fetch knowledge base information.")
-            return []
+            raise ValueError(f"Unsupported Zammad client type: {self.settings.zammad.type}")
 
-    logger.info("Performing indexing based on RSS feed.")
-    feed = await client.parse_rss_feed()
-    if not feed:
-        logger.error("Failed to parse RSS feed.")
-        return []
+        # Initialize Qdrant client
+        self.qdrant_client: QdrantKBClient = QdrantKBClient(
+            self.settings.qdrant,
+            self.settings.genai,
+        )
+        self.logger.info("Initialized Qdrant client")
 
-    ids: list[int] = []
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=settings.index.interval)
+        # Initialize services
+        self.data_retrieval_service: DataRetrievalService = DataRetrievalService(self.zammad_client)
+        self.data_processing_service: DataProcessingService = DataProcessingService(
+            base_url=self.settings.zammad.base_url,
+            knowledge_base_id=self.settings.zammad.knowledge_base_id,
+        )
+        self.indexing_service: IndexingService = IndexingService(qdrant_client=self.qdrant_client)
+        self.logger.info("Initialized all services")
 
-    for entry in getattr(feed, "entries", []):
+    async def run_indexing(self) -> None:
+        """Execute the complete indexing workflow.
+
+        Performs a four-step process:
+        1. Retrieve answer IDs for processing (full or incremental based on settings)
+        2. Fetch detailed answer data from Zammad
+        3. Prepare and filter data for Qdrant (only changed documents)
+        4. Add documents to Qdrant vector database in batches
+
+        The method handles errors gracefully and ensures cleanup of resources.
+        Process completion status is logged at info level.
+
+        Raises:
+            Exception: Critical errors during indexing are logged and re-raised.
+
+        """
+        self.logger.info("Starting indexing process...")
+
         try:
-            updated = datetime.fromisoformat(entry.get("updated"))
-            # Ensure datetime is timezone-aware (UTC if naive)
-            if updated.tzinfo is None:
-                updated = updated.replace(tzinfo=timezone.utc)
-
-            if updated <= cutoff_date:
-                continue
-
-            # Extract answer ID from RSS entry ID format
-            entry_id = entry.get("id", "")
-            parts = entry_id.split("-")
-            if len(parts) >= 2:
-                try:
-                    answer_id = int(parts[-2])
-                    ids.append(answer_id)
-                except ValueError:
-                    continue
-
-        except (ValueError, TypeError):
-            logger.warning("Could not parse entry %s", entry.get("id", "unknown"), exc_info=True)
-            continue
-
-    return ids
-
-
-async def get_answers_data(client: ZammadEAIClient | ZammadAPIClient, answer_ids: list[int]) -> dict[int, KnowledgeBaseAnswer]:
-    """
-    Fetch knowledge base answer data for given answer IDs.
-
-    Args:
-        client: Zammad client instance (API or EAI)
-        answer_ids: List of answer IDs to fetch
-    Returns:
-        Dictionary mapping answer ID to KnowledgeBaseAnswer data
-    """
-    answers: dict[int, KnowledgeBaseAnswer] = {}
-    for answer_id in answer_ids:
-        data: KnowledgeBaseAnswer | None = await client.get_kb_answer_by_id(answer_id)
-        if not data:
-            logger.warning("Answer with ID %d not found.", answer_id)
-            continue
-        answers[answer_id] = data
-    return answers
-
-
-async def fetch_attachments_for_answer(
-    client: ZammadEAIClient | ZammadAPIClient, answer: KnowledgeBaseAnswer
-) -> dict[int, tuple[str, str | None]]:
-    """
-    Fetch attachment data for a given knowledge base answer.
-
-    Args:
-        client: Zammad client instance (API or EAI)
-        answer: KnowledgeBaseAnswer object containing attachment metadata
-    Returns:
-        Dictionary mapping attachment ID to its content (text or base64 string)
-    """
-    attachment_data: dict[int, tuple[str, str | None]] = {}
-    for attachment in answer.attachments:
-        if attachment.contentType.startswith("text/"):
-            data = await client.fetch_kb_attachment_data(attachment.id)
-            attachment_data[attachment.id] = (attachment.filename, data)
-        else:
-            logger.info(
-                "Skipping non-text attachment %s (ID: %d) for answer ID %d due to unsupported content type: %s",
-                attachment.filename,
-                attachment.id,
-                answer.id,
-                attachment.contentType,
-            )
-            attachment_data[attachment.id] = (attachment.filename, None)
-    return attachment_data
-
-
-async def get_qdrant_data_for_answers(
-    client: ZammadEAIClient | ZammadAPIClient, answers: dict[int, KnowledgeBaseAnswer]
-) -> list[QdrantDocumentItem]:
-    """
-    Prepare data for Qdrant indexing based on knowledge base answers.
-
-    Args:
-        client: Zammad client instance (API or EAI)
-        answers: Dictionary of answer ID to KnowledgeBaseAnswer objects
-    Returns:
-        List of QdrantDocumentItem objects containing id, content, and metadata for indexing
-    """
-    qdrant_data: list[QdrantDocumentItem] = []
-    for answer_id, answer in answers.items():
-        page_content: str = f"{answer.answerTitle} (ID: {answer.id}, Updated: {answer.updatedAt.strftime('%Y-%m-%d %H:%M:%S')}): \n\n{answer.answerBody}\n\n"
-
-        attachment_data: dict[int, tuple[str, str | None]] = await fetch_attachments_for_answer(client, answer)
-        for attachment_id, (filename, data) in attachment_data.items():
-            if data:
-                page_content += f"Attachment {filename} (ID: {attachment_id}):\n{data}\n\n"
-
-        metadata: QdrantVectorMetadata = QdrantVectorMetadata(
-            vector_id=uuid5(ZAMMAD_AI_NAMESPACE, answer.answerTitle),
-            vector_updatedAt=datetime.now(timezone.utc),
-            answer_id=answer.id,
-            answer_title=answer.answerTitle,
-            answer_body=answer.answerBody,
-            answer_createdAt=answer.createdAt,
-            answer_updatedAt=answer.updatedAt,
-            answer_attachments=answer.attachments,
-            answer_url=f"{settings.zammad.base_url}#knowledge_base/{settings.zammad.knowledge_base_id}/locale/de-de/answer/{answer.id}"
-            if (settings.zammad.knowledge_base_id and settings.zammad.base_url)
-            else None,
-        )
-        qdrant_data.append(QdrantDocumentItem(vector_id=metadata.vector_id, page_content=page_content, metadata=metadata))
-    return qdrant_data
-
-
-async def filter_for_changed_data(qdrant_client: QdrantKBClient, qdrant_data: list[QdrantDocumentItem]) -> list[QdrantDocumentItem]:
-    """
-    Filter the provided Qdrant data to include only entries that have changed since the last indexing.
-
-    Args:
-        qdrant_client: Instance of QdrantKBClient to query existing indexed data
-        qdrant_data: List of QdrantDocumentItem objects containing id, content, and metadata for indexing
-    Returns:
-        Filtered list of QdrantDocumentItem objects containing only changed documents
-    """
-    filtered_data: list[QdrantDocumentItem] = []
-
-    # Get vector IDs for batch lookup
-    vector_ids: list[UUID] = [item.vector_id for item in qdrant_data]
-
-    # Get all existing documents in one batch call for efficiency
-    qdrant_documents: dict[UUID, Document] = await qdrant_client.get_documents_by_id(vector_ids)
-
-    if qdrant_documents is None:
-        logger.debug("No existing documents found in Qdrant, including all %d items for indexing.", len(qdrant_data))
-        return qdrant_data
-
-    for item in qdrant_data:
-        new_content_hash: str = hash_content(normalize_content(item.page_content))
-        item.metadata.pagecontent_hash = new_content_hash
-        # Check if document exists in the dictionary
-        current_document: Document | None = qdrant_documents.get(item.vector_id)
-
-        if not current_document:
-            # No existing entry, include in indexing
-            logger.debug(f"No existing document found for answer ID {item.metadata.answer_id}, including in indexing.")
-            filtered_data.append(item)
-        else:
-            if current_document.metadata.get("pagecontent_hash") != new_content_hash:
-                filtered_data.append(item)
-                logger.debug(f"Content changes detected for answer ID {item.vector_id}, including in re-indexing.")
+            # Step 1: Retrieve answer IDs for processing
+            answer_ids: list[int] = await self.data_retrieval_service.retrieve_answer_ids()
+            if not answer_ids:
+                self.logger.warning("No answer IDs found for processing. Exiting.")
+                return
             else:
-                logger.debug(f"No content changes detected for answer ID {item.vector_id}, skipping re-indexing.")
-    logger.info("Filtered data to %d items with detected changes for indexing.", len(filtered_data))
-    return filtered_data
+                self.logger.info("Retrieved %d answer IDs for processing.", len(answer_ids))
 
+            # Step 2: Fetch detailed answer data
+            answers: dict[int, KnowledgeBaseAnswer] = await self.data_retrieval_service.get_answers_data(answer_ids)
 
-async def add_documents_to_qdrant(qdrant_client: QdrantKBClient, qdrant_items: list[QdrantDocumentItem]) -> None:
-    """
-    Add documents to Qdrant in batches.
+            if not answers:
+                self.logger.warning("No answer data retrieved. Exiting.")
+                return
+            else:
+                self.logger.info("Fetched data for %d answers.", len(answers))
 
-    Args:
-        qdrant_client: Instance of QdrantKBClient to add documents to
-        qdrant_items: List of QdrantDocumentItem objects containing id, content, and metadata for indexing
-    """
-    for i in range(0, len(qdrant_items), settings.index.batch_size):
-        batch: list[QdrantDocumentItem] = qdrant_items[i : i + settings.index.batch_size]
+            # Step 3: Prepare and filter data for Qdrant
+            qdrant_items: list[QdrantDocumentItem] = await self._prepare_and_filter_data(answers)
 
-        batch_ids: list[UUID] = []
-        batch_contents: list[str] = []
-        batch_metadata: list[dict[str, Any]] = []
+            if not qdrant_items:
+                self.logger.info("No new or changed documents to index.")
+                return
+            else:
+                self.logger.info("Prepared %d documents for Qdrant indexing.", len(qdrant_items))
 
-        for item in batch:
-            batch_ids.append(item.vector_id)
-            batch_contents.append(item.page_content)
-            batch_metadata.append(item.metadata.model_dump())
+            # Step 4: Add documents to Qdrant
+            success: bool = await self.indexing_service.add_documents_to_qdrant(qdrant_items)
 
-        logger.info(
-            f"Processing batch {i // settings.index.batch_size + 1}/{(len(qdrant_items) + settings.index.batch_size - 1) // settings.index.batch_size} with {len(batch)} documents"
+            if success:
+                self.logger.info("Indexing process completed successfully!")
+            else:
+                self.logger.error("Indexing process completed with errors.")
+
+        except Exception:
+            self.logger.error("Critical error during indexing process", exc_info=True)
+            raise
+        finally:
+            await self.cleanup()
+
+    async def _prepare_and_filter_data(self, answers: dict[int, KnowledgeBaseAnswer]) -> list[QdrantDocumentItem]:
+        """Prepare data for Qdrant and filter for changed documents only.
+
+        Transforms knowledge base answers into Qdrant document format with metadata,
+        then filters to include only documents that have changed since last indexing
+        to avoid unnecessary re-processing.
+
+        Args:
+            answers: Dictionary mapping answer IDs to KnowledgeBaseAnswer objects
+
+        Returns:
+            List of QdrantDocumentItem objects ready for indexing, containing only
+            new or changed documents based on content hash comparison.
+
+        """
+        # Prepare data for Qdrant indexing
+        qdrant_data = await self.data_processing_service.prepare_qdrant_data(
+            client=self.zammad_client,
+            answers=answers,
+            retrieval_service=self.data_retrieval_service,
         )
+        self.logger.info("Prepared data for %d answers for Qdrant indexing.", len(qdrant_data))
 
-        await qdrant_client.aadd_documents(
-            id=batch_ids,
-            content=batch_contents,
-            metadata=batch_metadata,
+        # Filter to only include changed documents
+        filtered_items = await self.data_processing_service.filter_for_changed_data(
+            qdrant_client=self.qdrant_client,
+            qdrant_data=qdrant_data,
         )
+        self.logger.info("Filtered to %d documents with changes for indexing.", len(filtered_items))
+
+        return filtered_items
+
+    async def cleanup(self) -> None:
+        """Clean up resources and close connections.
+
+        Properly closes Zammad client and Qdrant client connections to prevent
+        resource leaks. This method is called in the finally block of run_indexing
+        to ensure cleanup occurs even if errors are encountered.
+        """
+        if self.zammad_client:
+            await self.zammad_client.close()
+            self.logger.debug("Closed Zammad client connection")
+
+        if self.qdrant_client:
+            await self.qdrant_client.close()
+            self.logger.debug("Closed Qdrant client connection")
 
 
 async def main() -> None:
-    # Initialize Zammad client based on configuration
-    if isinstance(settings.zammad, ZammadAPISettings):
-        zammad_client = ZammadAPIClient(settings.zammad)
-    elif isinstance(settings.zammad, ZammadEAISettings):
-        zammad_client = ZammadEAIClient(settings.zammad)
-    else:
-        raise ValueError(f"Unsupported Zammad client type: {settings.zammad.type}")
+    """Main application entry point.
 
+    Creates and runs the IndexingApplication, handling any critical errors
+    that occur during the indexing process. All exceptions are logged with
+    full traceback information before the application exits.
+    """
     try:
-        # Determine which answer IDs to fetch based on full indexing or RSS feed
-        answer_ids: list[int] = await retrieve_answer_ids(zammad_client)
-        logger.info("Retrieved %d answer IDs for processing.", len(answer_ids))
-
-        # Fetch answer data for the determined IDs
-        answers: dict[int, KnowledgeBaseAnswer] = await get_answers_data(zammad_client, answer_ids)
-        logger.info("Fetched data for %d answers.", len(answers))
-
-        # Prepare data for Qdrant indexing, including fetching attachment contents
-        qdrant_data: list[QdrantDocumentItem] = await get_qdrant_data_for_answers(zammad_client, answers)
-        logger.info("Prepared data for %d answers for Qdrant indexing.", len(qdrant_data))
-
-        # Initialize Qdrant client
-        qdrant_client = QdrantKBClient(settings.qdrant, settings.genai)
-
-        # Filter data to embed only changed entries since last indexing
-        qdrant_items: list[QdrantDocumentItem] = await filter_for_changed_data(qdrant_client, qdrant_data)
-
-        # Add documents to Qdrant in batches for better performance
-        await add_documents_to_qdrant(qdrant_client, qdrant_items)
+        app = IndexingApplication()
+        await app.run_indexing()
     except Exception:
-        logger.error("An error occurred during the indexing process.", exc_info=True)
-    finally:
-        await zammad_client.close()
+        getLogger("zammad-ai-index").error("Application encountered a critical error", exc_info=True)
 
 
 if __name__ == "__main__":
