@@ -2,12 +2,18 @@ import json
 import logging
 import logging.config
 from datetime import datetime, timezone
+from pathlib import Path
 
 from yaml import safe_load
+
+_logging_configured: bool = False
 
 
 def getLogger(name: str = "zammad-ai") -> logging.Logger:
     """Configures logging and returns a logger with the specified name.
+
+    Logging configuration is only performed once per process via cached log config.
+    Subsequent calls return loggers without reconfiguring.
 
     Parameters:
         name (str): The name of the logger.
@@ -15,10 +21,13 @@ def getLogger(name: str = "zammad-ai") -> logging.Logger:
     Returns:
         logging.Logger: The logger with the specified name.
     """
-    with open("logconf.yaml", "r", encoding="utf-8") as file:
-        log_config = safe_load(file)
-
-    logging.config.dictConfig(log_config)
+    global _logging_configured
+    if not _logging_configured:
+        config_path = Path(__file__).parent.parent.parent / "logconf.yaml"
+        with open(config_path, encoding="utf-8") as file:
+            log_config = safe_load(file)
+        logging.config.dictConfig(log_config)
+        _logging_configured = True
     return logging.getLogger(name)
 
 
