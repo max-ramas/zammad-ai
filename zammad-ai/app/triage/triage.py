@@ -372,11 +372,15 @@ class TriageService:
         """
         Perform cleanup of Triage-managed resources.
         """
-        await self.zammad_client.cleanup()
-        logger.info("Triage resources cleaned up.")
+        try:
+            await self.zammad_client.cleanup()
+            logger.info("Triage resources cleaned up.")
+        finally:
+            global _service
+            _service = None
 
 
-_triage: TriageService | None = None
+_service: TriageService | None = None
 
 
 def get_triage_service(settings: ZammadAISettings | None = None) -> TriageService:
@@ -390,11 +394,11 @@ def get_triage_service(settings: ZammadAISettings | None = None) -> TriageServic
     Returns:
         TriageService: The shared TriageService instance.
     """
-    global _triage
-    if _triage is None:
+    global _service
+    if _service is None:
         if settings is None:
             from app.settings import get_settings
 
             settings = get_settings()
-        _triage = TriageService(settings=settings)
-    return _triage
+        _service = TriageService(settings=settings)
+    return _service

@@ -97,9 +97,13 @@ class AnswerService:
 
     async def cleanup(self) -> None:
         """Clean up resources used by the AnswerService."""
-        await self.qdrant_kb_client.close()
-        if self.dlf_client is not None:
-            await self.dlf_client.close()
+        try:
+            await self.qdrant_kb_client.close()
+            if self.dlf_client is not None:
+                await self.dlf_client.close()
+        finally:
+            global _service
+            _service = None
 
 
 _service: AnswerService | None = None

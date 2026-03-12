@@ -143,9 +143,9 @@ def cleanup_triage_singleton() -> Generator[None, None, None]:
     """Reset shared triage singleton to prevent test pollution."""
     import app.triage.triage as triage_module
 
-    triage_module._triage = None
+    triage_module._service = None
     yield
-    triage_module._triage = None
+    triage_module._service = None
 
 
 @pytest.fixture(autouse=True)
