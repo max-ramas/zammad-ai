@@ -103,7 +103,7 @@ class IndexingService:
             self.logger.error("Failed to add batch %d/%d to Qdrant", batch_number, total_batches, exc_info=True)
             return False
 
-    def _prepare_batch_data(self, batch: list[QdrantDocumentItem]) -> tuple[list[UUID], list[str], list[dict[str, Any]]]:
+    def _prepare_batch_data(self, batch: list[QdrantDocumentItem]) -> tuple[list[UUID | None], list[str], list[dict[str, Any]]]:
         """Prepare batch data for Qdrant insertion.
 
         Extracts vector IDs, page content, and metadata from QdrantDocumentItem
@@ -120,7 +120,7 @@ class IndexingService:
             - metadata: List of metadata dictionaries for each document
 
         """
-        batch_ids: list[UUID] = []
+        batch_ids: list[UUID | None] = []
         batch_contents: list[str] = []
         batch_metadata: list[dict[str, Any]] = []
 

@@ -195,7 +195,7 @@ class QdrantKBClient:
             offset=offset,
         )
 
-    async def aadd_documents(self, content: list[str], metadata: list[dict[str, Any]], id: list[UUID] = []) -> None:
+    async def aadd_documents(self, content: list[str], metadata: list[dict[str, Any]], id: list[UUID | None] = []) -> None:
         """Add multiple documents to the Qdrant collection with the given content, metadata, and optional IDs.
 
         Args:
@@ -206,11 +206,17 @@ class QdrantKBClient:
         Returns:
             None
         """
-        if len(id) != len(metadata) != len(content):
-            raise ValueError("Length of 'id' list must match length of 'metadata' and 'content' lists")
+        ids: list[UUID | None] | list[None] = id
+        if len(metadata) != len(content):
+            raise ValueError("Length of 'metadata' and 'content' lists must match")
+        if id == []:
+            ids = [None] * len(content)
+        if not len(ids) == len(metadata) == len(content):
+            raise ValueError("Length of 'id' list must either match length of 'metadata' and 'content' lists or be an empty list")
+
         documents_to_add: list[Document] = []
         ids_to_add: list[str] = []
-        for content_item, metadata_item, id_item in zip(content, metadata, id):
+        for content_item, metadata_item, id_item in zip(content, metadata, ids):
             if id_item is None:
                 title: str | None = metadata_item.get("title")
                 if title is None:
@@ -231,11 +237,17 @@ class QdrantKBClient:
         Returns:
             None
         """
-        if len(id) != len(metadata) != len(content):
-            raise ValueError("Length of 'id' list must match length of 'metadata' and 'content' lists")
+        ids: list[UUID | None] | list[None] = id
+        if len(metadata) != len(content):
+            raise ValueError("Length of 'metadata' and 'content' lists must match")
+        if id == []:
+            ids = [None] * len(content)
+        if not len(ids) == len(metadata) == len(content):
+            raise ValueError("Length of 'id' list must either match length of 'metadata' and 'content' lists or be an empty list")
+
         documents_to_add: list[Document] = []
         ids_to_add: list[str] = []
-        for content_item, metadata_item, id_item in zip(content, metadata, id):
+        for content_item, metadata_item, id_item in zip(content, metadata, ids):
             if id_item is None:
                 title: str | None = metadata_item.get("title")
                 if title is None:
