@@ -1,6 +1,6 @@
 from logging import Logger
 
-from langchain.agents.middleware.types import AgentState, _InputAgentState, _OutputAgentState
+from langchain.agents.middleware.types import AgentState
 from langchain.messages import HumanMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables.config import RunnableConfig
@@ -53,7 +53,7 @@ class AnswerService:
         )
 
         self.agent: CompiledStateGraph[
-            AgentState[StructuredAgentResponse], AgentContext, _InputAgentState, _OutputAgentState[StructuredAgentResponse]  # type: ignore
+            AgentState[StructuredAgentResponse], AgentContext, AgentState, AgentState[StructuredAgentResponse]  # type: ignore
         ] = build_agent(
             genai_settings=settings.genai,
             system_prompt=agent_prompt,

@@ -2,7 +2,7 @@ from logging import Logger
 
 from httpx import HTTPError
 from langchain.agents import create_agent
-from langchain.agents.middleware.types import AgentState, _InputAgentState, _OutputAgentState
+from langchain.agents.middleware.types import AgentState
 from langchain.tools import BaseTool, ToolException, ToolRuntime, tool
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
@@ -90,7 +90,7 @@ def build_agent(
     genai_settings: GenAISettings,
     system_prompt: str,
     dlf_enabled: bool = True,
-) -> CompiledStateGraph[AgentState[StructuredAgentResponse], AgentContext, _InputAgentState, _OutputAgentState[StructuredAgentResponse]]:  # type: ignore
+) -> CompiledStateGraph[AgentState[StructuredAgentResponse], AgentContext, AgentState, AgentState[StructuredAgentResponse]]:  # type: ignore
     """Build and return the Zammad AI Answer agent."""
 
     # Build the chat model
@@ -109,7 +109,7 @@ def build_agent(
 
     # Create the agent via the factory method
     agent: CompiledStateGraph[
-        AgentState[StructuredAgentResponse], AgentContext, _InputAgentState, _OutputAgentState[StructuredAgentResponse]  # type: ignore
+        AgentState[StructuredAgentResponse], AgentContext, AgentState, AgentState[StructuredAgentResponse]  # type: ignore
     ] = create_agent(
         model=chat_model,
         system_prompt=system_prompt,
