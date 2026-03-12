@@ -1,5 +1,4 @@
 from logging import Logger
-from pathlib import Path
 
 from langchain.agents.middleware.types import AgentState, _InputAgentState, _OutputAgentState
 from langchain.messages import HumanMessage
@@ -11,6 +10,7 @@ from app.observe import LangfuseClient, LangfuseError
 from app.settings import ZammadAISettings
 from app.settings.answer import FileAnswerPrompt, LangfuseAnswerPrompt, StringAnswerPrompt
 from app.utils.logging import getLogger
+from app.utils.paths import get_prompts_dir
 from app.utils.prompts import load_prompt
 
 from .agent import AgentContext, StructuredAgentResponse, build_agent
@@ -49,7 +49,7 @@ class AnswerService:
 
         # Setup the user message template as an object variable
         self.user_message_template: PromptTemplate = PromptTemplate.from_template(
-            template=load_prompt(file_path=Path("prompts") / "answer" / "user_message_template.prompt.md"),
+            template=load_prompt(file_path=get_prompts_dir() / "answer" / "user_message_template.prompt.md"),
         )
 
         self.agent: CompiledStateGraph[

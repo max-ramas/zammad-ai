@@ -1,8 +1,8 @@
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field, FilePath, HttpUrl, PositiveInt, SecretStr
 
+from app.utils.paths import get_prompts_dir
 from app.utils.validators import validate_is_prompt
 
 from .langfuse import LangfusePrompt
@@ -93,8 +93,8 @@ class DLFSettings(BaseModel):
 class AnswerSettings(BaseModel):
     agent_prompt: StringAnswerPrompt | FileAnswerPrompt | LangfuseAnswerPrompt = Field(
         description="Prompt configuration for the answer generation agent. Can be provided as a raw string, a file path, or a Langfuse prompt reference.",
-        default=FileAnswerPrompt(
-            prompt=Path("prompts") / "answer" / "agent.prompt.md",
+        default_factory=lambda: FileAnswerPrompt(
+            prompt=get_prompts_dir() / "answer" / "agent.prompt.md",
         ),
         discriminator="type",
     )

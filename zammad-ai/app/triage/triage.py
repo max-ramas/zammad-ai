@@ -24,6 +24,7 @@ from app.settings.triage import (
 )
 from app.settings.zammad import ZammadAPISettings, ZammadEAISettings
 from app.utils.logging import getLogger
+from app.utils.paths import get_prompts_dir
 from app.utils.prompts import load_prompt
 from app.zammad import BaseZammadClient, ZammadAPIClient, ZammadConnectionError, ZammadEAIClient
 
@@ -123,7 +124,7 @@ class TriageService:
         genai_prompts: dict[str, str] = self.prompts.copy()  # type: ignore
 
         # Load system prompts from markdown files
-        prompts_dir = Path("prompts")
+        prompts_dir = get_prompts_dir()
 
         genai_prompts["triage"] = load_prompt(prompts_dir / "triage" / "triage.prompt.md")
         genai_prompts["days_since_request"] = load_prompt(prompts_dir / "triage" / "days_since_request.prompt.md")
