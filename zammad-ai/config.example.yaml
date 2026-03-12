@@ -177,8 +177,6 @@ triage:
 frontend:
   enabled: false # Set to true to mount Gradio UI at '/'
   request_timeout_seconds: 30.0 # API timeout for frontend requests
-  auth_enabled: true # Must remain true when frontend is enabled
-  auth_required: true # Must remain true when frontend is enabled
   auth_username: "admin" # Basic auth username for local development
   auth_password: "change-me" # Basic auth password for local development
 

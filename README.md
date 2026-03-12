@@ -101,8 +101,6 @@ In `zammad-ai/config.yaml`:
 frontend:
   enabled: true
   request_timeout_seconds: 30.0
-  auth_enabled: true
-  auth_required: true
   auth_username: "admin"
   auth_password: "change-me"
 ```
