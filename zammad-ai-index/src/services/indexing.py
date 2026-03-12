@@ -127,6 +127,6 @@ class IndexingService:
         for item in batch:
             batch_ids.append(item.vector_id)
             batch_contents.append(item.page_content)
-            batch_metadata.append(item.metadata.model_dump())
+            batch_metadata.append(item.metadata.model_dump(mode="json"))
 
         return batch_ids, batch_contents, batch_metadata
