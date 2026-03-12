@@ -121,23 +121,35 @@ class ZammadArticle(BaseModel):
 
         Returns:
             The input string with HTML tags removed, HTML entities unescaped,
-            and runs of whitespace collapsed to single spaces and trimmed.
+            and runs of whitespace collapsed while preserving paragraph breaks.
         """
-        # Remove HTML tags
+        # Replace block-level and line-break tags with newlines to preserve structure
         clean_text: str = re.sub(
+            pattern=r"(?i)<\s*br\s*/?\s*>|</\s*(p|div|li|tr|td|th|h[1-6])\s*>",
+            repl="\n",
+            string=text,
+        )
+        # Remove remaining HTML tags
+        clean_text = re.sub(
             pattern=r"<[^>]+>",
             repl="",
-            string=text,
+            string=clean_text,
         )
         # Unescape HTML entities
         clean_text = html.unescape(clean_text)
-        # Normalize whitespace
+        # Collapse horizontal whitespace (spaces/tabs) to a single space per line
         clean_text = re.sub(
-            pattern=r"\s+",
+            pattern=r"[ \t]+",
             repl=" ",
             string=clean_text,
-        ).strip()
-        return clean_text
+        )
+        # Collapse multiple consecutive newlines into a single newline
+        clean_text = re.sub(
+            pattern=r"\n{2,}",
+            repl="\n",
+            string=clean_text,
+        )
+        return clean_text.strip()
 
 
 class ZammadAnswer(BaseModel):
