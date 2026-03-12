@@ -89,8 +89,18 @@ class IndexingApplication:
         self.logger.info("Starting indexing process...")
 
         try:
+            # Step 0: Create Qdrant snapshot
+            snapshot_success: bool = await self.qdrant_client.acreate_snapshot()
+
+            if snapshot_success:
+                self.logger.info("Successfully created Qdrant snapshot before indexing.")
+            else:
+                self.logger.warning("Failed to create Qdrant snapshot before indexing. Exiting.")
+                return
+
             # Step 1: Retrieve answer IDs for processing
             answer_ids: list[int] = await self.data_retrieval_service.retrieve_answer_ids()
+
             if not answer_ids:
                 self.logger.warning("No answer IDs found for processing. Exiting.")
                 return
@@ -157,7 +167,6 @@ class IndexingApplication:
             qdrant_client=self.qdrant_client,
             qdrant_data=qdrant_data,
         )
-        self.logger.info("Filtered to %d documents with changes for indexing.", len(filtered_items))
 
         return filtered_items
 
