@@ -1,5 +1,4 @@
 from datetime import date
-from pathlib import Path
 
 from dotenv import load_dotenv
 from truststore import inject_into_ssl
@@ -107,9 +106,9 @@ class TriageService:
                     raise TriageError("Triage initialization failed due to Langfuse prompt retrieval error.") from e
         elif isinstance(settings.triage.prompts, FileTriagePrompts):
             self.prompts = {
-                "categories": Path(settings.triage.prompts.categories).read_text(encoding="utf-8"),
-                "examples": Path(settings.triage.prompts.examples).read_text(encoding="utf-8"),
-                "role": Path(settings.triage.prompts.role).read_text(encoding="utf-8"),
+                "categories": load_prompt(settings.triage.prompts.categories),
+                "examples": load_prompt(settings.triage.prompts.examples),
+                "role": load_prompt(settings.triage.prompts.role),
             }
         elif isinstance(settings.triage.prompts, StringTriagePrompts):
             self.prompts = {
