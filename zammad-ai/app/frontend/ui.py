@@ -1,12 +1,12 @@
-import logging
 from typing import Any
 
 import gradio as gr
 import httpx
 
 from app.settings.frontend import FrontendSettings
+from app.utils.logging import getLogger
 
-logger = logging.getLogger("zammad-ai.frontend")
+logger = getLogger("zammad-ai.frontend")
 
 FrontendResult = tuple[str, str, str, str, str, str]
 
