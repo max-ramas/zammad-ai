@@ -1,8 +1,17 @@
+"""Abstract base class for Zammad API clients."""
+
 from abc import ABC, abstractmethod
+from base64 import b64encode
+from typing import Any
 
-import feedparser
+from feedparser import FeedParserDict
+from httpx import AsyncClient, ConnectError, HTTPStatusError, ReadTimeout, TimeoutException
+from stamina import retry_context
 
-from app.models.zammad import ZammadTicket
+from app.models.zammad import KnowledgeBaseAnswer, ZammadKnowledgebase, ZammadTicket
+from app.utils.logging import getLogger
+
+logger = getLogger("zammad-ai.base")
 
 
 class BaseZammadClient(ABC):
@@ -11,125 +20,201 @@ class BaseZammadClient(ABC):
     @abstractmethod
     async def get_ticket(
         self,
-        id: str,
+        id: int,
     ) -> ZammadTicket:
-        """
-        Fetches ticket information for a given Zammad ticket ID.
+        """Fetch ticket information for a given Zammad ticket ID.
 
-        Parameters:
-            id (str): Zammad ticket ID to retrieve.
+        Args:
+            id: Zammad ticket ID to retrieve.
 
         Returns:
             ZammadTicket: Ticket data corresponding to the provided ID.
+
         """
         ...
 
     @abstractmethod
     async def post_answer(
         self,
-        ticket_id: str,
+        ticket_id: int,
         text: str,
+        subject: str | None = None,
         internal: bool = False,
     ) -> None:
-        """
-        Post an answer to the specified Zammad ticket.
+        """Post an answer to the specified Zammad ticket.
 
-        Parameters:
+        Args:
             ticket_id: ID of the ticket to update.
             text: Answer content to post.
+            subject: Optional subject line for the answer.
             internal: If True, post as an internal note not visible to the customer.
+
         """
         ...
 
     @abstractmethod
     async def post_shared_draft(
         self,
-        ticket_id: str,
+        ticket_id: int,
         text: str,
     ) -> None:
-        """
-        Post a shared draft to the specified Zammad ticket.
+        """Post a shared draft to the specified Zammad ticket.
 
-        Parameters:
-                ticket_id (str): ID of the ticket to post the shared draft to.
-                text (str): Content of the shared draft.
+        Args:
+                ticket_id: ID of the ticket to post the shared draft to.
+                text: Content of the shared draft.
+
         """
         ...
 
     @abstractmethod
     async def add_tag_to_ticket(
         self,
-        ticket_id: str,
+        ticket_id: int,
         tag: str,
     ) -> None:
-        """
-        Add a tag to the specified Zammad ticket.
+        """Add a tag to the specified Zammad ticket.
 
-        Parameters:
-            ticket_id (str): Zammad ticket identifier.
-            tag (str): Tag text to add to the ticket.
+        Args:
+            ticket_id: Zammad ticket identifier.
+            tag: Tag text to add to the ticket.
+
         """
         ...
 
     @abstractmethod
-    async def cleanup(self) -> None:
-        """
-        Perform cleanup of client resources (e.g., closing connections).
-        """
-        ...
-
-    @abstractmethod
-    async def parse_rss_feed(self) -> feedparser.FeedParserDict | None:
-        """
-        Parse the knowledge-base RSS feed and produce a parsed feed object.
+    async def parse_rss_feed(self) -> FeedParserDict | None:
+        """Parse RSS feed from the knowledge base.
 
         Returns:
-            feedparser.FeedParserDict | None: Parsed feed data, or `None` if parsing fails or the feed is unavailable.
+            feedparser.FeedParserDict: Parsed feed object or None if parsing fails.
+
         """
         ...
 
     @abstractmethod
-    async def get_kb_answer_by_id(self, answer_id: str) -> dict | None:
-        """
-        Retrieve a knowledge base answer by its Zammad answer ID.
-
-        Parameters:
-            answer_id (str): Zammad knowledge base answer ID.
+    async def kb_info(self) -> ZammadKnowledgebase | None:
+        """Fetch knowledge base information.
 
         Returns:
-            dict: Answer data as returned by Zammad, or `None` if no answer is found.
+            ZammadKnowledgebase | None: Knowledge base information or None if fetching fails.
+
         """
         ...
 
     @abstractmethod
-    async def fetch_attachment_data(self, url: str) -> str | None:
-        """
-        Fetch an attachment from the given relative URL and return its content as decoded text or a base64 string.
+    async def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
+        """Fetch a knowledge base answer by its ID.
 
-        Parameters:
-            url (str): Relative URL of the attachment to fetch.
+        Args:
+            answer_id: The ID of the answer to fetch.
 
         Returns:
-            str: Decoded text (for text/* MIME types) or JSON string when applicable, or a base64-encoded string for binary content.
-            None: If `url` is falsy or an error occurs while fetching or decoding the attachment.
+            KnowledgeBaseAnswer | None: Knowledge base answer data or None if not found.
+
         """
         ...
 
     @abstractmethod
-    async def check_if_answer_exists(self, answer_id: str) -> bool:
-        """
-        Determine whether a knowledge base answer with the given ID exists.
+    async def fetch_kb_attachment_data(self, id: int) -> str | None:
+        """Fetch an attachment and return its content as text or base64.
 
-        Parameters:
-            answer_id (str): ID of the knowledge base answer to check.
+        Args:
+            id: ID of the attachment to fetch.
 
         Returns:
-            bool: True if the answer exists, False otherwise.
+            str: Decoded text for text/* or JSON; base64 string for binary content.
+            None: On error or if id is falsy.
+
         """
         ...
+
+    @abstractmethod
+    async def fetch_ticket_attachment_data(self, ticket_id: int, attachment_id: int, article_id: int) -> str | None:
+        """Fetch an attachment and return its content as text or base64.
+
+        Args:
+            ticket_id: ID of the ticket to which the attachment belongs.
+            attachment_id: ID of the attachment to fetch.
+            article_id: ID of the article to which the attachment belongs.
+
+        Returns:
+            str: Decoded text for text/* or JSON; base64 string for binary content.
+
+        """
+        ...
+
+    @abstractmethod
+    async def check_if_answer_exists(self, answer_id: int) -> bool:
+        """Check if a knowledge base answer still exists.
+
+        Args:
+            answer_id: The ID of the answer to check.
+
+        Returns:
+            bool: True if answer exists, False if deleted/not found.
+
+        """
+        ...
+
+    def __init__(self, base_url: str, timeout: int, max_retries: int, proxy_url: str | None = None) -> None:
+        """Initialize Zammad client with HTTP configuration.
+
+        Args:
+            base_url: Base URL for the Zammad instance
+            timeout: HTTP timeout in seconds
+            max_retries: Maximum number of retry attempts
+            proxy_url: Optional HTTP proxy URL
+
+        """
+        self.client = AsyncClient(base_url=base_url, timeout=timeout, proxy=proxy_url)
+        self.http_attempts = max_retries + 1
+
+    async def _request(self, method: str, url: str, **kwargs) -> Any:
+        """Make HTTP request and return JSON or text."""
+        try:
+            safe_methods = {"GET", "HEAD", "OPTIONS"}
+            should_retry = method.upper() in safe_methods
+            retry_on = (ConnectError, TimeoutException, ReadTimeout) if should_retry else ()
+            for attempt in retry_context(
+                on=retry_on,
+                attempts=self.http_attempts if should_retry else 1,
+            ):
+                with attempt:
+                    try:
+                        response = await self.client.request(method, url, **kwargs)
+                        response.raise_for_status()
+                    except HTTPStatusError as e:
+                        # Only retry HTTPStatusError for transient status codes and safe methods
+                        if should_retry and (e.response.status_code == 429 or e.response.status_code >= 500):
+                            # Convert to a retryable exception to trigger retry
+                            raise TimeoutException("Transient HTTP error") from e
+                        else:
+                            # Don't retry for client errors (4xx except 429)
+                            raise
+
+                    content_type = response.headers.get("Content-Type", "").lower()
+                    if content_type.startswith("application/json"):
+                        return response.json()
+                    elif content_type.startswith("text/"):
+                        return response.text
+                    else:
+                        return b64encode(response.content).decode("ascii")
+        except (HTTPStatusError, ConnectError, TimeoutException, ReadTimeout) as e:
+            logger.error(f"Failed to execute {method} {url} after {self.http_attempts} attempts.", exc_info=True)
+            raise ZammadConnectionError(f"Failed to execute {method} {url} after {self.http_attempts} attempts.") from e
+
+    async def close(self) -> None:
+        """Close HTTP client."""
+        await self.client.aclose()
 
 
 class ZammadConnectionError(Exception):
-    """Custom exception for Zammad connection errors."""
+    """Custom exception for Zammad connection errors.
+
+    Raised when HTTP requests to Zammad fail due to network issues,
+    authentication problems, or server errors.
+
+    """
 
     pass

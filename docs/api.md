@@ -16,17 +16,17 @@ Analyze text and determine the best action.
 - **Method**: `POST`
 - **Request Body**: `TriageInput`
 
-| Field  | Type                | Description                                                                     |
-| :----- | :------------------ | :------------------------------------------------------------------------------ |
-| `text` | `string`            | The text to be analyzed (e.g., ticket content).                                 |
-| `id`   | `string` (optional) | A unique identifier for the request. If not provided, a UUID will be generated. |
+| Field        | Type                | Description                                                                     |
+| :----------- | :------------------ | :------------------------------------------------------------------------------ |
+| `text`       | `string`            | The text to be analyzed (e.g., ticket content).                                 |
+| `session_id` | `string` (optional) | A unique identifier for the request. If not provided, a UUID will be generated. |
 
 - **Response Body**: `TriageOutput`
 
-| Field    | Type     | Description                       |
-| :------- | :------- | :-------------------------------- |
-| `id`     | `string` | The request ID.                   |
-| `triage` | `object` | The result of the triage process. |
+| Field        | Type     | Description                       |
+| :----------- | :------- | :-------------------------------- |
+| `session_id` | `string` | The request ID.                   |
+| `triage`     | `object` | The result of the triage process. |
 
 #### Triage Result Object
 
@@ -42,7 +42,7 @@ Analyze text and determine the best action.
 ```json
 {
   "text": "My email is not working and I cannot see any new messages.",
-  "id": "req-123"
+  "session_id": "req-123"
 }
 ```
 
@@ -50,7 +50,7 @@ Analyze text and determine the best action.
 
 ```json
 {
-  "id": "req-123",
+  "session_id": "req-123",
   "triage": {
     "category": { "id": 1, "name": "Technical Support" },
     "action": {

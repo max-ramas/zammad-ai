@@ -23,6 +23,10 @@ class BaseZammadSettings(BaseModel, ABC):
         description="Maximum number of retries for HTTP requests to Zammad in case of failures.",
         default=3,
     )
+    http_proxy_url: str | None = Field(
+        description="Optional proxy URL for routing HTTP requests to Zammad through a proxy server.",
+        default=None,
+    )
 
 
 class ZammadAPISettings(BaseZammadSettings):
@@ -56,6 +60,19 @@ class ZammadEAISettings(BaseZammadSettings):
         description="Zammad EAI API endpoint",
         examples=["https://my-zammad-eai.example.com/api/v1"],
     )
-    secret: SecretStr = Field(
-        description="Zammad EAI secret for authentication",
+
+    # OAuth 2.0 Client Credentials Flow settings
+    oauth2_client_id: str = Field(
+        description="OAuth 2.0 client identifier for authentication",
+    )
+    oauth2_client_secret: SecretStr = Field(
+        description="OAuth 2.0 client secret for authentication",
+    )
+    oauth2_token_url: HttpUrl = Field(
+        description="OAuth 2.0 token endpoint URL",
+        examples=["https://my-zammad-eai.example.com/oauth/token"],
+    )
+    oauth2_scope: str | None = Field(
+        description="OAuth 2.0 scope for requesting specific permissions",
+        default=None,
     )

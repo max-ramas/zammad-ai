@@ -65,7 +65,7 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
             raise NackMessage()
         try:
             triage: TriageService = get_triage_service(settings=settings)
-            id: str = event.ticket
+            id: int = int(event.ticket)
             result: TriageResult = await triage.perform_triage(id=id)
             logger.debug(f"Triage result for ticket {id}: {result}")
         except Exception:

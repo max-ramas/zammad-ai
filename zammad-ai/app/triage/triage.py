@@ -146,12 +146,12 @@ class TriageService:
 
         logger.info("Triage initialized successfully.")
 
-    async def perform_triage(self, id: str) -> TriageResult:
+    async def perform_triage(self, id: int) -> TriageResult:
         """
         Triage a Zammad ticket by analyzing its customer message to determine category, action, and any extracted values.
 
         Parameters:
-            id (str): Zammad ticket identifier.
+            id (int): Zammad ticket identifier.
 
         Returns:
             TriageResult: Result containing the resolved category, selected action, human-readable reasoning, confidence score, and any extracted values (or `None`).
@@ -224,7 +224,7 @@ class TriageService:
 
         Parameters:
             message (str): Customer message to categorize; leading/trailing whitespace is ignored.
-            session_id (str): Tracing session identifier used for the GenAI call.
+            session_id (int): Langfuse session identifier used for tracing the prediction.
 
         Returns:
             CategorizationResult: Object containing `category`, `reasoning`, `confidence`, and optional `extracted_values`. If the message is empty or the model returns an invalid category, the `category` will be the service's `no_category`, `reasoning` will explain the fallback, and `confidence` will be 1.0.
@@ -375,12 +375,8 @@ class TriageService:
 
         This closes the underlying Zammad client and resets the module-level service reference so a new instance can be created on next request.
         """
-        try:
-            await self.zammad_client.cleanup()
-            logger.info("Triage resources cleaned up.")
-        finally:
-            global _service
-            _service = None
+        await self.zammad_client.close()
+        logger.info("Triage resources cleaned up.")
 
 
 _service: TriageService | None = None

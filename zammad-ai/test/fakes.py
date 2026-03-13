@@ -88,7 +88,7 @@ class FakeZammadClient:
         self.ticket: ZammadTicket | None = None
         self.raise_connection_error: bool = False
 
-    async def get_ticket(self, id: str) -> ZammadTicket:
+    async def get_ticket(self, id: int) -> ZammadTicket:
         """
         Retrieve a ticket by id, raising a fake connection error when configured.
 
@@ -96,7 +96,7 @@ class FakeZammadClient:
         Otherwise returns a new ZammadTicket with the given `id` and an empty `articles` list.
 
         Parameters:
-            id (str): The ticket identifier to fetch.
+            id (int): The ticket identifier to fetch.
 
         Returns:
             ZammadTicket: The fetched or default ticket for the given `id`.

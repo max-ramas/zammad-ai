@@ -1,23 +1,65 @@
 import html
 import re
-from uuid import UUID
+from datetime import datetime
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 
+class ZammadKnowledgebase(BaseModel):
+    id: int = Field(
+        description="ID of the knowledge base",
+    )
+    active: bool = Field(
+        description="Whether the knowledge base is active",
+        default=True,
+    )
+    createdAt: datetime = Field(
+        description="Creation timestamp of the knowledge base",
+    )
+    updatedAt: datetime = Field(
+        description="Last update timestamp of the knowledge base",
+    )
+    categoryIds: list[int] = Field(
+        description="List of category IDs associated with the knowledge base",
+        default_factory=list,
+    )
+    answerIds: list[int] = Field(
+        description="List of answer IDs associated with the knowledge base",
+        default_factory=list,
+    )
+
+
+class KnowledgeBaseAttachment(BaseModel):
+    id: int = Field(
+        description="ID of the attachment",
+    )
+    filename: str = Field(
+        description="Filename of the attachment",
+    )
+    contentType: str = Field(
+        description="Content type of the attachment",
+    )
+
+
 class KnowledgeBaseAnswer(BaseModel):
-    id: UUID = Field(
+    id: int = Field(
         description="The ID of the answer",
     )
-    title: str = Field(
+    answerTitle: str = Field(
         description="The title of the answer",
     )
-    content: str = Field(
+    answerBody: str = Field(
         description="The content of the answer",
     )
-    attachments: dict[str, str] = Field(
-        description="Dict of attachments associated with the filename",
-        default_factory=dict,
+    createdAt: str = Field(
+        description="The creation timestamp of the answer",
+    )
+    updatedAt: str = Field(
+        description="The last update timestamp of the answer",
+    )
+    attachments: list[KnowledgeBaseAttachment] = Field(
+        description="List of attachments associated with the answer",
+        default_factory=list,
     )
 
     @field_validator("content", mode="after")
@@ -50,7 +92,7 @@ class KnowledgeBaseAnswer(BaseModel):
 
 
 class ZammadTicket(BaseModel):
-    id: str = Field(
+    id: int = Field(
         description="Unique identifier for the ticket",
     )
     articles: list["ZammadArticle"] = Field(
@@ -59,18 +101,27 @@ class ZammadTicket(BaseModel):
     )
 
 
+class ArticleAttachment(BaseModel):
+    id: int = Field(
+        description="ID of the attachment",
+    )
+    filename: str = Field(
+        description="Filename of the attachment",
+    )
+
+
 class ZammadArticle(BaseModel):
-    id: str = Field(
+    id: int = Field(
         description="ID of the article",
     )
-    ticket_id: str = Field(
+    ticket_id: int = Field(
         description="ID of the associated ticket",
     )
     text: str = Field(
         description="Body of the article",
         validation_alias=AliasChoices("text", "body"),
     )
-    attachments: list["Attachment"] = Field(
+    attachments: list["ArticleAttachment"] = Field(
         description="List of attachments for the article",
         default_factory=list,
     )
@@ -82,6 +133,10 @@ class ZammadArticle(BaseModel):
         description="Author of the article",
         default="-",
     )
+    subject: str | None = Field(
+        description="Subject of the article",
+        default=None,
+    )
 
     @field_validator("text", mode="after")
     @classmethod
@@ -89,11 +144,12 @@ class ZammadArticle(BaseModel):
         """
         Normalize article text by removing HTML tags, unescaping HTML entities, and collapsing whitespace.
 
-        Parameters:
+        Args:
             text: Input string that may contain HTML.
 
         Returns:
-            The input string with HTML tags removed, HTML entities unescaped, and runs of whitespace collapsed to single spaces and trimmed.
+            The input string with HTML tags removed, HTML entities unescaped,
+            and runs of whitespace collapsed to single spaces and trimmed.
         """
         # Remove HTML tags
         clean_text: str = re.sub(
@@ -112,24 +168,8 @@ class ZammadArticle(BaseModel):
         return clean_text
 
 
-class Attachment(BaseModel):
-    id: str = Field(
-        description="ID of the attachment",
-    )
-    filename: str = Field(
-        description="Filename of the attachment",
-    )
-    size: str = Field(
-        description="Size of the attachment",
-    )
-    preferences: dict = Field(
-        description="Preferences of the attachment",
-        default_factory=dict,
-    )
-
-
 class ZammadAnswer(BaseModel):
-    ticket_id: str = Field(
+    ticket_id: int = Field(
         description="ID of the associated ticket",
     )
     body: str = Field(
@@ -139,17 +179,14 @@ class ZammadAnswer(BaseModel):
         description="Whether the article should be marked as internal",
         default=False,
     )
-    subject: str = "Call note"
+    subject: str | None = Field(default=None, description="Optional subject line for the answer")
     content_type: str = "text/html"
-    sender: str = "KI Agent"
-    type: str = "phone"
-    time_unit: str = "15"
 
 
 class ZammadTagAdd(BaseModel):
     item: str = Field(description="The tag name")
     object: str = Field(default="Ticket", description="The object type, usually 'Ticket'")
-    o_id: str = Field(description="The ID of the object (e.g., ticket ID)")
+    o_id: int = Field(description="The ID of the object (e.g., ticket ID)")
 
 
 # TODO: Research good defaults for model values
@@ -163,7 +200,7 @@ class ZammadSharedDraftArticle(BaseModel):
     sender_id: int = 1
     subject: str = ""
     subtype: str = ""
-    ticket_id: str = Field(description="The ID of the ticket")
+    ticket_id: int = Field(description="The ID of the ticket")
     to: str = ""
     type: str = "note"
     type_id: int = 10
@@ -172,7 +209,7 @@ class ZammadSharedDraftArticle(BaseModel):
 
 
 # TODO: Research good defaults for model values
-class ZammadSharedDraft(BaseModel):
+class ZammadAPISharedDraft(BaseModel):
     form_id: str = "367646073"
     new_article: ZammadSharedDraftArticle
     ticket_attributes: dict[str, str] = Field(
@@ -183,3 +220,7 @@ class ZammadSharedDraft(BaseModel):
             "state_id": "2",
         }
     )
+
+
+class ZammadEAISharedDraft(BaseModel):
+    body: str = Field(description="The body of the shared draft")

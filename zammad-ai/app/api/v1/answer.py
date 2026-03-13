@@ -41,7 +41,7 @@ async def answer(
     result: StructuredAgentResponse = await service.generate_answer(
         user_text=input.text,
         category=input.category or "Uncategorized",
-        session_id=input.id,
+        session_id=input.session_id,
     )
     return AnswerOutput(
         response=result.response,
