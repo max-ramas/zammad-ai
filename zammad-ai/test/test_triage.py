@@ -12,6 +12,7 @@ from app.core.settings.qdrant import QdrantSettings
 from app.core.settings.triage import (
     Action,
     ActionRule,
+    ActionTypes,
     Category,
     Condition,
     StringTriagePrompts,
@@ -168,7 +169,7 @@ def create_mock_settings(action_rules: list[ActionRule] | None = None) -> Zammad
         action_rules (list[ActionRule] | None): Optional list of ActionRule objects to include in the triage settings; if None, an empty list is used.
 
     Returns:
-        ZammadAISettings: A settings object with prefilled test values (mode "unittest"), default GenAI and Zammad API settings, Qdrant and Kafka test configuration, triage settings including two categories ("Unknown", "General"), two actions ("Default", "Escalate"), the provided or empty action_rules, default prompts, valid_request_types set to ["support"], and langfuse_enabled set to True.
+        ZammadAISettings: A settings object with prefilled test values (mode "unittest"), default GenAI and Zammad API settings, Qdrant and Kafka test configuration, triage settings including two categories ("Unknown", "General"), two actions ("Keine_Aktion", "KI_Antwort"), the provided or empty action_rules, default prompts, valid_request_types set to ["support"], and langfuse_enabled set to True.
     """
     import sys
 
@@ -193,10 +194,13 @@ def create_mock_settings(action_rules: list[ActionRule] | None = None) -> Zammad
                 topic="test-topic",
             ),
             triage=TriageSettings.model_construct(
-                categories=[Category(name="Unknown", id=0), Category(name="General", id=1)],
-                no_category_id=0,
-                actions=[Action(name="Default", description="Default", id=1), Action(name="Escalate", description="Escalate", id=3)],
-                no_action_id=1,
+                categories=[Category(name="Unknown"), Category(name="General")],
+                no_category_name="Unknown",
+                actions=[
+                    Action(name="Keine_Aktion", description="No automated action", type=ActionTypes.No_Action),
+                    Action(name="KI_Antwort", description="Generate AI response", type=ActionTypes.AI_Answer),
+                ],
+                no_action_name="Keine_Aktion",
                 action_rules=action_rules or [],
                 prompts=StringTriagePrompts(),
             ),
@@ -237,7 +241,7 @@ async def test_perform_triage_returns_defaults_when_no_articles(patched_triage: 
 @pytest.mark.asyncio
 async def test_predict_category_falls_back_to_no_category(patched_triage: Triage) -> None:
     patched_triage.genai_handler.categorization_result = CategorizationResult(  # type: ignore
-        category=Category(name="Unknown", id=999),
+        category=Category(name="Unknown-Invalid"),
         reasoning="mismatch",
         confidence=0.42,
     )
@@ -248,18 +252,18 @@ async def test_predict_category_falls_back_to_no_category(patched_triage: Triage
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_uses_days_since_request_condition(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_get_action_name_uses_days_since_request_condition(monkeypatch: pytest.MonkeyPatch) -> None:
     action_rules = [
         ActionRule(
-            category_id=1,
-            action_id=1,
+            category_name="General",
+            action_name="Keine_Aktion",
             conditions=[
                 Condition(
                     priority=1,
                     field="days_since_request",
                     operator="greater_equals",
                     value=10,
-                    action_id=3,
+                    action_name="KI_Antwort",
                 )
             ],
         )
@@ -270,27 +274,27 @@ async def test_get_action_id_uses_days_since_request_condition(monkeypatch: pyte
     triage = Triage(settings=settings)
     triage.genai_handler.days_since_request_response = DaysSinceRequestResponse(days_since_request=12, reason="ok")  # type: ignore
     categorization = CategorizationResult(
-        category=Category(name="General", id=1),
+        category=Category(name="General"),
         reasoning="ok",
         confidence=0.8,
     )
 
-    action_id = await triage.get_action_id(categorization_result=categorization, message="message", session_id="session-id")
+    action_name = await triage.get_action_name(categorization_result=categorization, message="message", session_id="session-id")
 
-    assert action_id == 3
+    assert action_name == "KI_Antwort"
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_returns_no_action_for_no_category(patched_triage: Triage) -> None:
+async def test_get_action_name_returns_no_action_for_no_category(patched_triage: Triage) -> None:
     categorization = CategorizationResult(
         category=patched_triage.no_category,
         reasoning="no category",
         confidence=1.0,
     )
 
-    action_id = await patched_triage.get_action_id(categorization_result=categorization, message="message", session_id="session-id")
+    action_name = await patched_triage.get_action_name(categorization_result=categorization, message="message", session_id="session-id")
 
-    assert action_id == patched_triage.no_action.id
+    assert action_name == patched_triage.no_action.name
 
 
 # ---------------------------------------------------------------------------
@@ -306,12 +310,12 @@ async def test_perform_triage_happy_path(patched_triage: Triage) -> None:
         articles=[ZammadArticle(id=1, ticket_id=42, text="My printer is broken")],
     )
     patched_triage.genai_handler.categorization_result = CategorizationResult(  # type: ignore
-        category=Category(name="General", id=1),
+        category=Category(name="General"),
         reasoning="hardware issue",
         confidence=0.9,
     )
     result = await patched_triage.perform_triage(id=42)
-    assert result.category.id == 1
+    assert result.category.name == "General"
     assert result.reasoning == "hardware issue"
     assert result.confidence == 0.9
 
@@ -352,13 +356,13 @@ async def test_predict_category_empty_message(patched_triage: Triage) -> None:
 async def test_predict_category_valid_category_kept(patched_triage: Triage) -> None:
     """A valid category returned by GenAI is kept as-is."""
     patched_triage.genai_handler.categorization_result = CategorizationResult(  # type: ignore
-        category=Category(name="General", id=1),
+        category=Category(name="General"),
         reasoning="looks right",
         confidence=0.88,
     )
     result = await patched_triage.predict_category(message="some text", session_id="session-id")
     assert result.category is not None
-    assert result.category.id == 1
+    assert result.category.name == "General"
     assert result.reasoning == "looks right"
     assert result.confidence == 0.88
 
@@ -403,44 +407,44 @@ async def test_perform_triage_handles_processing_triage_error(patched_triage: Tr
 
 
 # ---------------------------------------------------------------------------
-# get_action_id: rule match without conditions → use rule's action_id
+# get_action_name: rule match without conditions -> use rule's action_name
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_rule_without_conditions(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A rule with no conditions directly returns the rule's action_id."""
+async def test_get_action_name_rule_without_conditions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A rule with no conditions directly returns the rule's action_name."""
     action_rules = [
-        ActionRule(category_id=1, action_id=3, conditions=None),
+        ActionRule(category_name="General", action_name="KI_Antwort", conditions=None),
     ]
     monkeypatch.setattr(triage_module, "GenAIHandler", FakeGenAIHandler)
     monkeypatch.setattr(triage_module, "ZammadAPIClient", FakeZammadClient)
     settings = create_mock_settings(action_rules=action_rules)
     triage = Triage(settings=settings)
     categorization = CategorizationResult(
-        category=Category(name="General", id=1),
+        category=Category(name="General"),
         reasoning="ok",
         confidence=0.8,
     )
 
-    action_id = await triage.get_action_id(categorization_result=categorization, message="msg", session_id="s")
-    assert action_id == 3
+    action_name = await triage.get_action_name(categorization_result=categorization, message="msg", session_id="s")
+    assert action_name == "KI_Antwort"
 
 
 # ---------------------------------------------------------------------------
-# get_action_id: condition NOT met → falls through to rule's default action_id
+# get_action_name: condition NOT met -> falls through to rule's default action_name
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_condition_not_met_falls_through(monkeypatch: pytest.MonkeyPatch) -> None:
-    """When a condition's operator check fails, the rule's default action_id is returned."""
+async def test_get_action_name_condition_not_met_falls_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When a condition's operator check fails, the rule's default action_name is returned."""
     action_rules = [
         ActionRule(
-            category_id=1,
-            action_id=1,
+            category_name="General",
+            action_name="Keine_Aktion",
             conditions=[
-                Condition(priority=1, field="days_since_request", operator="greater_equals", value=10, action_id=3),
+                Condition(priority=1, field="days_since_request", operator="greater_equals", value=10, action_name="KI_Antwort"),
             ],
         ),
     ]
@@ -450,26 +454,26 @@ async def test_get_action_id_condition_not_met_falls_through(monkeypatch: pytest
     triage = Triage(settings=settings)
     # days=5 does NOT satisfy >=10
     triage.genai_handler.days_since_request_response = DaysSinceRequestResponse(days_since_request=5, reason="recent")  # type: ignore
-    categorization = CategorizationResult(category=Category(name="General", id=1), reasoning="ok", confidence=0.8)
+    categorization = CategorizationResult(category=Category(name="General"), reasoning="ok", confidence=0.8)
 
-    action_id = await triage.get_action_id(categorization_result=categorization, message="msg", session_id="s")
-    assert action_id == 1  # rule's default, not the condition's action_id
+    action_name = await triage.get_action_name(categorization_result=categorization, message="msg", session_id="s")
+    assert action_name == "Keine_Aktion"  # rule's default, not the condition's action_name
 
 
 # ---------------------------------------------------------------------------
-# get_action_id: processing_id condition match
+# get_action_name: processing_id condition match
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_processing_id_condition(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A processing_id condition that matches returns the condition's action_id."""
+async def test_get_action_name_processing_id_condition(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A processing_id condition that matches returns the condition's action_name."""
     action_rules = [
         ActionRule(
-            category_id=1,
-            action_id=1,
+            category_name="General",
+            action_name="Keine_Aktion",
             conditions=[
-                Condition(priority=1, field="processing_id", operator="equals", value="ABC", action_id=3),
+                Condition(priority=1, field="processing_id", operator="equals", value="ABC", action_name="KI_Antwort"),
             ],
         ),
     ]
@@ -478,51 +482,51 @@ async def test_get_action_id_processing_id_condition(monkeypatch: pytest.MonkeyP
     settings = create_mock_settings(action_rules=action_rules)
     triage = Triage(settings=settings)
     triage.genai_handler.processing_id_response = ProcessingIdResponse(processing_id="ABC", condition_met=True)  # type: ignore
-    categorization = CategorizationResult(category=Category(name="General", id=1), reasoning="ok", confidence=0.8)
+    categorization = CategorizationResult(category=Category(name="General"), reasoning="ok", confidence=0.8)
 
-    action_id = await triage.get_action_id(categorization_result=categorization, message="msg", session_id="s")
-    assert action_id == 3
+    action_name = await triage.get_action_name(categorization_result=categorization, message="msg", session_id="s")
+    assert action_name == "KI_Antwort"
 
 
 # ---------------------------------------------------------------------------
-# get_action_id: no matching rule → no_action
+# get_action_name: no matching rule -> no_action
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_no_matching_rule(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_get_action_name_no_matching_rule(monkeypatch: pytest.MonkeyPatch) -> None:
     """When no action rule matches the category, no_action is returned."""
-    # Rule only for category_id=99, but our categorization has category_id=1
+    # Rule only for different category name, but our categorization has category "General"
     action_rules = [
-        ActionRule(category_id=99, action_id=3, conditions=None),
+        ActionRule(category_name="Other", action_name="KI_Antwort", conditions=None),
     ]
     monkeypatch.setattr(triage_module, "GenAIHandler", FakeGenAIHandler)
     monkeypatch.setattr(triage_module, "ZammadAPIClient", FakeZammadClient)
     settings = create_mock_settings(action_rules=action_rules)
     triage = Triage(settings=settings)
-    categorization = CategorizationResult(category=Category(name="General", id=1), reasoning="ok", confidence=0.8)
+    categorization = CategorizationResult(category=Category(name="General"), reasoning="ok", confidence=0.8)
 
-    action_id = await triage.get_action_id(categorization_result=categorization, message="msg", session_id="s")
-    assert action_id == triage.no_action.id
+    action_name = await triage.get_action_name(categorization_result=categorization, message="msg", session_id="s")
+    assert action_name == triage.no_action.name
 
 
 # ---------------------------------------------------------------------------
-# get_action_id: condition priority ordering
+# get_action_name: condition priority ordering
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_respects_condition_priority(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_get_action_name_respects_condition_priority(monkeypatch: pytest.MonkeyPatch) -> None:
     """Higher-priority (lower number) conditions are evaluated first."""
     action_rules = [
         ActionRule(
-            category_id=1,
-            action_id=1,
+            category_name="General",
+            action_name="Keine_Aktion",
             conditions=[
                 # priority=2 should be evaluated second
-                Condition(priority=2, field="days_since_request", operator="greater_equals", value=1, action_id=99),
+                Condition(priority=2, field="days_since_request", operator="greater_equals", value=1, action_name="Standardantwort"),
                 # priority=1 should be evaluated first and match
-                Condition(priority=1, field="days_since_request", operator="greater_equals", value=5, action_id=3),
+                Condition(priority=1, field="days_since_request", operator="greater_equals", value=5, action_name="KI_Antwort"),
             ],
         ),
     ]
@@ -531,50 +535,50 @@ async def test_get_action_id_respects_condition_priority(monkeypatch: pytest.Mon
     settings = create_mock_settings(action_rules=action_rules)
     triage = Triage(settings=settings)
     triage.genai_handler.days_since_request_response = DaysSinceRequestResponse(days_since_request=7, reason="ok")  # type: ignore
-    categorization = CategorizationResult(category=Category(name="General", id=1), reasoning="ok", confidence=0.8)
+    categorization = CategorizationResult(category=Category(name="General"), reasoning="ok", confidence=0.8)
 
-    action_id = await triage.get_action_id(categorization_result=categorization, message="msg", session_id="s")
-    # priority=1 condition (>=5, action_id=3) fires first
-    assert action_id == 3
+    action_name = await triage.get_action_name(categorization_result=categorization, message="msg", session_id="s")
+    # priority=1 condition (>=5, action_name=KI_Antwort) fires first
+    assert action_name == "KI_Antwort"
 
 
 # ---------------------------------------------------------------------------
-# get_action_id: None category → no_action
+# get_action_name: None category -> no_action
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_get_action_id_none_category(patched_triage: Triage) -> None:
+async def test_get_action_name_none_category(patched_triage: Triage) -> None:
     """A None category always returns no_action."""
     categorization = CategorizationResult(category=None, reasoning="no cat", confidence=1.0)
-    action_id = await patched_triage.get_action_id(categorization_result=categorization, message="msg", session_id="s")
-    assert action_id == patched_triage.no_action.id
+    action_name = await patched_triage.get_action_name(categorization_result=categorization, message="msg", session_id="s")
+    assert action_name == patched_triage.no_action.name
 
 
 # ---------------------------------------------------------------------------
-# _id_to_category / _id_to_action helpers
+# _name_to_category / _name_to_action helpers
 # ---------------------------------------------------------------------------
 
 
-def test_id_to_category_known(patched_triage: Triage) -> None:
-    """Known category ID returns the matching Category."""
-    cat = patched_triage._id_to_category(1)
+def test_name_to_category_known(patched_triage: Triage) -> None:
+    """Known category name returns the matching Category."""
+    cat = patched_triage._name_to_category("General")
     assert cat.name == "General"
 
 
-def test_id_to_category_unknown(patched_triage: Triage) -> None:
-    """Unknown category ID returns no_category fallback."""
-    cat = patched_triage._id_to_category(9999)
+def test_name_to_category_unknown(patched_triage: Triage) -> None:
+    """Unknown category name returns no_category fallback."""
+    cat = patched_triage._name_to_category("Unknown category")
     assert cat == patched_triage.no_category
 
 
-def test_id_to_action_known(patched_triage: Triage) -> None:
-    """Known action ID returns the matching Action."""
-    action = patched_triage._id_to_action(3)
-    assert action.name == "Escalate"
+def test_name_to_action_known(patched_triage: Triage) -> None:
+    """Known action name returns the matching Action."""
+    action = patched_triage._name_to_action("KI_Antwort")
+    assert action.name == "KI_Antwort"
 
 
-def test_id_to_action_unknown(patched_triage: Triage) -> None:
-    """Unknown action ID returns no_action fallback."""
-    action = patched_triage._id_to_action(9999)
+def test_name_to_action_unknown(patched_triage: Triage) -> None:
+    """Unknown action name returns no_action fallback."""
+    action = patched_triage._name_to_action("Unknown action")
     assert action == patched_triage.no_action

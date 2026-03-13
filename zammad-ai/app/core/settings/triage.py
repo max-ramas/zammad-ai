@@ -1,36 +1,52 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field, FilePath, NonNegativeInt
+from pydantic import BaseModel, Field, FilePath, field_validator
 
 
 class TriageSettings(BaseModel):
     categories: list["Category"]
-    no_category_id: int
+    no_category_name: str
     actions: list["Action"]
-    no_action_id: int
+    no_action_name: str
     action_rules: list["ActionRule"]
     prompts: StringTriagePrompts | FileTriagePrompts | LangfuseTriagePrompts = Field(
         description="Prompts for the triage process. Can be provided as raw strings, file paths, or Langfuse prompt references.",
         discriminator="type",
     )
 
+    @field_validator("actions", "categories", mode="before")
+    def validate_for_unique_names(cls, v):
+        if not v:
+            raise ValueError("At least one action must be provided")
+        names = [item["name"] for item in v]
+        if len(names) != len(set(names)):
+            raise ValueError("Names must be unique")
+        return v
+
 
 class Category(BaseModel):
     name: str
-    id: int
+
+
+class ActionTypes(str, Enum):
+    AI_Answer = "KI_Antwort"
+    No_Action = "Keine_Aktion"
+    Standard_Answer = "Standardantwort"
 
 
 class Action(BaseModel):
     name: str
     description: str
-    id: NonNegativeInt
+    type: ActionTypes
+    answer: str | None = None
 
 
 class ActionRule(BaseModel):
-    category_id: int
-    action_id: NonNegativeInt
+    category_name: str
+    action_name: str
     conditions: list["Condition"] | None = None
 
 
@@ -43,7 +59,7 @@ class Condition(BaseModel):
     field: "ConditionField"
     operator: "ConditionOperator"
     value: str | bool | int
-    action_id: int
+    action_name: str
 
 
 class ProcessingState(BaseModel):

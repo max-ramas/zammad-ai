@@ -8,6 +8,7 @@ from app.core.settings import ZammadAISettings
 from app.core.settings.triage import (
     Action,
     ActionRule,
+    ActionTypes,
     Category,
     Condition,
     FileTriagePrompts,
@@ -54,28 +55,27 @@ class Triage:
         """
         # Triage setup
         self.categories: list[Category] = settings.triage.categories
-        self.categories_by_id: dict[int, Category] = {c.id: c for c in settings.triage.categories}
+        self.categories_by_name: dict[str, Category] = {c.name: c for c in settings.triage.categories}
 
         self.actions: list[Action] = settings.triage.actions
-        self.actions_by_id: dict[int, Action] = {a.id: a for a in settings.triage.actions}
+        self.actions_by_name: dict[str, Action] = {a.name: a for a in settings.triage.actions}
 
-        self.no_category: Category = self.categories_by_id.get(
-            settings.triage.no_category_id,
+        self.no_category: Category = self.categories_by_name.get(
+            settings.triage.no_category_name,
             settings.triage.categories[0]
             if settings.triage.categories
             else Category(
-                id=0,
                 name="Unknown",
             ),
         )
-        self.no_action: Action = self.actions_by_id.get(
-            settings.triage.no_action_id,
+        self.no_action: Action = self.actions_by_name.get(
+            settings.triage.no_action_name,
             settings.triage.actions[0]
             if settings.triage.actions
             else Action(
-                id=0,
                 description="",
                 name="Unknown",
+                type=ActionTypes.No_Action,
             ),
         )
 
@@ -180,12 +180,12 @@ class Triage:
             )
 
             # Step 5: Determine action based on predicted category and conditions
-            action_id: int = await self.get_action_id(
+            action_name: str = await self.get_action_name(
                 categorization_result=categorization,
                 message=customer_message,
                 session_id=session_id,
             )
-            action: Action = self.actions_by_id.get(action_id, self.no_action)
+            action: Action = self.actions_by_name.get(action_name, self.no_action)
             # Step 6: Return the triage result
             return TriageResult(
                 category=categorization.category if categorization.category else self.no_category,
@@ -235,7 +235,7 @@ class Triage:
                 schema=CategorizationResult,
             )
 
-            if not cat_result.category or cat_result.category.id not in [c.id for c in self.categories]:
+            if not cat_result.category or cat_result.category.name not in [c.name for c in self.categories]:
                 logger.warning("Predicted category is invalid or not found, assigning no_category")
                 cat_result.category = self.no_category
                 cat_result.reasoning += " (Kategorie ungültig, 'no_category' zugewiesen)"
@@ -256,11 +256,11 @@ class Triage:
             logger.error("Unexpected error during categorization", exc_info=True)
             raise TriageError(f"Categorization failed due to unexpected error: {str(e)}") from e
 
-    async def get_action_id(self, categorization_result: CategorizationResult, message: str = "", session_id: str | None = None) -> int:
+    async def get_action_name(self, categorization_result: CategorizationResult, message: str = "", session_id: str | None = None) -> str:
         """
-        Selects the appropriate action ID for a categorization using configured action rules and optional message-derived conditions.
+        Selects the appropriate action name for a categorization using configured action rules and optional message-derived conditions.
 
-        Evaluates action rules associated with the categorization's category. If a rule defines ordered conditions, each condition is evaluated (possibly extracting values from the provided message via the GenAI handler) and its action_id is returned when the condition matches. If a rule matches but none of its conditions match, the rule's default action_id is returned. If the categorization has no category or no rule matches, the configured fallback action ID is returned.
+        Evaluates action rules associated with the categorization's category. If a rule defines ordered conditions, each condition is evaluated (possibly extracting values from the provided message via the GenAI handler) and its action_name is returned when the condition matches. If a rule matches but none of its conditions match, the rule's default action_name is returned. If the categorization has no category or no rule matches, the configured fallback action name is returned.
 
         Parameters:
             categorization_result (CategorizationResult): The categorization outcome whose category guides rule selection.
@@ -268,19 +268,19 @@ class Triage:
             session_id (str | None): Optional session identifier forwarded to GenAI extraction calls.
 
         Returns:
-            int: The chosen action ID, or the fallback action ID when no rule or matching condition is found.
+            str: The chosen action name, or the fallback action name when no rule or matching condition is found.
         """
         try:
             days_since_request = None
             processing_id = None
 
             # If no category or it's the no_category, always return no_action
-            if not categorization_result.category or categorization_result.category.id == self.no_category.id:
-                return self.no_action.id
+            if not categorization_result.category or categorization_result.category.name == self.no_category.name:
+                return self.no_action.name
 
             # Find matching action rule
             for rule in self.action_rules:
-                if rule.category_id == categorization_result.category.id:
+                if rule.category_name == categorization_result.category.name:
                     # If there are conditions, evaluate them
                     if rule.conditions:
                         conditions: list[Condition] = sorted(rule.conditions, key=lambda c: c.priority)
@@ -298,7 +298,7 @@ class Triage:
                                     )
                                     days_since_request = days_result.days_since_request
                                 if (get_operator_function(operator=condition.operator))(days_since_request, condition.value):
-                                    return condition.action_id
+                                    return condition.action_name
 
                             if condition.field == "processing_id":
                                 if processing_id is None:
@@ -314,11 +314,11 @@ class Triage:
                                     )
                                     processing_id = processing_result.processing_id
                                 if get_operator_function(operator=condition.operator)(processing_id, condition.value):
-                                    return condition.action_id
-                    return rule.action_id
+                                    return condition.action_name
+                    return rule.action_name
 
             # Default action if no rules matched
-            return self.no_action.id
+            return self.no_action.name
         except GenAIError as e:
             logger.error("GenAI extraction error during action determination", exc_info=True)
             raise TriageError("Action determination failed due to GenAI error") from e
@@ -326,28 +326,28 @@ class Triage:
             logger.error("Unexpected error during action determination", exc_info=True)
             raise TriageError(f"Action determination failed due to unexpected error: {str(e)}") from e
 
-    def _id_to_category(self, category_id: int) -> Category:
+    def _name_to_category(self, category_name: str) -> Category:
         """
-        Return the Category for the given ID or the configured fallback when no match exists.
+        Return the Category for the given name or the configured fallback when no match exists.
 
         Parameters:
-            category_id (int): ID of the category to look up.
+            category_name (str): Name of the category to look up.
 
         Returns:
             Category: The matching Category, or the configured fallback Category if no match exists.
         """
-        return self.categories_by_id.get(category_id, self.no_category)
+        return self.categories_by_name.get(category_name, self.no_category)
 
-    def _id_to_action(self, action_id: int) -> Action:
-        """Look up an action by its ID.
+    def _name_to_action(self, action_name: str) -> Action:
+        """Look up an action by its name.
 
         Args:
-            action_id: The action ID to look up
+            action_name: The action name to look up
 
         Returns:
             The matching Action or no_action as fallback
         """
-        return self.actions_by_id.get(action_id, self.no_action)
+        return self.actions_by_name.get(action_name, self.no_action)
 
     async def cleanup(self) -> None:
         """

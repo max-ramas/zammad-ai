@@ -11,6 +11,7 @@ from app.core.settings.kafka import KafkaSettings
 from app.core.settings.qdrant import QdrantSettings
 from app.core.settings.triage import (
     Action,
+    ActionTypes,
     Category,
     StringTriagePrompts,
     TriageSettings,
@@ -52,10 +53,10 @@ def create_mock_settings() -> ZammadAISettings:
                 topic="test-topic",
             ),
             triage=TriageSettings(
-                categories=[Category(name="Test", id=1)],
-                no_category_id=1,
-                actions=[Action(name="Test", description="Test", id=1)],
-                no_action_id=1,
+                categories=[Category(name="Test")],
+                no_category_name="Test",
+                actions=[Action(name="Keine_Aktion", description="No action", type=ActionTypes.No_Action)],
+                no_action_name="Keine_Aktion",
                 action_rules=[],
                 prompts=StringTriagePrompts(),
             ),
@@ -96,15 +97,15 @@ def mock_triage() -> MagicMock:
 
     Returns:
         MagicMock: A mock Triage object whose `perform_triage` is an AsyncMock returning a
-        TriageResult with a Category(name="Test", id=1), Action(name="Test", description="Test", id=1),
+        TriageResult with a Category(name="Test"), Action(name="Keine_Aktion", description="No action", type=ActionTypes.No_Action),
         reasoning "Test reasoning", and confidence 0.95.
     """
     triage = MagicMock()
     # Make perform_triage return an async mock that returns a TriageResult
     triage.perform_triage = AsyncMock(
         return_value=TriageResult(
-            category=Category(name="Test", id=1),
-            action=Action(name="Test", description="Test", id=1),
+            category=Category(name="Test"),
+            action=Action(name="Keine_Aktion", description="No action", type=ActionTypes.No_Action),
             reasoning="Test reasoning",
             confidence=0.95,
         )

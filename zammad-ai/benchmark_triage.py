@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from tqdm.asyncio import tqdm_asyncio
 
 from app.core.settings import get_settings
+from app.core.settings.settings import ZammadAISettings
 from app.triage.triage import Triage
 from app.utils.logging import getLogger
 
@@ -19,7 +20,7 @@ RATE_PERIOD = 30  # seconds
 
 API_BASE_URL = "http://localhost:8080"
 
-settings = get_settings()
+settings: ZammadAISettings = get_settings()
 triage = Triage(settings=settings)
 
 
@@ -42,7 +43,8 @@ async def process_item(key: str, value: dict) -> tuple[str, str, str, str]:
             triage_response = await client.post(f"{API_BASE_URL}/api/v1/triage", json={"text": value["text"]})
             triage_response.raise_for_status()
             result = triage_response.json()
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error occurred while processing item {key}: {e}")
             return key, expected_category, "Fehler", ""
     predicted_category = result["triage"]["category"]["name"]
     predicted_action = result["triage"]["action"]["name"]

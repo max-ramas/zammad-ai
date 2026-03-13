@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 
+from app.core.settings.triage import Action, Category
 from app.models.api_v1 import TriageInput, TriageOutput
 from app.models.triage import CategorizationResult, TriageResult
 from app.triage.triage import Triage
@@ -42,15 +43,15 @@ async def triage(
 
     if not input.session_id:
         input.session_id = str(uuid.uuid4())
-    text = input.text
+    text: str = input.text
 
     # Get categorization result
     categorization: CategorizationResult = await triage.predict_category(text, session_id=input.session_id)
 
     # Determine action based on category
-    action_id = await triage.get_action_id(categorization, message=text, session_id=input.session_id)
-    action = triage._id_to_action(action_id)
-    final_category = categorization.category if categorization.category else triage.no_category
+    action_name: str = await triage.get_action_name(categorization, message=text, session_id=input.session_id)
+    action: Action = triage._name_to_action(action_name)
+    final_category: Category = categorization.category if categorization.category else triage.no_category
     return TriageOutput(
         triage=TriageResult(
             category=final_category,

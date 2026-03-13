@@ -39,8 +39,9 @@ genai:
 # Zammad Configuration
 # ============================================================================
 # Set secrets in .env file:
-#   ZAMMAD_AI_ZAMMAD__AUTH_TOKEN (required)
-#   ZAMMAD_AI_ZAMMAD__RSS_FEED_TOKEN (optional)
+#   ZAMMAD_AI_ZAMMAD__AUTH_TOKEN (required for type: "api")
+#   ZAMMAD_AI_ZAMMAD__RSS_FEED_TOKEN (optional for type: "api")
+#   ZAMMAD_AI_ZAMMAD__OAUTH2_CLIENT_SECRET (required for type: "eai")
 
 zammad:
   type: "api" # Options: "api" or "eai"
@@ -50,13 +51,17 @@ zammad:
   knowledge_base_id: "1" # Optional: set to null to disable knowledge base
   timeout: 30 # Request timeout in seconds
   max_retries: 3 # Maximum number of retries for API calls
+  http_proxy_url: null # Optional: proxy URL for routing requests (e.g. "http://proxy.example.com:8080")
 
   # For type: "eai" (alternative to "api"), use these instead:
   # eai_url: "https://your-zammad-eai.example.com/api/v1"
   # knowledge_base_id: "1"
   # timeout: 30
   # max_retries: 3
-  # Set ZAMMAD_AI_ZAMMAD__SECRET in .env
+  # http_proxy_url: null
+  # oauth2_client_id: "your-client-id"
+  # oauth2_token_url: "https://your-zammad-eai.example.com/oauth/token"
+  # oauth2_scope: null # Optional: OAuth 2.0 scope
 
 # ============================================================================
 # Qdrant Configuration
@@ -66,8 +71,9 @@ zammad:
 
 qdrant:
   host: "https://your-qdrant-instance.example.com"
+  api_key: null # Set via ZAMMAD_AI_QDRANT__API_KEY env var (recommended)
   collection_name: "your_collection_name"
-  vector_name: null # Optional: specify vector name if needed
+  vector_name: null # Optional: specify vector name if needed (for namespacing)
   vector_dimension: 1024 # Dimension of embedding vectors
 
 # ============================================================================
@@ -76,11 +82,24 @@ qdrant:
 kafka:
   broker_url: "localhost:9092" # Kafka broker URL
   topic: "ticket-events" # Kafka topic to consume from
-  group_id: "zammad-ai" # Consumer group ID
+  group_id: null # Consumer group ID (defaults to null)
 
   # mTLS Security Configuration (optional)
-  # Configure using environment variables in .env file
-  # See .env.example for file-based and base64-encoded options
+  # Option 1: File-based mTLS (type: "file")
+  # security:
+  #   type: "file"
+  #   ca_file_path: "/path/to/ca.pem"
+  #   client_cert_path: "/path/to/client.pem"
+  #   client_key_path: "/path/to/client.key"
+
+  # Option 2: Environment/base64-encoded mTLS (type: "env")
+  # Recommended: set values via ZAMMAD_AI_KAFKA__SECURITY__* environment variables
+  # security:
+  #   type: "env"
+  #   ca_file_base64: "<base64-encoded CA cert>"
+  #   pkcs12_base64: "<base64-encoded PKCS#12 payload>"
+  #   pkcs12_pw_base64: "<base64-encoded PKCS#12 password>"
+
   security: null
 
 # ============================================================================
@@ -95,56 +114,56 @@ valid_request_types:
 # ============================================================================
 triage:
   # Category setup: Define the categories for ticket classification
+  # Each category requires only a unique name.
   categories:
-    - id: 1
-      name: "General Questions"
-    - id: 2
-      name: "Status Inquiries"
-    - id: 99
-      name: "Cannot Categorize"
+    - name: "General Questions"
+    - name: "Status Inquiries"
+    - name: "Cannot Categorize"
 
-  # Fallback category when classification fails
-  no_category_id: 99
+  # Fallback category name when classification fails (must match a category name above)
+  no_category_name: "Cannot Categorize"
 
   # Action setup: Define automated actions
+  # type options: "KI_Antwort" (AI response), "Keine_Aktion" (no action), "Standardantwort" (standard answer)
+  # answer: optional static answer text (used with type "Standardantwort")
   actions:
-    - id: 0
-      name: "no_action"
+    - name: "no_action"
       description: "No automated action"
-    - id: 1
-      name: "ai_response"
+      type: "Keine_Aktion"
+    - name: "ai_response"
       description: "Generate AI-powered response"
+      type: "KI_Antwort"
 
-  # Fallback action when no rule matches
-  no_action_id: 0
+  # Fallback action name when no rule matches (must match an action name above)
+  no_action_name: "no_action"
 
   # Action rules: Define when to trigger specific actions
+  # category_name and action_name must match names defined above
   action_rules:
-    # Example: Always generate AI response for category 1
-    - category_id: 1
-      action_id: 1
+    # Example: Always generate AI response for "General Questions"
+    - category_name: "General Questions"
+      action_name: "ai_response"
 
     # Example: Conditional action based on conditions
-    - category_id: 2
-      action_id: 0 # Default action when no condition matches
+    - category_name: "Status Inquiries"
+      action_name: "no_action" # Default action when no condition matches
       conditions:
         - priority: 1
-          field: "days_since_request"
-          operator: "less"
+          field: "days_since_request" # Options: "processing_id", "days_since_request"
+          operator: "less" # Options: "equals", "not_equals", "less", "less_equals", "greater", "greater_equals"
           value: 30
-          action_id: 1
+          action_name: "ai_response"
         - priority: 2
           field: "days_since_request"
           operator: "greater_equals"
           value: 30
-          action_id: 0
+          action_name: "no_action"
 
-  # Prompt configuration (requires Langfuse)
-  # Set Langfuse credentials in .env if using type: "langfuse"
+  # Prompt configuration
   prompts:
     type: "langfuse" # Options: "langfuse", "string", or "file"
 
-    # For type: "langfuse"
+    # For type: "langfuse" (requires Langfuse credentials in .env)
     prompt_map:
       categories:
         label: "latest" # Prompt version label
