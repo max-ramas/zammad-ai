@@ -14,13 +14,13 @@ logger: Logger = getLogger("zammad-ai.frontend.integration")
 def mount_frontend(app: FastAPI, frontend_settings: FrontendSettings) -> FastAPI:
     """
     Mount a Gradio frontend at the application root when enabled.
-    
+
     If `frontend_settings.enabled` is False, the original `app` is returned unchanged. When enabled, the frontend is mounted at `/` using credentials from `frontend_settings`.
-    
+
     Parameters:
         app (FastAPI): The FastAPI application to mount the frontend onto.
         frontend_settings (FrontendSettings): Configuration containing the enable flag and authentication credentials (`auth_username`, `auth_password`).
-    
+
     Returns:
         FastAPI: The FastAPI application with the Gradio frontend mounted at the root, or the original app if mounting is disabled.
     """

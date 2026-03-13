@@ -55,12 +55,12 @@ def get_ids(feed: feedparser.FeedParserDict, last_updated: datetime | None = Non
 async def main() -> None:
     """
     Synchronize recently updated Zammad knowledge base answers into a Qdrant vector store.
-    
+
     Parses the Zammad RSS feed, selects answers updated within INTERVAL days, fetches each answer's data,
     constructs page content (including attachments) and Qdrant vector metadata, and adds each document to Qdrant.
     Logs progress, warnings for missing answers, and errors for per-answer failures. Ensures the Zammad client is
     cleaned up on completion.
-    
+
     Raises:
         ValueError: If settings.zammad is not a supported Zammad client configuration.
     """

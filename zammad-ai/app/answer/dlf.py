@@ -46,10 +46,10 @@ class DLFClient:
     def __init__(self, dlf_settings: DLFSettings) -> None:
         """
         Configure the DLFClient using provided settings by creating an AsyncClient and storing filter categories.
-        
+
         Parameters:
             dlf_settings (DLFSettings): Settings that provide the DLF base URL, request timeout, and filter categories.
-        
+
         Raises:
             ValueError: If `dlf_settings.url` is None.
         """
@@ -64,10 +64,10 @@ class DLFClient:
     async def retrieve_documents(self, query: str) -> list[DLFDocument]:
         """
         Retrieve documents from the DLF matching the given search query.
-        
+
         Parameters:
             query (str): Search query string; maximum length 200 characters.
-        
+
         Returns:
             list[DLFDocument]: Retrieved documents matching the query.
         """
@@ -89,7 +89,7 @@ class DLFClient:
     async def close(self) -> None:
         """
         Close the underlying HTTPX AsyncClient and release its resources.
-        
+
         Awaiting this coroutine closes network connections and frees resources held by the internal AsyncClient.
         """
         await self.client.aclose()

@@ -20,13 +20,13 @@ def patched_triage(
 ) -> Generator[TriageService, None, None]:
     """
     Provide a TriageService configured with test fakes for GenAI and Zammad.
-    
+
     Parameters:
         monkeypatch (pytest.MonkeyPatch): Fixture used to patch the triage module's GenAIHandler, ZammadAPIClient, and ZammadConnectionError with the provided fakes.
         settings_factory: Callable that returns test settings used to construct the TriageService.
         fake_genai_handler (FakeGenAIHandler): Fake GenAI handler to be injected into the triage module.
         fake_zammad_client (FakeZammadClient): Fake Zammad client to be injected into the triage module.
-    
+
     Returns:
         Generator[TriageService, None, None]: Yields a TriageService instance constructed with the test settings and wired to use the provided fakes.
     """
@@ -47,7 +47,7 @@ def triage_factory(
 ) -> Callable[[list[ActionRule] | None], TriageService]:
     """
     Create a factory that produces TriageService instances configured with test fakes and optional action rules.
-    
+
     Returns:
         factory (Callable[[list[ActionRule] | None], TriageService]): A callable that accepts an optional list of ActionRule and returns a TriageService built using the provided settings_factory and the patched fake GenAI and Zammad clients.
     """
@@ -58,10 +58,10 @@ def triage_factory(
     def _factory(action_rules: list[ActionRule] | None = None) -> TriageService:
         """
         Create a TriageService configured with the given action rules.
-        
+
         Parameters:
             action_rules (list[ActionRule] | None): Optional list of action rules to include in the service configuration; if None, default rules are used.
-        
+
         Returns:
             TriageService: A TriageService instance configured with the provided action rules.
         """
@@ -218,7 +218,7 @@ async def test_predict_category_handles_genai_exception(patched_triage: TriageSe
     async def _boom(*_args, **_kwargs):
         """
         Simulates a failing language model by immediately raising a RuntimeError.
-        
+
         Always raises RuntimeError with the message "LLM exploded".
         Raises:
             RuntimeError: Indicates the simulated LLM failure ("LLM exploded").
@@ -238,9 +238,9 @@ async def test_perform_triage_handles_processing_triage_error(patched_triage: Tr
     async def _boom(*_args, **_kwargs):
         """
         Always raises a TriageError to simulate a processing failure.
-        
+
         Used in tests to force a processing error path.
-        
+
         Raises:
             TriageError: Always raised with the message "Simulated processing error".
         """

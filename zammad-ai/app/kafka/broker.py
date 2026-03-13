@@ -21,10 +21,10 @@ logger: Logger = getLogger(name="zammad-ai")
 def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
     """
     Create and configure a KafkaRouter and its subscriber event handler for ticket triage.
-    
+
     Parameters:
         settings (ZammadAISettings): Application settings containing Kafka configuration and the set of valid request types.
-    
+
     Returns:
         tuple[KafkaRouter, Callable]: The configured KafkaRouter and its subscriber event handler.
     """
@@ -59,7 +59,7 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
     ) -> None:
         """
         Process a Kafka event by performing ticket triage and acknowledging or negatively acknowledging the message.
-        
+
         Raises:
             AckMessage: If the event is successfully processed or intentionally skipped due to unsupported request type.
             NackMessage: If processing fails.

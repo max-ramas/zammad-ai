@@ -25,7 +25,7 @@ class AnswerService:
         # Optionally set up Langfuse client if enabled in settings
         """
         Initialize the AnswerService, configuring prompt sources, the agent, and supporting clients from the provided settings.
-        
+
         The initializer:
         - Optionally creates a Langfuse client when langfuse is enabled.
         - Resolves the agent system prompt from one of: Langfuse, a file, or a string in settings.
@@ -33,14 +33,14 @@ class AnswerService:
         - Builds the compiled agent graph using genai settings and the resolved system prompt.
         - Creates a Qdrant knowledge-base client and an optional DLF client.
         - Assembles the AgentContext with the KB and DLF clients.
-        
+
         Parameters:
             settings (ZammadAISettings): Configuration used to enable integrations and supply prompts, GenAI, Qdrant, and DLf settings.
-        
+
         Raises:
             ValueError: If Langfuse is referenced as the prompt source but Langfuse is not enabled in settings.
             ValueError: If `settings.answer.agent_prompt` is not a supported prompt source type.
-        
+
         Notes:
             If fetching the prompt from Langfuse fails, the process exits with status code 1.
         """
@@ -98,12 +98,12 @@ class AnswerService:
     ) -> StructuredAgentResponse:
         """
         Generate a structured answer for the given user text and category, optionally associating the request with a provided Langfuse session.
-        
+
         Parameters:
             user_text (str): The user's input text to be answered.
             category (str): The category or topic context to include in the user message.
             session_id (str | None): Optional session identifier used for Langfuse tracing; if omitted and Langfuse is enabled, a session id will be generated.
-        
+
         Returns:
             StructuredAgentResponse: The agent's structured response containing the answer and associated metadata (for example retrieval context and tracing information).
         """
@@ -130,7 +130,7 @@ class AnswerService:
     async def cleanup(self) -> None:
         """
         Close internal clients and reset the module-level service reference.
-        
+
         Attempts to close the Qdrant KB client and, if present, the DLF client. Always resets the module-level `_service` reference to `None` so the service can be recreated.
         """
         try:

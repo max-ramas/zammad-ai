@@ -49,7 +49,7 @@ async def test_event_handler_valid_message(
 ) -> None:
     """
     Verifies that a valid Kafka message causes the triage service to be invoked with the ticket ID from the message.
-    
+
     Publishes a message to the router's broker configured with a single allowed request type and asserts that `perform_triage` is called once with `id="3720"`.
     """
     settings = settings_factory(valid_request_types=["technischer Bürgersupport"])
@@ -91,7 +91,7 @@ async def test_event_handler_invalid_request_type(
 ) -> None:
     """
     Verify that messages whose request type is not listed in the configured valid_request_types are skipped by the event handler.
-    
+
     When a message contains an invalid request type, the handler logs an informational "Skipping" message and does not invoke the triage service.
     """
     settings = settings_factory(valid_request_types=["technischer Bürgersupport"])
@@ -134,7 +134,7 @@ async def test_event_handler_with_multiple_valid_request_types(
 ) -> None:
     """
     Verify the event handler invokes triage when the message's request type matches any of multiple allowed types.
-    
+
     Publishes a Kafka message with `anliegenart` set to "general support" while the settings allow ["technischer Bürgersupport", "general support", "other"], and asserts `perform_triage` was called with `id="3720"`.
     """
     settings = settings_factory(valid_request_types=["technischer Bürgersupport", "general support", "other"])

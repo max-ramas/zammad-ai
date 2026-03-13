@@ -12,9 +12,9 @@ from yaml import safe_load
 def get_log_config() -> dict[str, Any]:
     """
     Builds a logging configuration dictionary from the logconf.yaml template and current application settings.
-    
+
     Selects the formatter to use ("simple" when settings.log.format == "plain" or settings.mode == "development", otherwise "json"), applies that formatter to all handlers that declare one, and sets the "zammad-ai" logger level from settings. This function is cached so the configuration is generated once per process.
-    
+
     Returns:
         dict[str, Any]: A logging configuration dictionary suitable for logging.config.dictConfig.
     """

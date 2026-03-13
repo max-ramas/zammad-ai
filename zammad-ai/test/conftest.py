@@ -41,7 +41,7 @@ class _ApiTriageStub:
     def __init__(self) -> None:
         """
         Initialize the triage stub with default category and action placeholders.
-        
+
         Attributes:
             no_category (Category): A Category named "Unknown" with id 0 used as a fallback.
             no_action (Action): An Action named "Default" with id 1 and description "Default" used as a fallback.
@@ -52,7 +52,7 @@ class _ApiTriageStub:
     async def predict_category(self, *_args, **_kwargs) -> Any:
         """
         Provide a stubbed CategorizationResult representing an "Unknown" category prediction.
-        
+
         Returns:
             CategorizationResult: Result with `category` set to the module's `no_category` placeholder, `reasoning` equal to "stub", and `confidence` 1.0.
         """
@@ -63,7 +63,7 @@ class _ApiTriageStub:
     async def get_action_id(self, *_args, **_kwargs) -> int:
         """
         Get the default action id used by the triage stub.
-        
+
         @returns
             Action id of the stub's default action as an `int`.
         """
@@ -72,10 +72,10 @@ class _ApiTriageStub:
     def _id_to_action(self, _action_id: int) -> Action:
         """
         Return the default stub Action regardless of the provided action id.
-        
+
         Parameters:
             _action_id (int): Ignored action identifier.
-        
+
         Returns:
             Action: The default Action instance used by the stub.
         """
@@ -84,7 +84,7 @@ class _ApiTriageStub:
     async def cleanup(self) -> None:
         """
         Perform any asynchronous cleanup required by the triage service.
-        
+
         This stub implementation performs no actions.
         """
         return None
@@ -133,15 +133,15 @@ def base_settings() -> ZammadAISettings:
 def settings_factory(base_settings: ZammadAISettings) -> Callable[..., ZammadAISettings]:
     """
     Create a factory that produces modified copies of a ZammadAISettings instance for tests.
-    
+
     The returned callable builds a deep copy of the provided base settings and applies optional overrides:
     - `action_rules`: replace the triage action rules.
     - `valid_request_types`: replace the list of valid request types.
     - arbitrary keyword overrides are applied via a deep update to the settings model.
-    
+
     Parameters:
         base_settings (ZammadAISettings): Template settings used as the basis for produced instances.
-    
+
     Returns:
         Callable[..., ZammadAISettings]: A factory callable that accepts `action_rules`, `valid_request_types`, and other keyword overrides and returns a new ZammadAISettings with those changes applied.
     """
@@ -154,12 +154,12 @@ def settings_factory(base_settings: ZammadAISettings) -> Callable[..., ZammadAIS
     ) -> ZammadAISettings:
         """
         Create a modified copy of the base ZammadAISettings with optional overrides.
-        
+
         Parameters:
             action_rules (list[ActionRule] | None): If provided, replace the triage.action_rules list on the returned settings.
             valid_request_types (list[str] | None): If provided, set the settings.valid_request_types to this list.
             **overrides (Any): Arbitrary model field updates applied via a deep model copy; keys are setting attribute names.
-        
+
         Returns:
             ZammadAISettings: A new settings instance derived from the base settings with the specified modifications applied.
         """
@@ -199,7 +199,7 @@ def cleanup_log_config_cache() -> Generator[None, None, None]:
 def cleanup_triage_singleton() -> Generator[None, None, None]:
     """
     Reset the shared triage singleton before and after each test to prevent state leakage.
-    
+
     This fixture sets app.triage.triage._service to None before yielding and again after the test completes.
     """
     import app.triage.triage as triage_module
@@ -213,10 +213,10 @@ def cleanup_triage_singleton() -> Generator[None, None, None]:
 def mock_settings(monkeypatch: pytest.MonkeyPatch, settings_factory: Callable[..., ZammadAISettings]) -> ZammadAISettings:
     """
     Patch the application's get_settings accessors to return a deterministic test settings instance.
-    
+
     Parameters:
         settings_factory (Callable[..., ZammadAISettings]): Factory function that produces a ZammadAISettings instance for tests.
-    
+
     Returns:
         ZammadAISettings: The created settings instance that will be returned by the patched get_settings calls.
     """
@@ -230,7 +230,7 @@ def mock_settings(monkeypatch: pytest.MonkeyPatch, settings_factory: Callable[..
 def mock_logger(monkeypatch: pytest.MonkeyPatch) -> logging.Logger:
     """
     Provide a preconfigured logger for tests and patch the application's logging factory to return it.
-    
+
     Returns:
         logging.Logger: A logger named "zammad-ai.tests" with no handlers (uses a NullHandler) suitable for use in tests.
     """
@@ -245,10 +245,10 @@ def mock_logger(monkeypatch: pytest.MonkeyPatch) -> logging.Logger:
 def temp_logconf(tmp_path_factory: pytest.TempPathFactory) -> str:
     """
     Create a temporary YAML logging configuration file and return its filesystem path.
-    
+
     Parameters:
         tmp_path_factory (pytest.TempPathFactory): pytest factory used to create a temporary directory for the file.
-    
+
     Returns:
         str: Absolute path to the created `logconf.yaml` file.
     """
@@ -282,10 +282,10 @@ root:
 def kafka_message_factory() -> Callable[..., dict[str, str]]:
     """
     Return a factory that builds a valid Kafka payload dictionary, allowing optional string field overrides.
-    
+
     The produced factory accepts keyword string arguments that override the default payload fields:
     `action`, `ticket`, `status`, `statusId`, `anliegenart`, and `lhmExtId`.
-    
+
     Returns:
         Callable[..., dict[str, str]]: A callable that takes string keyword overrides and returns a payload dict with defaults applied and overrides merged in.
     """
@@ -293,11 +293,11 @@ def kafka_message_factory() -> Callable[..., dict[str, str]]:
     def _factory(**overrides: str) -> dict[str, str]:
         """
         Create a valid Kafka-style message payload and apply any provided field overrides.
-        
+
         Parameters:
             **overrides (str): Keyword arguments where each key is a payload field name and each value
                 replaces the default for that field in the returned payload.
-        
+
         Returns:
             payload (dict[str, str]): A dictionary containing default message fields merged with any
             provided overrides.
@@ -320,7 +320,7 @@ def kafka_message_factory() -> Callable[..., dict[str, str]]:
 def valid_message(kafka_message_factory: Callable[..., dict[str, str]]) -> dict[str, str]:
     """
     Provides a backward-compatible valid Kafka message.
-    
+
     Returns:
         dict: A dictionary representing a valid Kafka message payload.
     """
@@ -331,7 +331,7 @@ def valid_message(kafka_message_factory: Callable[..., dict[str, str]]) -> dict[
 def test_kafka_broker() -> Callable[[Any], TestKafkaBroker]:
     """
     Provide a factory that creates FastStream TestKafkaBroker instances for a router.
-    
+
     Returns:
         factory (Callable[[Any], TestKafkaBroker]): A callable that accepts a router-like object and returns a TestKafkaBroker built from the router's `broker` attribute.
     """
@@ -339,10 +339,10 @@ def test_kafka_broker() -> Callable[[Any], TestKafkaBroker]:
     def _factory(router: Any) -> TestKafkaBroker:
         """
         Create a TestKafkaBroker bound to the provided router's broker.
-        
+
         Parameters:
             router (Any): Router-like object exposing a `broker` attribute used to construct the TestKafkaBroker.
-        
+
         Returns:
             TestKafkaBroker: A TestKafkaBroker instance connected to `router.broker`.
         """
@@ -355,7 +355,7 @@ def test_kafka_broker() -> Callable[[Any], TestKafkaBroker]:
 def fake_langfuse_client() -> FakeLangfuseClient:
     """
     Provide a FakeLangfuseClient configured for use in tests.
-    
+
     Returns:
         FakeLangfuseClient: A fake Langfuse client instance suitable for test assertions and simulation.
     """
@@ -366,7 +366,7 @@ def fake_langfuse_client() -> FakeLangfuseClient:
 def fake_genai_handler() -> FakeGenAIHandler:
     """
     Create a FakeGenAIHandler configured with default GenAISettings and prompts.
-    
+
     Returns:
         handler (FakeGenAIHandler): A FakeGenAIHandler instance using a default GenAISettings() and DEFAULT_GENAI_PROMPTS.
     """
@@ -381,10 +381,10 @@ def fake_genai_handler() -> FakeGenAIHandler:
 def fake_zammad_client(settings_factory: Callable[..., ZammadAISettings]) -> FakeZammadClient:
     """
     Create a FakeZammadClient configured with Zammad API settings from test settings.
-    
+
     Parameters:
         settings_factory (Callable[..., ZammadAISettings]): Factory that produces a ZammadAISettings instance; the returned settings' `zammad` attribute is used to configure the fake client.
-    
+
     Returns:
         FakeZammadClient: A fake Zammad API client configured with `settings.zammad`.
     """
@@ -397,7 +397,7 @@ def fake_zammad_client(settings_factory: Callable[..., ZammadAISettings]) -> Fak
 def test_client(monkeypatch: pytest.MonkeyPatch, settings_factory: Callable[..., ZammadAISettings]) -> Generator[TestClient, None, None]:
     """
     Provide a TestClient for the backend application with settings and triage replaced for testing.
-    
+
     Returns:
         TestClient: A TestClient for the backend application configured with the test settings and a triage stub.
     """

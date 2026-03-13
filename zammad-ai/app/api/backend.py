@@ -24,7 +24,7 @@ logger: Logger = getLogger("zammad-ai.api.backend")
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Manage application startup and shutdown by initializing and cleaning shared services.
-    
+
     On startup, attaches `triage_service` and `answer_service` to `app.state` using current settings. On shutdown, awaits each service's `cleanup()` method; `asyncio.CancelledError` raised during cleanup is caught.
     """
     # Startup: Initialize shared Triage instance

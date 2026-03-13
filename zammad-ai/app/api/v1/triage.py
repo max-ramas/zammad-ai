@@ -8,10 +8,10 @@ from app.triage.triage import TriageService
 def triage_dependency(request: Request) -> TriageService:
     """
     Retrieve the request-scoped TriageService instance from the FastAPI application state.
-    
+
     Parameters:
         request (Request): Incoming FastAPI request whose app.state contains the service.
-    
+
     Returns:
         TriageService: The TriageService instance stored at request.app.state.triage_service.
     """

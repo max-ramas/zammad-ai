@@ -58,11 +58,11 @@ class QdrantKBClient:
         # Create logger for QdrantClient
         """
         Initialize the QdrantKBClient, configure Qdrant clients, embeddings, vector store, and retriever.
-        
+
         Parameters:
             qdrant_settings (QdrantSettings): Configuration for Qdrant connection, collection, vector dimensions, vector name, timeout, and retrieval defaults.
             genai_settings (GenAISettings): Configuration for the embedding provider (SDK, embedding model, max retries).
-        
+
         Raises:
             QdrantKBError: If the configured Qdrant collection does not exist or is empty, if the GenAI SDK is unsupported, or if the embedding vector dimension does not match the configured Qdrant vector dimension.
         """
@@ -142,7 +142,7 @@ class QdrantKBClient:
     async def acreate_snapshot(self) -> bool:
         """
         Create a snapshot of the Qdrant collection.
-        
+
         Returns:
             bool: `True` if a snapshot was created, `False` otherwise.
         """
@@ -211,12 +211,12 @@ class QdrantKBClient:
     async def aadd_document(self, content: str, metadata: dict[str, Any], id: UUID | None = None) -> None:
         """
         Add a document to the Qdrant collection using the provided content and metadata.
-        
+
         Parameters:
             content (str): The textual content of the document.
             metadata (dict[str, Any]): Metadata associated with the document.
             id (UUID | None): Optional document identifier. If omitted, a deterministic UUID5 is generated from metadata['title'] using the module namespace.
-        
+
         Raises:
             ValueError: If `id` is None and `metadata` does not contain a 'title' key.
         """
@@ -231,14 +231,14 @@ class QdrantKBClient:
     def add_document(self, content: str, metadata: dict[str, Any], id: UUID | None = None) -> None:
         """
         Add a document to the Qdrant collection using the provided content and metadata.
-        
+
         If `id` is not provided, a stable UUID5 is generated from `metadata["title"]` using the module's namespace. The document is stored in the vector store with the resulting ID.
-        
+
         Parameters:
             content (str): The textual content of the document.
             metadata (dict[str, Any]): Metadata for the document; must contain `"title"` if `id` is omitted.
             id (UUID | None): Optional explicit document ID. If omitted, a UUID5 will be generated from the title.
-        
+
         Raises:
             ValueError: If `id` is None and `metadata` does not contain a `"title"`.
         """

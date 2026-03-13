@@ -20,13 +20,13 @@ logger: Logger = getLogger("zammad-ai.kafka.security")
 def setup_security(kafka_settings: KafkaSettings) -> BaseSecurity:
     """
     Configure Kafka TLS/mTLS according to the provided Kafka settings.
-    
+
     Parameters:
         kafka_settings (KafkaSettings): Kafka configuration describing either disabled security, mTLS provided via environment variables, or mTLS provided via file paths.
-    
+
     Returns:
         BaseSecurity: A security object containing an SSLContext configured with the CA and client certificate/key and with use_ssl=True; returns a default no-security BaseSecurity when security is disabled.
-    
+
     Raises:
         ValueError: If any required base64-encoded input is invalid, if the PKCS#12 archive or its password cannot be decoded or loaded, if the PKCS#12 archive lacks a private key or certificate, or if the kafka_settings.security type is unsupported.
     """

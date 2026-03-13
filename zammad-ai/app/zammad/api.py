@@ -154,13 +154,13 @@ class ZammadAPIClient(BaseZammadClient):
     async def add_tag_to_ticket(self, ticket_id: str, tag: str) -> None:
         """
         Add a tag to the specified Zammad ticket.
-        
+
         Performs an API request to add the given tag; if the request repeatedly fails due to HTTP or connection errors, a ZammadConnectionError is raised.
-        
+
         Parameters:
             ticket_id (str): ID of the ticket to update.
             tag (str): Tag to add.
-        
+
         Raises:
             ZammadConnectionError: If adding the tag fails after retrying the configured number of attempts.
         """
@@ -188,10 +188,10 @@ class ZammadAPIClient(BaseZammadClient):
     async def parse_rss_feed(self) -> feedparser.FeedParserDict | None:
         """
         Fetch and parse the knowledge base RSS feed.
-        
+
         Returns:
             feedparser.FeedParserDict: Parsed feed when fetched successfully, or `None` if the knowledge base ID or RSS feed token is not configured.
-        
+
         Raises:
             ZammadConnectionError: If fetching the RSS feed fails after the configured retry attempts.
         """
@@ -221,10 +221,10 @@ class ZammadAPIClient(BaseZammadClient):
     async def get_kb_answer_by_id(self, answer_id: str) -> dict | None:
         """
         Fetch a knowledge base answer by ID.
-        
+
         Returns:
             dict: The answer JSON if found, `None` if the answer does not exist (HTTP 404).
-        
+
         Raises:
             ZammadConnectionError: If the request fails after retries for reasons other than a 404.
         """
@@ -257,13 +257,13 @@ class ZammadAPIClient(BaseZammadClient):
     async def fetch_attachment_data(self, url: str) -> str | None:
         """
         Retrieve an attachment and return its textual content or a base64-encoded string for binary data.
-        
+
         Parameters:
             url (str): Relative URL of the attachment to fetch.
-        
+
         Returns:
             str: Decoded text for responses with Content-Type starting with `application/json` or `text/`; a base64-encoded ASCII string for other (binary) content. `None` if `url` is falsy.
-        
+
         Raises:
             ZammadConnectionError: If the attachment could not be fetched after the configured retry attempts.
         """
@@ -294,10 +294,10 @@ class ZammadAPIClient(BaseZammadClient):
     async def check_if_answer_exists(self, answer_id: str) -> bool:
         """
         Determine whether a knowledge base answer with the given ID exists.
-        
+
         Returns:
             `true` if the answer exists, `false` if it was not found (HTTP 404).
-        
+
         Raises:
             ZammadConnectionError: If the request fails for reasons other than the answer being missing.
         """

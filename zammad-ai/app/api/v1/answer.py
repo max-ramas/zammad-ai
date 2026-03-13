@@ -31,10 +31,10 @@ async def answer(
 ) -> AnswerOutput:
     """
     Process an answer request and produce the agent's response based on the provided input.
-    
+
     Parameters:
         input (AnswerInput): Request payload containing `text` (the user's query), optional `category` (triage category), and optional `id` (session identifier). If `category` is falsy, "Uncategorized" is used.
-    
+
     Returns:
         AnswerOutput: The agent's response and any supporting documents.
     """

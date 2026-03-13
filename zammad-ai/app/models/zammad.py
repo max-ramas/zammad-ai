@@ -25,10 +25,10 @@ class KnowledgeBaseAnswer(BaseModel):
     def strip_html(cls, text: str) -> str:
         """
         Normalize text by removing HTML tags, unescaping HTML entities, and collapsing whitespace.
-        
+
         Parameters:
             text (str): Input string that may contain HTML.
-        
+
         Returns:
             str: The input string with HTML tags removed, HTML entities unescaped, and consecutive whitespace collapsed to single spaces and trimmed.
         """

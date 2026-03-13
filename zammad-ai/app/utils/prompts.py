@@ -77,13 +77,13 @@ def extract_frontmatter(content: str) -> tuple[dict[str, Any], str]:
 def load_prompt(file_path: Path | str) -> str:
     """
     Load a prompt file and remove any leading YAML frontmatter.
-    
+
     Parameters:
         file_path (Path | str): Path to the prompt file; may be a string or Path.
-    
+
     Returns:
         The prompt text excluding any YAML frontmatter, with leading and trailing whitespace removed.
-    
+
     Raises:
         FileNotFoundError: If the file does not exist.
     """
