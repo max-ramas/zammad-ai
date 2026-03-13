@@ -188,11 +188,11 @@ def cleanup_settings_cache() -> Generator[None, None, None]:
 @pytest.fixture(autouse=True)
 def cleanup_log_config_cache() -> Generator[None, None, None]:
     """Reset cached logging configuration before and after each test."""
-    from app.utils.logging import get_log_config
+    from app.utils.logging import reset_logging_state
 
-    get_log_config.cache_clear()
+    reset_logging_state()
     yield
-    get_log_config.cache_clear()
+    reset_logging_state()
 
 
 @pytest.fixture(autouse=True)

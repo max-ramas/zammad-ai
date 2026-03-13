@@ -3,6 +3,7 @@ import logging
 import logging.config
 from datetime import datetime, timezone
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from yaml import safe_load
@@ -23,7 +24,8 @@ def get_log_config() -> dict[str, Any]:
     settings = get_settings()
 
     # Read logconf.yaml as template
-    with open("logconf.yaml", "r", encoding="utf-8") as file:
+    logconf_path = Path(__file__).resolve().parents[2] / "logconf.yaml"
+    with logconf_path.open("r", encoding="utf-8") as file:
         log_config = safe_load(file)
 
     # Determine formatter based on settings
@@ -43,6 +45,13 @@ def get_log_config() -> dict[str, Any]:
 
 
 _logging_configured = False
+
+
+def reset_logging_state() -> None:
+    """Resets the logging state by clearing the cache and resetting the configuration flag."""
+    global _logging_configured
+    get_log_config.cache_clear()
+    _logging_configured = False
 
 
 def getLogger(name: str = "zammad-ai") -> logging.Logger:
