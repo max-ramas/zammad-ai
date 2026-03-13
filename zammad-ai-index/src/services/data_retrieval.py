@@ -2,8 +2,11 @@
 
 from datetime import datetime, timedelta, timezone
 from logging import Logger
+from typing import Any
+from uuid import UUID
 
 from feedparser import FeedParserDict
+from qdrant_client.models import Record
 from src.models.zammad import KnowledgeBaseAnswer, ZammadKnowledgebase
 from src.settings.settings import ZammadAIIndexSettings, get_settings
 from src.utils.logging import getLogger
@@ -29,6 +32,7 @@ class DataRetrievalService:
 
         Args:
             client: Configured Zammad client instance (either API or EAI implementation)
+            qdrant_client: Configured Qdrant client instance for attachment handling
 
         """
         self.logger: Logger = getLogger("zammad-ai-index.data-retrieval")
@@ -196,3 +200,35 @@ class DataRetrievalService:
                 attachment_data[attachment.id] = (attachment.filename, None)
 
         return attachment_data
+
+    async def retrieve_deleted_answer_ids(self, all_points: list[Record]) -> list[UUID]:
+        """Retrieve IDs of knowledge base answers that have been deleted since last indexing.
+
+        This method checks for answers that were previously indexed but have been
+        removed from the knowledge base, allowing the indexing process to also
+        handle deletions and keep the search index in sync with the current state
+        of the knowledge base.
+
+        Returns:
+            List of answer IDs that have been deleted since the last indexing run,
+            or empty list if no deletions are detected or if retrieval fails.
+
+        """
+
+        try:
+            deleted_ids: list[UUID] = []
+            for point in all_points:
+                payload: dict[str, Any] | None = point.payload
+                if not payload:
+                    self.logger.warning("Point with ID %s has no payload, skipping deletion check.", point.id)
+                    continue
+                answer_id: int | None = payload["metadata"].get("answer_id")
+                if answer_id is not None:
+                    if not await self.client.check_if_answer_exists(int(answer_id)):
+                        self.logger.debug("Answer ID %d no longer exists in knowledge base, marking for deletion.", answer_id)
+                        deleted_ids.append(UUID(str(point.id)))
+            self.logger.info("Retrieved %d deleted answer IDs.", len(deleted_ids))
+            return deleted_ids
+        except Exception:
+            self.logger.error("Failed to retrieve deleted answer IDs.", exc_info=True)
+            return []

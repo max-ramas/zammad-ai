@@ -10,8 +10,10 @@ The indexing process supports both full and incremental indexing modes:
 
 from asyncio import run
 from logging import Logger
+from uuid import UUID
 
 from dotenv import load_dotenv
+from qdrant_client.models import Record
 from src.models.qdrant import QdrantDocumentItem
 from src.models.zammad import KnowledgeBaseAnswer
 from src.qdrant.qdrant import QdrantKBClient
@@ -107,16 +109,26 @@ class IndexingApplication:
             else:
                 self.logger.info("Fetched data for %d answers.", len(answers))
 
-            # Step 3: Prepare and filter data for Qdrant
-            qdrant_items: list[QdrantDocumentItem] = await self._prepare_and_filter_data(answers)
+            # Step3: Get all points from Qdrant
+            all_points: list[Record] = await self.qdrant_client.get_all_points()
+
+            # Step 4: Prepare and filter data for Qdrant
+            qdrant_items: list[QdrantDocumentItem] = await self._prepare_and_filter_data(answers, all_points)
+
+            # Step 5: Check for deleted documents
+            deleted_answer_ids: list[UUID] = await self.data_retrieval_service.retrieve_deleted_answer_ids(all_points)
 
             if not qdrant_items:
                 self.logger.info("No new or changed documents to index.")
-                return
+                if deleted_answer_ids:
+                    self.logger.info("However, %d deleted answer IDs detected that will be removed from Qdrant.", len(deleted_answer_ids))
+                else:
+                    self.logger.info("No deleted answer IDs detected. Exiting.")
+                    return
             else:
                 self.logger.info("Prepared %d documents for Qdrant indexing.", len(qdrant_items))
 
-            # Step 4: Create Qdrant snapshot
+            # Step 6: Create Qdrant snapshot
             snapshot_success: bool = await self.qdrant_client.acreate_snapshot()
 
             if snapshot_success:
@@ -125,13 +137,25 @@ class IndexingApplication:
                 self.logger.warning("Failed to create Qdrant snapshot before indexing. Exiting.")
                 return
 
-            # Step 5: Add documents to Qdrant
-            success: bool = await self.indexing_service.add_documents_to_qdrant(qdrant_items)
+            # Step 7: Add documents to Qdrant
+            if qdrant_items:
+                success: bool = await self.indexing_service.add_documents_to_qdrant(qdrant_items)
 
-            if success:
-                self.logger.info("Indexing process completed successfully!")
-            else:
-                self.logger.error("Indexing process completed with errors.")
+                if success:
+                    self.logger.info("Successfully indexed documents into Qdrant.")
+                else:
+                    self.logger.error("Failed to index documents into Qdrant.")
+                    return
+
+            # Step 8: Delete documents from Qdrant for deleted answer IDs
+            if deleted_answer_ids:
+                try:
+                    await self.qdrant_client.delete_points_by_ids(deleted_answer_ids)
+                    self.logger.info("Successfully deleted %d documents from Qdrant for deleted answer IDs.", len(deleted_answer_ids))
+                except Exception:
+                    self.logger.error("Failed to delete points for deleted answer IDs: %s", deleted_answer_ids, exc_info=True)
+
+            self.logger.info("Indexing process completed successfully.")
 
         except Exception:
             self.logger.error("Critical error during indexing process", exc_info=True)
@@ -139,7 +163,7 @@ class IndexingApplication:
         finally:
             await self.cleanup()
 
-    async def _prepare_and_filter_data(self, answers: dict[int, KnowledgeBaseAnswer]) -> list[QdrantDocumentItem]:
+    async def _prepare_and_filter_data(self, answers: dict[int, KnowledgeBaseAnswer], all_points: list[Record]) -> list[QdrantDocumentItem]:
         """Prepare data for Qdrant and filter for changed documents only.
 
         Transforms knowledge base answers into Qdrant document format with metadata,
@@ -148,6 +172,7 @@ class IndexingApplication:
 
         Args:
             answers: Dictionary mapping answer IDs to KnowledgeBaseAnswer objects
+            all_points: List of all points in the Qdrant collection
 
         Returns:
             List of QdrantDocumentItem objects ready for indexing, containing only
@@ -155,7 +180,7 @@ class IndexingApplication:
 
         """
         # Prepare data for Qdrant indexing
-        qdrant_data = await self.data_processing_service.prepare_qdrant_data(
+        qdrant_data: list[QdrantDocumentItem] = await self.data_processing_service.prepare_qdrant_data(
             client=self.zammad_client,
             answers=answers,
             retrieval_service=self.data_retrieval_service,
@@ -163,9 +188,9 @@ class IndexingApplication:
         self.logger.info("Prepared data for %d answers for Qdrant indexing.", len(qdrant_data))
 
         # Filter to only include changed documents
-        filtered_items = await self.data_processing_service.filter_for_changed_data(
-            qdrant_client=self.qdrant_client,
-            qdrant_data=qdrant_data,
+        filtered_items: list[QdrantDocumentItem] = await self.data_processing_service.filter_for_changed_data(
+            new_qdrant_data=qdrant_data,
+            all_points=all_points,
         )
 
         return filtered_items

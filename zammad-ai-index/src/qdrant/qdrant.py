@@ -296,3 +296,56 @@ class QdrantKBClient:
         """Close the Qdrant client connections."""
         await self.aclient.close()
         self.client.close()
+
+    async def delete_points_by_ids(self, ids: list) -> None:
+        """Delete documents from the Qdrant collection by their unique identifiers.
+
+        Args:
+            ids (list[UUID]): The unique identifiers of the documents to delete.
+        Returns:
+            None
+        Raises:
+            QdrantKBError: If there is an error during deletion from Qdrant, a QdrantKBError will be raised with details about the failure.
+        """
+        try:
+            await self.aclient.delete(
+                collection_name=self.collection_name,
+                points_selector=ids,
+            )
+            self.logger.info(f"Deleted documents with IDs {ids} from Qdrant")
+        except Exception as e:
+            self.logger.error(f"Error deleting documents with IDs {ids} from Qdrant", exc_info=True)
+            raise QdrantKBError("Failed to delete documents from Qdrant") from e
+
+    async def get_all_points(self) -> list[Record]:
+        """Retrieve all points from the Qdrant collection.
+        Returns:
+            list[Record]: A list of Record objects representing all points in the Qdrant collection. Each Record includes the point's ID, payload, and vector (if available).
+        Raises:
+            QdrantKBError: If there is an error during retrieval from Qdrant, a QdrantKBError will be raised with details about the failure.
+        """
+        try:
+            # Retrieve all document IDs from Qdrant and convert them to integers
+            all_points: list[Record] = []
+            next_offset = None
+
+            while True:
+                points, next_offset = await self.aclient.scroll(
+                    collection_name=self.collection_name,
+                    limit=500,
+                    offset=next_offset,
+                    with_payload=True,
+                    with_vectors=False,
+                )
+                if not points:
+                    break
+
+                all_points.extend(points)
+
+                if next_offset is None:
+                    break
+
+            return all_points
+        except Exception as e:
+            self.logger.error("Error retrieving all answer IDs from Qdrant", exc_info=True)
+            raise QdrantKBError("Failed to retrieve all points from Qdrant") from e

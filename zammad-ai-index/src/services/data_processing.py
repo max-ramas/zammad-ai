@@ -4,11 +4,11 @@ from datetime import datetime, timezone
 from logging import Logger
 from uuid import UUID, uuid5
 
-from langchain_core.documents import Document
 from pydantic import HttpUrl
+from qdrant_client.models import Record
 from src.models.qdrant import QdrantDocumentItem, QdrantVectorMetadata
 from src.models.zammad import KnowledgeBaseAnswer
-from src.qdrant.qdrant import ZAMMAD_AI_NAMESPACE, QdrantKBClient
+from src.qdrant.qdrant import ZAMMAD_AI_NAMESPACE
 from src.services.data_retrieval import DataRetrievalService
 from src.utils.hash import hash_content, normalize_content
 from src.utils.logging import getLogger
@@ -154,49 +154,54 @@ class DataProcessingService:
         )
 
     async def filter_for_changed_data(
-        self, qdrant_client: QdrantKBClient, qdrant_data: list[QdrantDocumentItem]
+        self, new_qdrant_data: list[QdrantDocumentItem], all_points: list[Record]
     ) -> list[QdrantDocumentItem]:
         """Filter the provided Qdrant data to include only entries that have changed since the last indexing.
 
         Args:
-            qdrant_client: Instance of QdrantKBClient to query existing indexed data
-            qdrant_data: List of QdrantDocumentItem objects containing id, content, and metadata for indexing
+            new_qdrant_data: List of QdrantDocumentItem objects containing id, content, and metadata for indexing
+            all_points: List of all points in the Qdrant collection
 
         Returns:
             Filtered list of QdrantDocumentItem objects containing only changed documents
 
         """
-        if not qdrant_data:
+        if not new_qdrant_data:
             self.logger.info("No data provided for filtering.")
             return []
 
         # Get vector IDs for batch lookup
-        vector_ids: list[UUID] = [item.vector_id for item in qdrant_data]
+        vector_ids: list[UUID] = [item.vector_id for item in new_qdrant_data]
 
         # Get all existing documents in one batch call for efficiency
-        qdrant_documents: dict[UUID, Document] = await qdrant_client.get_documents_by_ids(vector_ids)
+        qdrant_documents: dict[UUID, Record] = {UUID(str(point.id)): point for point in all_points if UUID(str(point.id)) in vector_ids}
 
         if not qdrant_documents:
-            self.logger.info("No existing documents found in Qdrant, including all %d items for indexing.", len(qdrant_data))
-            return qdrant_data
+            self.logger.info("No existing documents found in Qdrant, including all %d items for indexing.", len(new_qdrant_data))
+            return new_qdrant_data
 
         filtered_data: list[QdrantDocumentItem] = []
 
-        for item in qdrant_data:
-            current_document: Document | None = qdrant_documents.get(item.vector_id)
-            current_hash = current_document.metadata.get("pagecontent_hash") if current_document else None
-            new_hash = item.metadata.pagecontent_hash
+        for item in new_qdrant_data:
+            current_document: Record | None = qdrant_documents.get(item.vector_id)
+
             if not current_document:
                 # No existing document means it's new and should be included
                 self.logger.debug("No existing document found for answer ID %d, including in indexing.", item.metadata.answer_id)
                 filtered_data.append(item)
-            elif current_hash != new_hash:
-                # Content has changed, include for re-indexing
-                self.logger.debug("Content changes detected for answer ID %d, including in re-indexing.", item.metadata.answer_id)
-                filtered_data.append(item)
             else:
-                # No changes detected, skip re-indexing
-                self.logger.debug("No content changes detected for answer ID %d, skipping re-indexing.", item.metadata.answer_id)
+                current_metadata: QdrantVectorMetadata | None = QdrantVectorMetadata.model_validate(
+                    current_document.payload["metadata"] if current_document.payload and "metadata" in current_document.payload else {}
+                )
+                current_hash: str | None = current_metadata.pagecontent_hash if current_metadata else None
+                new_hash: str | None = item.metadata.pagecontent_hash
+                if current_hash != new_hash:
+                    # Content has changed, include for re-indexing
+                    self.logger.debug("Content changes detected for answer ID %d, including in re-indexing.", item.metadata.answer_id)
+                    filtered_data.append(item)
+                else:
+                    # No changes detected, skip re-indexing
+                    self.logger.debug("No content changes detected for answer ID %d, skipping re-indexing.", item.metadata.answer_id)
 
-        self.logger.info("Filtered data to %d/%d items with detected changes for indexing.", len(filtered_data), len(qdrant_data))
+        self.logger.info("Filtered data to %d/%d items with detected changes for indexing.", len(filtered_data), len(new_qdrant_data))
         return filtered_data
