@@ -1,8 +1,7 @@
 from logging import Logger
 
 from httpx import HTTPError
-from langchain.agents import create_agent
-from langchain.agents.middleware.types import AgentState
+from langchain.agents import AgentState, create_agent
 from langchain.tools import BaseTool, ToolException, ToolRuntime, tool
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
@@ -38,13 +37,13 @@ class AgentContext(BaseModel):
 async def search_dlf(runtime: ToolRuntime[AgentContext], query: str) -> list[DLFDocument]:
     """
     Search the Munich city (DLF) site using the runtime's DLF client and return retrieved documents.
-    
+
     Parameters:
         query (str): Query string to send to the DLF site.
-    
+
     Returns:
         list[DLFDocument]: Documents retrieved from the DLF client matching the query.
-    
+
     Raises:
         ToolException: If the DLF client is not initialized in the runtime context or if an HTTP error occurs during retrieval.
     """
@@ -75,16 +74,16 @@ async def search_knowledgebase(
 ) -> RetrieveDocumentsKBOutput:
     """
     Retrieve relevant documents from the knowledge base for a given query.
-    
+
     Parameters:
         runtime (ToolRuntime[AgentContext]): Tool runtime whose context provides a QdrantKBClient.
         query (str): Query text to search for.
         num_documents (int): Maximum number of documents to return.
         offset (int): Number of top results to skip before collecting documents.
-    
+
     Returns:
         RetrieveDocumentsKBOutput: Contains `documents_with_relevance_score`, a list of `(Document, float)` tuples ordered by relevance.
-    
+
     Raises:
         ToolException: If the knowledge base retrieval fails.
     """
@@ -108,12 +107,12 @@ def build_agent(
 ) -> CompiledStateGraph[AgentState[StructuredAgentResponse], AgentContext, AgentState, AgentState[StructuredAgentResponse]]:  # type: ignore
     """
     Constructs a LangChain agent configured for Zammad AI Answer using the provided model settings, system prompt, and tools.
-    
+
     Parameters:
         genai_settings (GenAISettings): Model and generation parameters used to create the chat model.
         system_prompt (str): System prompt supplied to the agent.
         dlf_enabled (bool): If True, include the DLF website search tool in the agent's toolset.
-    
+
     Returns:
         CompiledStateGraph[AgentState[StructuredAgentResponse], AgentContext, AgentState, AgentState[StructuredAgentResponse]]:
             A compiled agent configured with a ChatOpenAI model, the supplied system prompt, the knowledge-base search tool (and optionally the DLF tool), producing StructuredAgentResponse outputs and using AgentContext for runtime clients.
