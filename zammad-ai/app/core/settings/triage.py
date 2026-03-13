@@ -17,14 +17,28 @@ class TriageSettings(BaseModel):
         discriminator="type",
     )
 
-    @field_validator("actions", "categories", mode="before")
-    def validate_for_unique_names(cls, v):
+    @staticmethod
+    def _validate_unique_names(v: list[dict | BaseModel], field_singular_name: str):
         if not v:
-            raise ValueError("At least one action must be provided")
-        names = [item["name"] for item in v]
-        if len(names) != len(set(names)):
-            raise ValueError("Names must be unique")
+            raise ValueError(f"At least one {field_singular_name} must be provided")
+
+        seen_names: set[str] = set()
+        for item in v:
+            name = item.get("name") if isinstance(item, dict) else getattr(item, "name", None)
+            if name is None:
+                raise ValueError(f"Each {field_singular_name} must define a name")
+            if name in seen_names:
+                raise ValueError("Names must be unique")
+            seen_names.add(name)
         return v
+
+    @field_validator("actions", mode="before")
+    def validate_actions_for_unique_names(cls, v):
+        return cls._validate_unique_names(v, "action")
+
+    @field_validator("categories", mode="before")
+    def validate_categories_for_unique_names(cls, v):
+        return cls._validate_unique_names(v, "category")
 
 
 class Category(BaseModel):
