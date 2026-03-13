@@ -2,8 +2,8 @@ from logging import Logger
 from typing import Any
 from uuid import NAMESPACE_DNS, UUID, uuid5
 
-from langchain.embeddings import Embeddings
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_qdrant import QdrantVectorStore
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
@@ -271,7 +271,7 @@ class QdrantKBClient:
         try:
             results: list[Record] = await self.aclient.retrieve(
                 collection_name=self.collection_name,
-                ids=ids,
+                ids=[str(id) for id in ids],
             )
             if results:
                 documents: dict[UUID, Document] = {}
