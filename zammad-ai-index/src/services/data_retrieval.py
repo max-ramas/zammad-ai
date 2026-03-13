@@ -32,8 +32,6 @@ class DataRetrievalService:
 
         Args:
             client: Configured Zammad client instance (either API or EAI implementation)
-            qdrant_client: Configured Qdrant client instance for attachment handling
-
         """
         self.logger: Logger = getLogger("zammad-ai-index.data-retrieval")
         self.client: ZammadAPIClient | ZammadEAIClient = client
@@ -107,7 +105,11 @@ class DataRetrievalService:
 
         for entry in getattr(feed, "entries", []):
             try:
-                updated = datetime.fromisoformat(entry.get("updated"))
+                updated_str = entry.get("updated")
+                if not updated_str:
+                    self.logger.debug("Entry %s has no 'updated' field, skipping.", entry.get("id", "unknown"))
+                    continue
+                updated: datetime = datetime.fromisoformat(updated_str)
                 # Ensure datetime is timezone-aware (UTC if naive)
                 if updated.tzinfo is None:
                     updated: datetime = updated.replace(tzinfo=timezone.utc)
@@ -222,11 +224,18 @@ class DataRetrievalService:
                 if not payload:
                     self.logger.warning("Point with ID %s has no payload, skipping deletion check.", point.id)
                     continue
-                answer_id: int | None = payload["metadata"].get("answer_id")
+
+                metadata = payload.get("metadata")
+                if not metadata:
+                    self.logger.warning("Point with ID %s has no metadata, skipping deletion check.", point.id)
+                    continue
+
+                answer_id: int | None = metadata.get("answer_id")
                 if answer_id is not None:
                     if not await self.client.check_if_answer_exists(int(answer_id)):
                         self.logger.debug("Answer ID %d no longer exists in knowledge base, marking for deletion.", answer_id)
                         deleted_ids.append(UUID(str(point.id)))
+
             self.logger.info("Retrieved %d deleted answer IDs.", len(deleted_ids))
             return deleted_ids
         except Exception:
