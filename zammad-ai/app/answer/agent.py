@@ -1,6 +1,5 @@
 from logging import Logger
 
-from httpx import HTTPError
 from langchain.agents import AgentState, create_agent
 from langchain.tools import BaseTool, ToolException, ToolRuntime, tool
 from langchain_core.documents import Document
@@ -12,7 +11,7 @@ from app.models.answer import StructuredAgentResponse
 from app.settings import GenAISettings
 from app.utils.logging import getLogger
 
-from .dlf import DLFClient, DLFDocument
+from .dlf import DLFClient, DLFDocument, DLFError
 from .knowledgebase import QdrantKBClient, QdrantKBError, RetrieveDocumentsKBOutput, SearchQdrantKBInput
 
 logger: Logger = getLogger("zammad-ai.answer.agent")
@@ -54,7 +53,7 @@ async def search_dlf(runtime: ToolRuntime[AgentContext], query: str) -> list[DLF
     try:
         dlf_docs: list[DLFDocument] = await dlf_client.retrieve_documents(query=query)
         return dlf_docs
-    except HTTPError:
+    except DLFError:
         logger.error("HTTP error while searching DLF", exc_info=True)
         raise ToolException("Failed to search the munich city website. Please try other tools for now.")
 

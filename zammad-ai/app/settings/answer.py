@@ -88,6 +88,10 @@ class DLFSettings(BaseModel):
         description="Timeout in seconds for requests to the DLF API.",
         default=60,
     )
+    max_retries: PositiveInt = Field(
+        description="Maximum number of retries for DLF API requests in case of transient failures.",
+        default=2,
+    )
 
 
 class AnswerSettings(BaseModel):
