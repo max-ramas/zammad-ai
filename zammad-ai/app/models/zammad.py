@@ -62,7 +62,7 @@ class KnowledgeBaseAnswer(BaseModel):
         default_factory=list,
     )
 
-    @field_validator("content", mode="after")
+    @field_validator("answerBody", mode="after")
     @classmethod
     def strip_html(cls, text: str) -> str:
         """
