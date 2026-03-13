@@ -54,8 +54,8 @@ async def search_dlf(runtime: ToolRuntime[AgentContext], query: str) -> list[DLF
     try:
         dlf_docs: list[DLFDocument] = await dlf_client.retrieve_documents(query=query)
         return dlf_docs
-    except HTTPError as e:
-        logger.error("HTTP error while searching DLF", exc_info=e)
+    except HTTPError:
+        logger.error("HTTP error while searching DLF", exc_info=True)
         raise ToolException("Failed to search the munich city website. Please try other tools for now.")
 
 
@@ -96,7 +96,7 @@ async def search_knowledgebase(
         )
         return RetrieveDocumentsKBOutput(documents_with_relevance_score=relevant_documents_with_scores)
     except QdrantKBError as e:
-        logger.error("Error retrieving documents from Qdrant", exc_info=e)
+        logger.error("Error retrieving documents from Qdrant", exc_info=True)
         raise ToolException("Failed to retrieve documents from Knowledge Base") from e
 
 
