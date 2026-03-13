@@ -28,16 +28,6 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
     Returns:
         tuple[KafkaRouter, Callable]: The configured KafkaRouter and its subscriber event handler.
     """
-    """
-    Process an incoming Kafka event to perform ticket triage and acknowledge or negatively-acknowledge the message.
-    
-    Parameters:
-        event (Event): The Kafka event to process; contains ticket identifier and request type.
-    
-    Raises:
-        AckMessage: Acknowledges the Kafka message to mark it as processed or intentionally skipped.
-        NackMessage: Signals processing failure to negatively acknowledge the message.
-    """
     logger.info("Building Kafka router")
 
     # Security setup
