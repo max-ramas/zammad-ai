@@ -51,7 +51,7 @@ class FakeGenAIHandler:
         self.days_since_request_response: DaysSinceRequestResponse | None = None
         self.processing_id_response: ProcessingIdResponse | None = None
 
-    async def invoke(
+    async def _invoke(
         self,
         prompt_key: str,
         input: dict,
@@ -90,6 +90,57 @@ class FakeGenAIHandler:
             return self.processing_id_response
         else:
             return {}
+
+    async def categorize_ticket(
+        self,
+        *,
+        message: str,
+        role_description: str,
+        categories: list,
+        categories_prompt: str,
+        examples: str,
+        session_id: str | None = None,
+    ) -> CategorizationResult:
+        del message, role_description, categories, categories_prompt, examples, session_id
+        result = await self._invoke(
+            prompt_key="categories",
+            input={},
+            schema=CategorizationResult,
+        )
+        assert isinstance(result, CategorizationResult)
+        return result
+
+    async def extract_days_since_request(
+        self,
+        *,
+        message: str,
+        today: str,
+        session_id: str | None = None,
+    ) -> DaysSinceRequestResponse:
+        del message, today, session_id
+        result = await self._invoke(
+            prompt_key="days_since_request",
+            input={},
+            schema=DaysSinceRequestResponse,
+        )
+        assert isinstance(result, DaysSinceRequestResponse)
+        return result
+
+    async def extract_processing_id(
+        self,
+        *,
+        message: str,
+        condition: str,
+        session_id: str | None = None,
+    ) -> ProcessingIdResponse:
+        del message, condition, session_id
+        result = await self._invoke(
+            prompt_key="processing_id",
+            input={},
+            schema=ProcessingIdResponse,
+        )
+        assert isinstance(result, ProcessingIdResponse)
+        return result
 
 
 class FakeZammadClient:
@@ -375,7 +426,7 @@ async def test_predict_category_handles_genai_exception(patched_triage: Triage) 
     async def _boom(*_args, **_kwargs):
         raise RuntimeError("LLM exploded")
 
-    patched_triage.genai_handler.invoke = _boom  # type: ignore
+    patched_triage.genai_handler.categorize_ticket = _boom  # type: ignore
     with pytest.raises(TriageError) as excinfo:
         await patched_triage.predict_category(message="trigger error", session_id="session-id")
     assert "unexpected error" in str(excinfo.value)
