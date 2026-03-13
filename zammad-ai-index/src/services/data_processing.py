@@ -190,9 +190,16 @@ class DataProcessingService:
                 self.logger.debug("No existing document found for answer ID %d, including in indexing.", item.metadata.answer_id)
                 filtered_data.append(item)
             else:
-                current_metadata: QdrantVectorMetadata | None = QdrantVectorMetadata.model_validate(
-                    current_document.payload["metadata"] if current_document.payload and "metadata" in current_document.payload else {}
-                )
+                try:
+                    payload_metadata = current_document.payload.get("metadata", {}) if current_document.payload else {}
+                    current_metadata: QdrantVectorMetadata | None = (
+                        QdrantVectorMetadata.model_validate(payload_metadata) if payload_metadata else None
+                    )
+                except Exception:
+                    self.logger.warning("Failed to validate metadata for document %s, treating as new.", item.vector_id, exc_info=True)
+                    filtered_data.append(item)
+                    continue
+
                 current_hash: str | None = current_metadata.pagecontent_hash if current_metadata else None
                 new_hash: str | None = item.metadata.pagecontent_hash
                 if current_hash != new_hash:
