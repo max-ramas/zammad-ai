@@ -128,8 +128,8 @@ class GenAIHandler:
 
     def _build_runnable_config(self, session_id: str | None) -> tuple[str, RunnableConfig]:
         """Build tracing config and ensure we always have a session id."""
-        resolved_session_id = session_id
-        if resolved_session_id is None:
+        resolved_session_id: str | None = session_id.strip() if session_id is not None else None
+        if not resolved_session_id:
             resolved_session_id = self.langfuse_client.generate_session_id()
 
         self.langfuse_client.langfuse.update_current_trace(session_id=resolved_session_id)

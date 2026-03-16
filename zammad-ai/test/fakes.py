@@ -41,7 +41,7 @@ class FakeGenAIHandler:
         *,
         session_id: str | None = None,
         schema: type | None = None,
-    ) -> CategorizationResult | DaysSinceRequestResponse | ProcessingIdResponse | dict:
+    ) -> CategorizationResult | DaysSinceRequestResponse | ProcessingIdResponse:
         """
         Invoke the fake GenAI handler, returning preset or default responses based on the prompt key and schema.
 
@@ -52,8 +52,10 @@ class FakeGenAIHandler:
             schema (type | None): Optional Pydantic schema for structured output.
 
         Returns:
-            CategorizationResult | DaysSinceRequestResponse | ProcessingIdResponse | dict: The configured response
+            CategorizationResult | DaysSinceRequestResponse | ProcessingIdResponse: The configured response
             or a default response based on the schema type.
+        Raises:
+            ValueError: If an unsupported schema type is provided.
         """
         if schema == CategorizationResult:
             if self.categorization_result is None:
@@ -72,7 +74,7 @@ class FakeGenAIHandler:
                 return ProcessingIdResponse(processing_id="")
             return self.processing_id_response
         else:
-            return {}
+            raise ValueError(f"Unsupported schema type: {schema}")
 
     async def categorize_ticket(
         self,
