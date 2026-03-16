@@ -151,12 +151,10 @@ class GenAIHandler:
             "today": today,
         }
 
-    def _build_chain_input_for_processing_id(self, *, message: str, condition: str) -> dict[str, Any]:
+    def _build_chain_input_for_processing_id(self, *, message: str) -> dict[str, Any]:
         """Build the explicit input payload for processing-id extraction."""
         return {
             "text": message,
-            "condition": condition,
-            "condition_str": condition,
         }
 
     def _build_runnable_config(self, session_id: str | None) -> tuple[str, RunnableConfig]:
@@ -204,9 +202,9 @@ class GenAIHandler:
             schema=DaysSinceRequestResponse,
         )
 
-    async def extract_processing_id(self, *, message: str, condition: str, session_id: str | None = None) -> ProcessingIdResponse:
+    async def extract_processing_id(self, *, message: str, session_id: str | None = None) -> ProcessingIdResponse:
         """Run the processing-id extraction call used in action rule evaluation."""
-        input_payload = self._build_chain_input_for_processing_id(message=message, condition=condition)
+        input_payload = self._build_chain_input_for_processing_id(message=message)
         return await self._invoke(
             prompt_key="processing_id",
             input=input_payload,

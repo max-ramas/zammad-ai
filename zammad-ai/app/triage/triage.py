@@ -294,10 +294,8 @@ class Triage:
 
                             if condition.field == "processing_id":
                                 if processing_id is None:
-                                    condition_str: str = "Processing id " + condition.operator + " " + str(condition.value)
                                     processing_result: ProcessingIdResponse = await self.genai_handler.extract_processing_id(
                                         message=message,
-                                        condition=condition_str,
                                         session_id=session_id,
                                     )
                                     processing_id = processing_result.processing_id
