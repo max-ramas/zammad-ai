@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from logging import Logger
@@ -5,12 +6,15 @@ from logging import Logger
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
-from app.core.settings import ZammadAISettings, get_settings
+from app.answer import get_answer_service
+from app.frontend import mount_frontend
 from app.kafka.broker import build_router
 from app.models.api_v1 import HealthCheckResponse
-from app.triage.triage import get_triage
+from app.settings import ZammadAISettings, get_settings
+from app.triage import get_triage_service
 from app.utils.logging import getLogger
 
+from .v1.answer import answer_router
 from .v1.triage import triage_router
 
 logger: Logger = getLogger("zammad-ai.api.backend")
@@ -19,28 +23,29 @@ logger: Logger = getLogger("zammad-ai.api.backend")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
-    Manage the application lifespan by initializing shared resources on startup and releasing them on shutdown.
+    Manage application startup and shutdown by initializing and cleaning shared services.
 
-    On startup, initializes the Triage instance. On shutdown, performs cleanup.
-
-    Parameters:
-        app (FastAPI): The FastAPI application.
+    On startup, attaches `triage_service` and `answer_service` to `app.state` using current settings. On shutdown, awaits each service's `cleanup()` method; `asyncio.CancelledError` raised during cleanup is caught.
     """
     # Startup: Initialize shared Triage instance
     settings: ZammadAISettings = get_settings()
 
     logger.info("Initializing shared Triage instance")
-    app.state.triage = get_triage(settings=settings)
+    app.state.triage_service = get_triage_service(settings=settings)
+    app.state.answer_service = get_answer_service(settings=settings)
 
     yield
-
-    # Shutdown: Cleanup resources
     logger.info("Shutting down shared Triage instance")
-    await app.state.triage.cleanup()
+    try:
+        await app.state.triage_service.cleanup()
+        await app.state.answer_service.cleanup()
+
+    except asyncio.CancelledError:
+        logger.info("Cleanup cancelled during shutdown.")
 
 
 settings: ZammadAISettings = get_settings()
-router, _ = build_router(settings=settings)
+kafka_router, _ = build_router(settings=settings)
 
 # Create FastAPI app with lifespan
 backend = FastAPI(
@@ -52,13 +57,23 @@ backend = FastAPI(
 )
 
 # Include Kafka router (this handles broker lifecycle automatically)
-backend.include_router(router=router)
+backend.include_router(
+    router=kafka_router,
+)
 
 # Mount API routers
 backend.include_router(
     router=triage_router,
     prefix="/api/v1",
 )
+
+backend.include_router(
+    router=answer_router,
+    prefix="/api/v1",
+)
+
+if settings.frontend.enabled:
+    backend = mount_frontend(app=backend, frontend_settings=settings.frontend)
 
 if not settings.frontend.enabled and settings.mode == "development":
     logger.info("Frontend is disabled, rerouting root path to API docs")

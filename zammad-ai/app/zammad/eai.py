@@ -11,8 +11,8 @@ from feedparser import parse as feedparser
 from httpx import HTTPStatusError, RequestError
 from pydantic import TypeAdapter
 
-from app.core.settings.zammad import ZammadEAISettings
 from app.models.zammad import KnowledgeBaseAnswer, ZammadAnswer, ZammadArticle, ZammadEAISharedDraft, ZammadKnowledgebase, ZammadTicket
+from app.settings.zammad import ZammadEAISettings
 from app.utils.logging import getLogger
 
 from .base import BaseZammadClient, ZammadConnectionError

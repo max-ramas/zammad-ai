@@ -3,8 +3,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl, NonNegativeInt, SecretStr
 
-ZammadEndpoint = Literal["api", "eai"]
-
 
 class BaseZammadSettings(BaseModel, ABC):
     """
