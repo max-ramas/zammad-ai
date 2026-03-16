@@ -126,7 +126,7 @@ class DataProcessingService:
 
         Builds comprehensive metadata for the vector document including answer details,
         timestamps, attachments, URL generation, and content hash for change detection.
-        The vector ID is generated as a UUID5 based on the answer title.
+        The vector ID is generated as a UUID5 based on the knowledge base ID and answer ID.
 
         Args:
             answer: KnowledgeBaseAnswer object containing the source data
@@ -141,7 +141,7 @@ class DataProcessingService:
             answer_url = f"{self.base_url}#knowledge_base/{self.knowledge_base_id}/locale/de-de/answer/{answer.id}"
 
         return QdrantVectorMetadata(
-            vector_id=uuid5(ZAMMAD_AI_NAMESPACE, answer.answerTitle),
+            vector_id=uuid5(ZAMMAD_AI_NAMESPACE, f"KB-{self.knowledge_base_id}-Answer-{answer.id}"),
             vector_updatedAt=datetime.now(timezone.utc),
             answer_id=answer.id,
             answer_title=answer.answerTitle,

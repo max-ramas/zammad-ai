@@ -13,7 +13,7 @@ from qdrant_client.http.models import CollectionInfo
 from qdrant_client.http.models.models import Record
 from qdrant_client.models import SnapshotDescription
 from src.settings.genai import GenAISettings
-from src.settings.qdrant import QdrantSettings
+from src.settings.settings import QdrantSettings, ZammadAIIndexSettings
 from src.utils.logging import getLogger
 
 # Create a consistent namespace UUID for generating vector IDs based on content
@@ -53,36 +53,37 @@ class QdrantKBError(Exception):
 class QdrantKBClient:
     """Wrapper around Qdrant client to handle vector storage and retrieval."""
 
-    def __init__(self, qdrant_settings: QdrantSettings, genai_settings: GenAISettings) -> None:
+    def __init__(self, settings: ZammadAIIndexSettings) -> None:
         # Create logger for QdrantClient
         self.logger: Logger = getLogger("zammad-ai-index.qdrant")
 
-        self.collection_name: str = qdrant_settings.collection_name
-
-        self.qdrant_settings: QdrantSettings = qdrant_settings
+        self.collection_name: str = settings.qdrant.collection_name
+        self.settings: ZammadAIIndexSettings = settings
+        self.qdrant_settings: QdrantSettings = settings.qdrant
+        self.genai_settings: GenAISettings = settings.genai
         # Create sync + async Qdrant client with appropriate configuration
         self.client = QdrantClient(
-            url=qdrant_settings.url.encoded_string(),
+            url=self.qdrant_settings.url.encoded_string(),
             port=None,  # Port is included in the URL, so we set it to None
-            timeout=qdrant_settings.timeout,
-            api_key=qdrant_settings.api_key.get_secret_value() if qdrant_settings.api_key else None,
+            timeout=self.qdrant_settings.timeout,
+            api_key=self.qdrant_settings.api_key.get_secret_value() if self.qdrant_settings.api_key else None,
         )
         self.aclient = AsyncQdrantClient(
-            url=qdrant_settings.url.encoded_string(),
+            url=self.qdrant_settings.url.encoded_string(),
             port=None,  # Port is included in the URL, so we set it to None
-            timeout=qdrant_settings.timeout,
-            api_key=qdrant_settings.api_key.get_secret_value() if qdrant_settings.api_key else None,
+            timeout=self.qdrant_settings.timeout,
+            api_key=self.qdrant_settings.api_key.get_secret_value() if self.qdrant_settings.api_key else None,
         )
 
         # Check if collection exists and if there is data in it, else raise an Error
         try:
-            if not self.client.collection_exists(collection_name=qdrant_settings.collection_name):
-                self.logger.error(f"Qdrant collection '{qdrant_settings.collection_name}' does not exist.")
-                raise QdrantKBError(f"Qdrant collection '{qdrant_settings.collection_name}' does not exist.")
+            if not self.client.collection_exists(collection_name=self.qdrant_settings.collection_name):
+                self.logger.error(f"Qdrant collection '{self.qdrant_settings.collection_name}' does not exist.")
+                raise QdrantKBError(f"Qdrant collection '{self.qdrant_settings.collection_name}' does not exist.")
 
-            collection_info: CollectionInfo = self.client.get_collection(collection_name=qdrant_settings.collection_name)
+            collection_info: CollectionInfo = self.client.get_collection(collection_name=self.qdrant_settings.collection_name)
             if collection_info.points_count == 0:
-                self.logger.warning(f"Qdrant collection '{qdrant_settings.collection_name}' exists but is empty.")
+                self.logger.warning(f"Qdrant collection '{self.qdrant_settings.collection_name}' exists but is empty.")
 
         except ApiException as e:
             self.logger.error("Error checking Qdrant collection existence or retrieving collection info", exc_info=True)
@@ -91,40 +92,40 @@ class QdrantKBClient:
         # Create LangChain embedding model
         self.embeddings: Embeddings
 
-        match genai_settings.sdk:
+        match self.genai_settings.sdk:
             case "openai":
                 from langchain_openai import OpenAIEmbeddings
 
                 self.embeddings = OpenAIEmbeddings(
-                    model=genai_settings.embedding_model,
-                    dimensions=qdrant_settings.vector_dimension,
-                    max_retries=genai_settings.max_retries,
+                    model=self.genai_settings.embedding_model,
+                    dimensions=self.qdrant_settings.vector_dimension,
+                    max_retries=self.genai_settings.max_retries,
                 )
             case _:
-                self.logger.error(f"Unsupported GenAI SDK '{genai_settings.sdk}' for embeddings")
-                raise QdrantKBError(f"Unsupported GenAI SDK '{genai_settings.sdk}' for embeddings")
+                self.logger.error(f"Unsupported GenAI SDK '{self.genai_settings.sdk}' for embeddings")
+                raise QdrantKBError(f"Unsupported GenAI SDK '{self.genai_settings.sdk}' for embeddings")
 
         # Test embedding to ensure configuration is correct
         test_result: list[float] = self.embeddings.embed_query("This is a test string")
-        if len(test_result) != qdrant_settings.vector_dimension:
+        if len(test_result) != self.qdrant_settings.vector_dimension:
             self.logger.error(
-                f"Embedding dimension mismatch: expected {qdrant_settings.vector_dimension}, got {len(test_result)}. Check your GenAI embedding model configuration."
+                f"Embedding dimension mismatch: expected {self.qdrant_settings.vector_dimension}, got {len(test_result)}. Check your GenAI embedding model configuration."
             )
             raise QdrantKBError(
-                f"Embedding dimension mismatch: expected {qdrant_settings.vector_dimension}, got {len(test_result)}. Check your GenAI embedding model configuration."
+                f"Embedding dimension mismatch: expected {self.qdrant_settings.vector_dimension}, got {len(test_result)}. Check your GenAI embedding model configuration."
             )
 
         # Create LangChain Qdrant vector store
         self.vectorstore = QdrantVectorStore(
             client=self.client,
-            collection_name=qdrant_settings.collection_name,
+            collection_name=self.qdrant_settings.collection_name,
             embedding=self.embeddings,
-            vector_name=qdrant_settings.vector_name,
+            vector_name=self.qdrant_settings.vector_name,
         )
 
         self.retriever: VectorStoreRetriever = self.vectorstore.as_retriever(
             search_type="similarity",
-            search_kwargs={"k": qdrant_settings.retrieval_num_documents},
+            search_kwargs={"k": self.qdrant_settings.retrieval_num_documents},
         )
 
     async def acreate_snapshot(self) -> bool:
@@ -218,10 +219,11 @@ class QdrantKBClient:
         ids_to_add: list[str] = []
         for content_item, metadata_item, id_item in zip(content, metadata, ids):
             if id_item is None:
-                title: str | None = metadata_item.get("title")
-                if title is None:
-                    raise ValueError("ID is not provided and 'title' is missing from metadata, cannot generate UUID for document")
-                id_item = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=title)
+                answer_id: str | None = metadata_item.get("answer_id")
+                kb_id: str | None = self.settings.zammad.knowledge_base_id
+                if answer_id is None or kb_id is None:
+                    raise ValueError("ID is not provided and required metadata is missing, cannot generate UUID for document")
+                id_item: UUID = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=f"KB-{kb_id}-Answer-{answer_id}")
             documents_to_add.append(Document(page_content=content_item, metadata=metadata_item))
             ids_to_add.append(str(id_item))
         await self.vectorstore.aadd_documents(documents=documents_to_add, ids=ids_to_add)
@@ -249,10 +251,11 @@ class QdrantKBClient:
         ids_to_add: list[str] = []
         for content_item, metadata_item, id_item in zip(content, metadata, ids):
             if id_item is None:
-                title: str | None = metadata_item.get("title")
-                if title is None:
-                    raise ValueError("ID is not provided and 'title' is missing from metadata, cannot generate UUID for document")
-                id_item = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=title)
+                answer_id: str | None = metadata_item.get("answer_id")
+                kb_id: str | None = self.settings.zammad.knowledge_base_id
+                if answer_id is None or kb_id is None:
+                    raise ValueError("ID is not provided and required metadata is missing, cannot generate UUID for document")
+                id_item: UUID = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=f"KB-{kb_id}-Answer-{answer_id}")
             document = Document(page_content=content_item, metadata=metadata_item)
             documents_to_add.append(document)
             ids_to_add.append(str(id_item))

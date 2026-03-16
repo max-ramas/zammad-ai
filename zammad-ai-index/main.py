@@ -58,8 +58,7 @@ class IndexingApplication:
 
         # Initialize Qdrant client
         self.qdrant_client: QdrantKBClient = QdrantKBClient(
-            self.settings.qdrant,
-            self.settings.genai,
+            self.settings,
         )
         self.logger.info("Initialized Qdrant client")
 
