@@ -224,7 +224,7 @@ class TriageService:
 
         Parameters:
             message (str): Customer message to categorize; leading/trailing whitespace is ignored.
-            session_id (int): Langfuse session identifier used for tracing the prediction.
+            session_id (str): Langfuse session identifier used for tracing the prediction.
 
         Returns:
             CategorizationResult: Object containing `category`, `reasoning`, `confidence`, and optional `extracted_values`. If the message is empty or the model returns an invalid category, the `category` will be the service's `no_category`, `reasoning` will explain the fallback, and `confidence` will be 1.0.
