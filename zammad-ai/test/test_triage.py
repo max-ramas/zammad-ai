@@ -527,7 +527,7 @@ async def test_get_action_id_processing_id_condition(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(triage_module, "ZammadAPIClient", FakeZammadClient)
     settings = create_mock_settings(action_rules=action_rules)
     triage = Triage(settings=settings)
-    triage.genai_handler.processing_id_response = ProcessingIdResponse(processing_id="ABC", condition_met=True)  # type: ignore
+    triage.genai_handler.processing_id_response = ProcessingIdResponse(processing_id="ABC")  # type: ignore
     categorization = CategorizationResult(category=Category(name="General", id=1), reasoning="ok", confidence=0.8)
 
     action_id = await triage.get_action_id(categorization_result=categorization, message="msg", session_id="s")
