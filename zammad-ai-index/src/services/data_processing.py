@@ -22,7 +22,7 @@ class DataProcessingService:
     detection to optimize indexing performance.
     """
 
-    def __init__(self, base_url: HttpUrl | None = None, knowledge_base_id: str | None = None) -> None:
+    def __init__(self, knowledge_base_id: int, base_url: HttpUrl | None = None) -> None:
         """Initialize the data processing service.
 
         Args:
@@ -32,7 +32,7 @@ class DataProcessingService:
         """
         self.logger: Logger = getLogger("zammad-ai-index.data-processing")
         self.base_url: HttpUrl | None = base_url
-        self.knowledge_base_id: str | None = knowledge_base_id
+        self.knowledge_base_id: int = knowledge_base_id
 
     async def prepare_qdrant_data(
         self,
@@ -62,9 +62,9 @@ class DataProcessingService:
 
                 # Create metadata
                 metadata: QdrantVectorMetadata = self._create_vector_metadata(answer, page_content)
-
+                vector_id: UUID = uuid5(ZAMMAD_AI_NAMESPACE, f"KB-{metadata.answer_kb_id}-Answer-{metadata.answer_id}")
                 item = QdrantDocumentItem(
-                    vector_id=metadata.vector_id,
+                    vector_id=vector_id,
                     page_content=page_content,
                     metadata=metadata,
                 )
@@ -133,13 +133,13 @@ class DataProcessingService:
 
         """
         answer_url = None
-        if self.knowledge_base_id and self.base_url:
+        if self.base_url:
             answer_url = f"{self.base_url}#knowledge_base/{self.knowledge_base_id}/locale/de-de/answer/{answer.id}"
 
         return QdrantVectorMetadata(
-            vector_id=uuid5(ZAMMAD_AI_NAMESPACE, f"KB-{self.knowledge_base_id}-Answer-{answer.id}"),
             vector_updatedAt=datetime.now(timezone.utc),
             answer_id=answer.id,
+            answer_kb_id=self.knowledge_base_id,
             answer_title=answer.answerTitle,
             answer_body=answer.answerBody,
             answer_createdAt=answer.createdAt,

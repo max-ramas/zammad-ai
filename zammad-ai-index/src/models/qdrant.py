@@ -7,10 +7,10 @@ from src.models.zammad import KnowledgeBaseAttachment
 
 class QdrantVectorMetadata(BaseModel):
     # vector info
-    vector_id: UUID
     vector_updatedAt: datetime
     # answer info
     answer_id: int
+    answer_kb_id: int
     answer_title: str
     answer_body: str
     answer_createdAt: datetime

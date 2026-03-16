@@ -11,10 +11,9 @@ class BaseZammadSettings(BaseModel, ABC):
     Base settings for Zammad integration, including common configuration options for both API and EAI integrations.
     """
 
-    knowledge_base_id: str | None = Field(
-        description="The ID of the knowledge base to use for retrieving documents. If set to None, the knowledge base functionality will be disabled.",
-        examples=["1"],
-        default=None,
+    knowledge_base_id: int = Field(
+        description="The ID of the knowledge base to use for retrieving documents.",
+        examples=[1],
     )
     timeout: int = Field(
         description="HTTP timeout in seconds for requests to Zammad.",
