@@ -11,7 +11,7 @@ from app.models.answer import StructuredAgentResponse
 from app.settings import GenAISettings
 from app.utils.logging import getLogger
 
-from .dlf import DLFClient, DLFDocument, DLFError
+from .dlf import DLFClient, DLFDocument, DLFError, SearchDLFInput
 from .knowledgebase import QdrantKBClient, QdrantKBError, RetrieveDocumentsKBOutput, SearchQdrantKBInput
 
 logger: Logger = getLogger("zammad-ai.answer.agent")
@@ -29,7 +29,7 @@ class AgentContext(BaseModel):
 @tool(
     "search_website",
     description="Search the city of munich website including all public service descriptions and information articles for relevant documents",
-    # args_schema=SearchDLFInput,
+    args_schema=SearchDLFInput,
     parse_docstring=False,
     response_format="content",
 )
@@ -46,10 +46,16 @@ async def search_dlf(runtime: ToolRuntime[AgentContext], query: str) -> list[DLF
     Raises:
         ToolException: If the DLF client is not initialized in the runtime context or if an HTTP error occurs during retrieval.
     """
-    if runtime.context.dlf_client is None:
+    dlf_client: DLFClient | None = runtime.context.dlf_client
+
+    if dlf_client is None:
         logger.error("DLF client is not initialized in the agent context.")
         raise ToolException("Failed to search the munich city website. Please try other tools for now.")
-    dlf_client: DLFClient = runtime.context.dlf_client
+
+    if len(query) > dlf_client.query_max_length:
+        logger.warning(f"Query length exceeds maximum allowed characters of {dlf_client.query_max_length}. Truncating query.")
+        query = query[: dlf_client.query_max_length]
+
     try:
         dlf_docs: list[DLFDocument] = await dlf_client.retrieve_documents(query=query)
         return dlf_docs

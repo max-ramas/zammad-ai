@@ -376,6 +376,8 @@ class TriageService:
         This closes the underlying Zammad client and resets the module-level service reference so a new instance can be created on next request.
         """
         await self.zammad_client.close()
+        global _service
+        _service = None
         logger.info("Triage resources cleaned up.")
 
 

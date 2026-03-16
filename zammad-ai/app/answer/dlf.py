@@ -7,6 +7,8 @@ from stamina import retry_context
 from app.settings.answer import DLFSettings
 from app.utils.logging import getLogger
 
+QUERY_MAX_LENGTH: int = 200
+
 logger: Logger = getLogger("zammad-ai.answer.dlf")
 
 
@@ -36,8 +38,8 @@ class DLFAPIResponse(BaseModel):
 
 class SearchDLFInput(BaseModel):
     query: str = Field(
-        description="The search query string; maximum length is 200 characters (~ 20 words).",
-        max_length=200,
+        description=f"The search query string; maximum length is {QUERY_MAX_LENGTH} characters (~ {QUERY_MAX_LENGTH // 10} words).",
+        max_length=QUERY_MAX_LENGTH,
     )
 
 
@@ -66,6 +68,7 @@ class DLFClient:
             base_url=dlf_settings.url.encoded_string(),
             timeout=dlf_settings.timeout,
         )
+        self.query_max_length: int = QUERY_MAX_LENGTH
         self.categories: list[str] = dlf_settings.filter_categories
         self.attempts: int = dlf_settings.max_retries + 1  # Total attempts = initial try + retries
         self.logger = logger
@@ -105,7 +108,7 @@ class DLFClient:
                     return dlf_response.documents
         except Exception as e:
             self.logger.error(
-                f"Failed to retrieve documents from DLF for query '{query}' and categories {self.categories}.",
+                msg="Failed to retrieve documents from DLF.",
                 exc_info=True,
             )
             raise DLFError("Failed to retrieve documents from DLF.") from e

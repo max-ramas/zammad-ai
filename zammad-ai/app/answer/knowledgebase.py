@@ -2,8 +2,8 @@ from logging import Logger
 from typing import Any
 from uuid import NAMESPACE_DNS, UUID, uuid5
 
-from langchain.embeddings import Embeddings
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_qdrant import QdrantVectorStore
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
