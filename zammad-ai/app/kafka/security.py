@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import pkcs12
 from faststream.security import BaseSecurity
 
-from app.core.settings.kafka import KafkaMTLSEnvSecurity, KafkaMTLSFileSecurity, KafkaSettings
+from app.settings.kafka import DisableKafkaSecurity, KafkaSettings, MTLSFileKafkaSecurity, MTLSKafkaEnvSecurity
 from app.utils.logging import getLogger
 
 logger: Logger = getLogger("zammad-ai.kafka.security")
@@ -19,21 +19,24 @@ logger: Logger = getLogger("zammad-ai.kafka.security")
 
 def setup_security(kafka_settings: KafkaSettings) -> BaseSecurity:
     """
-    Configure and return a BaseSecurity for Kafka based on the provided KafkaSettings.
+    Configure Kafka TLS/mTLS according to the provided Kafka settings.
+
+    Parameters:
+        kafka_settings (KafkaSettings): Kafka configuration describing either disabled security, mTLS provided via environment variables, or mTLS provided via file paths.
 
     Returns:
-        BaseSecurity: A security object configured with an SSLContext and use_ssl=True when mTLS is configured; returns a default (no-security) BaseSecurity if kafka_settings.security is None.
+        BaseSecurity: A security object containing an SSLContext configured with the CA and client certificate/key and with use_ssl=True; returns a default no-security BaseSecurity when security is disabled.
 
     Raises:
-        ValueError: If environment-provided base64 fields are invalid, if the PKCS#12 data or password cannot be decoded or loaded, if the PKCS#12 archive lacks a private key or certificate, or if the kafka_settings.security type is unsupported.
+        ValueError: If any required base64-encoded input is invalid, if the PKCS#12 archive or its password cannot be decoded or loaded, if the PKCS#12 archive lacks a private key or certificate, or if the kafka_settings.security type is unsupported.
     """
-    if kafka_settings.security is None:
+    if isinstance(kafka_settings.security, DisableKafkaSecurity):
         logger.debug("No Kafka security configuration provided; using no security.")
         return BaseSecurity()
 
     with TemporaryDirectory() as tempdir:
         tempdir_path: Path = Path(tempdir)
-        if isinstance(kafka_settings.security, KafkaMTLSEnvSecurity):
+        if isinstance(kafka_settings.security, MTLSKafkaEnvSecurity):
             logger.debug("Setting up Kafka mTLS security using environment variables.")
             # Unpack CA file
             try:
@@ -78,7 +81,7 @@ def setup_security(kafka_settings: KafkaSettings) -> BaseSecurity:
                         encryption_algorithm=serialization.NoEncryption(),
                     )
                 )
-        elif isinstance(kafka_settings.security, KafkaMTLSFileSecurity):
+        elif isinstance(kafka_settings.security, MTLSFileKafkaSecurity):
             # Load CA data from file
             with open(file=kafka_settings.security.ca_file_path, mode="r") as f:
                 ca_data = f.read()

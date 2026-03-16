@@ -2,20 +2,20 @@ from fastapi import APIRouter, Depends, Request
 
 from app.models.api_v1 import TriageInput, TriageOutput
 from app.models.triage import CategorizationResult, TriageResult
-from app.triage.triage import Triage
+from app.triage.triage import TriageService
 
 
-def get_triage(request: Request) -> Triage:
+def triage_dependency(request: Request) -> TriageService:
     """
-    Retrieve the request-scoped Triage instance stored on the FastAPI application state.
+    Retrieve the request-scoped TriageService instance from the FastAPI application state.
 
     Parameters:
-        request (Request): FastAPI request whose application state contains the Triage instance.
+        request (Request): Incoming FastAPI request whose app.state contains the service.
 
     Returns:
-        Triage: The Triage instance found at request.app.state.triage.
+        TriageService: The TriageService instance stored at request.app.state.triage_service.
     """
-    return request.app.state.triage
+    return request.app.state.triage_service
 
 
 triage_router = APIRouter(
@@ -27,7 +27,7 @@ triage_router = APIRouter(
 @triage_router.post(path="")
 async def triage(
     input: TriageInput,
-    triage: Triage = Depends(get_triage),
+    service: TriageService = Depends(triage_dependency),
 ) -> TriageOutput:
     """
     Handle a triage request by classifying the input text, selecting an action, and returning a structured triage result.
@@ -45,18 +45,19 @@ async def triage(
     text = input.text
 
     # Get categorization result
-    categorization: CategorizationResult = await triage.predict_category(text, session_id=input.session_id)
+    categorization: CategorizationResult = await service.predict_category(text, session_id=input.session_id)
 
     # Determine action based on category
-    action_id = await triage.get_action_id(categorization, message=text, session_id=input.session_id)
-    action = triage._id_to_action(action_id)
-    final_category = categorization.category if categorization.category else triage.no_category
+    action_id = await service.get_action_id(categorization, message=text, session_id=input.session_id)
+    action = service._id_to_action(action_id)
+    final_category = categorization.category if categorization.category else service.no_category
     return TriageOutput(
         triage=TriageResult(
             category=final_category,
             action=action,
             reasoning=categorization.reasoning,
             confidence=categorization.confidence,
+            extracted_values=categorization.extracted_values,
         ),
         session_id=input.session_id,
     )

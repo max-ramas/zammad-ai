@@ -11,9 +11,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig, RunnableSequence
 from langfuse import observe
 
-from app.core.settings.genai import GenAISettings
 from app.models.triage import CategorizationResult, DaysSinceRequestResponse, ProcessingIdResponse
-from app.observe.observer import LangfuseClient
+from app.observe import LangfuseClient
+from app.settings.genai import GenAISettings
 from app.utils.logging import getLogger
 
 logger: Logger = getLogger("zammad-ai.genai_handler")
