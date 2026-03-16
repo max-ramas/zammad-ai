@@ -86,7 +86,7 @@ class FakeGenAIHandler:
             return self.days_since_request_response
         elif schema == ProcessingIdResponse:
             if self.processing_id_response is None:
-                return ProcessingIdResponse(processing_id="", condition_met=False)
+                return ProcessingIdResponse(processing_id="")
             return self.processing_id_response
         else:
             return {}
@@ -130,10 +130,9 @@ class FakeGenAIHandler:
         self,
         *,
         message: str,
-        condition: str,
         session_id: str | None = None,
     ) -> ProcessingIdResponse:
-        del message, condition, session_id
+        del message, session_id
         result = await self._invoke(
             prompt_key="processing_id",
             input={},
