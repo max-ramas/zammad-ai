@@ -19,9 +19,8 @@ class IndexJobSettings(BaseModel):
         default=50,
     )
 
-
-@field_validator("interval", "batch_size", mode="before")
-def validate_non_negative(cls, value, field):
-    if value < 0:
-        raise ValueError(f"{field.name} must be a non-negative and non-zero integer")
-    return value
+    @field_validator("interval", "batch_size", mode="before")
+    def validate_non_negative(cls, value, field):
+        if value < 0:
+            raise ValueError(f"{field.name} must be a non-negative and non-zero integer")
+        return value

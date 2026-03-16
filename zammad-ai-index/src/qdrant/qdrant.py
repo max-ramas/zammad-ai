@@ -6,7 +6,6 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_qdrant import QdrantVectorStore
-from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
 from qdrant_client import AsyncQdrantClient, QdrantClient
 from qdrant_client.http.exceptions import ApiException
 from qdrant_client.http.models import CollectionInfo
@@ -21,27 +20,6 @@ ZAMMAD_AI_NAMESPACE: UUID = uuid5(
     namespace=NAMESPACE_DNS,
     name="zammad-ai.muenchen.de",
 )
-
-
-class SearchQdrantKBInput(BaseModel):
-    query: str = Field(
-        description="The search query string; should be concise and focused on the information needed; maximum length is 200 characters (~ 20 words).",
-        max_length=200,
-    )
-    num_documents: PositiveInt = Field(
-        default=5,
-        description="The number of relevant documents to retrieve; should be a positive integer; default is 5.",
-    )
-    offset: NonNegativeInt = Field(
-        default=0,
-        description="The number of top relevant documents to skip for pagination; should be a non-negative integer; default is 0. Good for retrieving the next set of results in subsequent calls with the same query.",
-    )
-
-
-class RetrieveDocumentsKBOutput(BaseModel):
-    documents_with_relevance_score: list[tuple[Document, float]] = Field(
-        description="A list of tuples containing retrieved documents and their corresponding relevance scores between 0 and 1; the list is ordered by relevance score in descending order.",
-    )
 
 
 class QdrantKBError(Exception):
@@ -147,54 +125,6 @@ class QdrantKBClient:
         """
         snapshot_description: SnapshotDescription | None = self.client.create_snapshot(collection_name=self.collection_name, wait=True)
         return snapshot_description is not None
-
-    async def asearch_documents(
-        self,
-        query: str,
-        k: int | None = None,
-        offset: int = 0,
-    ) -> list[tuple[Document, float]]:
-        """Search for relevant documents in the Qdrant collection based on a query string.
-
-        Args:
-            query (str): The query string to search for relevant documents.
-            k (int, optional): The number of top relevant documents to return.
-            offset (int, optional): The number of top relevant documents to skip for pagination. Defaults to 0.
-
-        Returns:
-            list[tuple[Document, float]]: A list of tuples containing relevant documents and their corresponding relevance scores between 0 and 1.
-        """
-        if k is None:
-            k = self.qdrant_settings.retrieval_num_documents
-        return await self.vectorstore.asimilarity_search_with_relevance_scores(
-            query=query,
-            k=k,
-            offset=offset,
-        )
-
-    def search_documents(
-        self,
-        query: str,
-        k: int | None = None,
-        offset: int = 0,
-    ) -> list[tuple[Document, float]]:
-        """Search for relevant documents in the Qdrant collection based on a query string.
-
-        Args:
-            query (str): The query string to search for relevant documents.
-            k (int, optional): The number of top relevant documents to return.
-            offset (int, optional): The number of top relevant documents to skip for pagination. Defaults to 0.
-
-        Returns:
-            list[tuple[Document, float]]: A list of tuples containing relevant documents and their corresponding relevance scores between 0 and 1.
-        """
-        if k is None:
-            k = self.qdrant_settings.retrieval_num_documents
-        return self.vectorstore.similarity_search_with_relevance_scores(
-            query=query,
-            k=k,
-            offset=offset,
-        )
 
     async def aadd_documents(self, content: list[str], metadata: list[dict[str, Any]], id: list[UUID | None] = []) -> None:
         """Add multiple documents to the Qdrant collection with the given content, metadata, and optional IDs.

@@ -180,7 +180,6 @@ class IndexingApplication:
         """
         # Prepare data for Qdrant indexing
         qdrant_data: list[QdrantDocumentItem] = await self.data_processing_service.prepare_qdrant_data(
-            client=self.zammad_client,
             answers=answers,
             retrieval_service=self.data_retrieval_service,
         )

@@ -12,8 +12,6 @@ from src.qdrant.qdrant import ZAMMAD_AI_NAMESPACE
 from src.services.data_retrieval import DataRetrievalService
 from src.utils.hash import hash_content, normalize_content
 from src.utils.logging import getLogger
-from src.zammad.api import ZammadAPIClient
-from src.zammad.eai import ZammadEAIClient
 
 
 class DataProcessingService:
@@ -38,14 +36,12 @@ class DataProcessingService:
 
     async def prepare_qdrant_data(
         self,
-        client: ZammadAPIClient | ZammadEAIClient,
         answers: dict[int, KnowledgeBaseAnswer],
         retrieval_service: DataRetrievalService,
     ) -> list[QdrantDocumentItem]:
         """Prepare data for Qdrant indexing based on knowledge base answers.
 
         Args:
-            client: Zammad client instance (API or EAI)
             answers: Dictionary of answer ID to KnowledgeBaseAnswer objects
             retrieval_service: Service for retrieving attachment data
 
