@@ -43,7 +43,7 @@ class GenAIHandler:
         Raises:
             ValueError: If an unsupported GenAI SDK is specified or if prompts is empty/contains empty values.
         """
-        self.prompts = prompts
+        self.prompts: dict[str, str] = prompts
         self._chains: dict[str, RunnableSequence[Any, Any]] = {}  # Cache for built chains
         # TODO: Refactor langfuse client as optional argument, if not passed there is no tracing and no handler is passed to the chains
         self.langfuse_client = LangfuseClient()
@@ -126,37 +126,6 @@ class GenAIHandler:
 
         return self._chains[cache_key]
 
-    def _build_chain_input_for_categorization(
-        self,
-        *,
-        message: str,
-        role_description: str,
-        categories: list[Any],
-        categories_prompt: str,
-        examples: str,
-    ) -> dict[str, Any]:
-        """Build the explicit input payload for category prediction."""
-        return {
-            "text": message,
-            "role_description": role_description,
-            "categories": categories,
-            "categories_prompt": categories_prompt,
-            "examples": examples,
-        }
-
-    def _build_chain_input_for_days_since_request(self, *, message: str, today: str) -> dict[str, Any]:
-        """Build the explicit input payload for days-since-request extraction."""
-        return {
-            "text": message,
-            "today": today,
-        }
-
-    def _build_chain_input_for_processing_id(self, *, message: str) -> dict[str, Any]:
-        """Build the explicit input payload for processing-id extraction."""
-        return {
-            "text": message,
-        }
-
     def _build_runnable_config(self, session_id: str | None) -> tuple[str, RunnableConfig]:
         """Build tracing config and ensure we always have a session id."""
         resolved_session_id = session_id
@@ -178,36 +147,38 @@ class GenAIHandler:
         session_id: str | None = None,
     ) -> CategorizationResult:
         """Run the category prediction LLM call used by triage."""
-        input_payload = self._build_chain_input_for_categorization(
-            message=message,
-            role_description=role_description,
-            categories=categories,
-            categories_prompt=categories_prompt,
-            examples=examples,
-        )
         return await self._invoke(
-            prompt_key="categories",
-            input=input_payload,
+            prompt_key="categorization",
+            input={
+                "text": message,
+                "role_description": role_description,
+                "categories": categories,
+                "categories_prompt": categories_prompt,
+                "examples": examples,
+            },
             session_id=session_id,
             schema=CategorizationResult,
         )
 
     async def extract_days_since_request(self, *, message: str, today: str, session_id: str | None = None) -> DaysSinceRequestResponse:
         """Run the days-since-request extraction call used in action rule evaluation."""
-        input_payload = self._build_chain_input_for_days_since_request(message=message, today=today)
         return await self._invoke(
             prompt_key="days_since_request",
-            input=input_payload,
+            input={
+                "text": message,
+                "today": today,
+            },
             session_id=session_id,
             schema=DaysSinceRequestResponse,
         )
 
     async def extract_processing_id(self, *, message: str, session_id: str | None = None) -> ProcessingIdResponse:
         """Run the processing-id extraction call used in action rule evaluation."""
-        input_payload = self._build_chain_input_for_processing_id(message=message)
         return await self._invoke(
             prompt_key="processing_id",
-            input=input_payload,
+            input={
+                "text": message,
+            },
             session_id=session_id,
             schema=ProcessingIdResponse,
         )
