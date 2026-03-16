@@ -57,6 +57,10 @@ export default defineConfig({
             link: "/components/kafka",
           },
           {
+            text: "Frontend module",
+            link: "/components/frontend",
+          },
+          {
             text: "Triage",
             link: "/components/triage",
           },

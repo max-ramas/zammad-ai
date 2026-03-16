@@ -1,16 +1,10 @@
-from __future__ import annotations
+from typing import Literal
 
-from abc import ABC
-from typing import Annotated, Literal
-
-from pydantic import BaseModel, ConfigDict, Field, FilePath
+from pydantic import BaseModel, Field, FilePath
 
 
 class KafkaSettings(BaseModel):
-    """
-
-    Settings related to Kafka integration.
-    """
+    """Settings related to Kafka integration."""
 
     broker_url: str = Field(
         description="URL of the Kafka message broker notifying ticket events.",
@@ -27,31 +21,23 @@ class KafkaSettings(BaseModel):
         default=None,
     )
 
-    security: (
-        Annotated[
-            KafkaMTLSEnvSecurity | KafkaMTLSFileSecurity,
-            Field(discriminator="type"),
-        ]
-        | None
-    ) = Field(
-        default=None,
+    security: "MTLSKafkaEnvSecurity | MTLSFileKafkaSecurity | DisableKafkaSecurity" = Field(
         description="Security configuration for Kafka connection.",
+        default_factory=lambda: DisableKafkaSecurity(),
+        discriminator="type",
     )
 
 
-class KafkaSecurity(BaseModel, ABC):
-    """Base class for Kafka security configurations."""
+class DisableKafkaSecurity(BaseModel):
+    """Explicitly disable Kafka security (e.g., for plaintext connections)."""
 
-    model_config = ConfigDict(extra="forbid")
+    type: Literal["none"] = "none"
 
 
-class KafkaMTLSEnvSecurity(KafkaSecurity):
+class MTLSKafkaEnvSecurity(BaseModel):
     """mTLS configuration for Kafka connection using environment variables only."""
 
-    type: Literal["env"] = Field(
-        description="Discriminator for environment-based mTLS configuration.",
-        default="env",
-    )
+    type: Literal["env"] = "env"
 
     ca_file_base64: str = Field(
         description="Base64-encoded CA certificate.",
@@ -66,13 +52,10 @@ class KafkaMTLSEnvSecurity(KafkaSecurity):
     )
 
 
-class KafkaMTLSFileSecurity(KafkaSecurity):
+class MTLSFileKafkaSecurity(BaseModel):
     """mTLS configuration for Kafka connection using file paths."""
 
-    type: Literal["file"] = Field(
-        description="Discriminator for file-based mTLS configuration.",
-        default="file",
-    )
+    type: Literal["file"] = "file"
 
     ca_file_path: FilePath = Field(
         description="Path to the CA certificate file (PEM format).",
