@@ -72,7 +72,14 @@ class ZammadEAIClient(BaseZammadClient):
         expires_in = token_resp.get("expires_in", 3600)
         self._token_expires = datetime.now() + timedelta(seconds=expires_in)
 
-    def _request(self, method: str, url: str, **kwargs) -> Any:
+    def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        parse_json: bool = True,
+        **kwargs,
+    ) -> Any:
         """Make authenticated request with OAuth bearer token."""
         self._ensure_auth()
 
@@ -80,7 +87,7 @@ class ZammadEAIClient(BaseZammadClient):
         headers["Authorization"] = f"Bearer {self._token}"
         kwargs["headers"] = headers
 
-        return super()._request(method, url, **kwargs)
+        return super()._request(method, url, parse_json=parse_json, **kwargs)
 
     @override
     def kb_info(self) -> ZammadKnowledgebase | None:
@@ -128,7 +135,7 @@ class ZammadEAIClient(BaseZammadClient):
 
     @override
     def fetch_kb_attachment_data(self, id: int) -> str | None:
-        data = self._request("GET", f"/attachments/{id}") if id else None
+        data = self._request("GET", f"/attachments/{id}", parse_json=False) if id else None
         if not (id and data):
             return None
         decoded = b64decode(data)

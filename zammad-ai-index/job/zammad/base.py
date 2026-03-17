@@ -89,8 +89,19 @@ class BaseZammadClient(ABC):
         self.client = Client(base_url=base_url, timeout=timeout, proxy=proxy_url)
         self.http_attempts = max_retries + 1
 
-    def _request(self, method: str, url: str, **kwargs) -> Any:
-        """Make HTTP request and return JSON or text."""
+    def _request(self, method: str, url: str, *, parse_json: bool = True, **kwargs) -> Any:
+        """Make HTTP request and return JSON, text, or base64.
+
+        Args:
+            method: HTTP method.
+            url: Relative request URL.
+            parse_json: Parse JSON responses into Python objects.
+            **kwargs: Additional request arguments forwarded to httpx.
+
+        Returns:
+            Any: Parsed JSON object, response text, or base64-encoded bytes.
+
+        """
         try:
             safe_methods = {"GET", "HEAD", "OPTIONS"}
             should_retry = method.upper() in safe_methods
@@ -114,7 +125,9 @@ class BaseZammadClient(ABC):
 
                     content_type = response.headers.get("Content-Type", "").lower()
                     if content_type.startswith("application/json"):
-                        return response.json()
+                        if parse_json:
+                            return response.json()
+                        return response.text
                     elif content_type.startswith("text/"):
                         return response.text
                     else:

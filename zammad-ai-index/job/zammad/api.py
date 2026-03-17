@@ -117,7 +117,7 @@ class ZammadAPIClient(BaseZammadClient):
 
     @override
     def fetch_kb_attachment_data(self, id: int) -> str | None:
-        return self._request("GET", f"/api/v1/attachments/{id}") if id else None
+        return self._request("GET", f"/api/v1/attachments/{id}", parse_json=False) if id else None
 
     @override
     def check_if_answer_exists(self, answer_id: int) -> bool:
