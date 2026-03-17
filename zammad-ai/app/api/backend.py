@@ -79,22 +79,17 @@ async def prometheus_http_metrics_middleware(
 ) -> Response:
     start_time: float = perf_counter()
     method: str = request.method
-
+    status_code = 500
     try:
         response: Response = await call_next(request)
-        status_code: int = response.status_code
+        status_code = response.status_code
+    except Exception:
+        raise
+    finally:
         route = request.scope.get("route")
         route_path: str = route.path if route is not None and hasattr(route, "path") else "unmatched"
-    except Exception:
-        status_code = 500
-        route = request.scope.get("route")
-        route_path = route.path if route is not None and hasattr(route, "path") else "unmatched"
         HTTP_REQUESTS_TOTAL.labels(method=method, path=route_path, status=str(status_code)).inc()
         HTTP_REQUEST_DURATION_SECONDS.labels(method=method, path=route_path, status=str(status_code)).observe(perf_counter() - start_time)
-        raise
-
-    HTTP_REQUESTS_TOTAL.labels(method=method, path=route_path, status=str(status_code)).inc()
-    HTTP_REQUEST_DURATION_SECONDS.labels(method=method, path=route_path, status=str(status_code)).observe(perf_counter() - start_time)
 
     return response
 
