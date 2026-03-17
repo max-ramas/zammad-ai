@@ -1,36 +1,24 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, CliSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict, YamlConfigSettingsSource
 
-from .answer import AnswerSettings
-from .frontend import FrontendSettings
 from .genai import GenAISettings
-from .kafka import KafkaSettings
+from .index import IndexJobSettings
 from .logging import LoggingSettings
-from .triage import TriageSettings
-from .usecase import UseCaseSettings
+from .qdrant import QdrantSettings
 from .zammad import ZammadAPISettings, ZammadEAISettings
 
 
 def _is_test_mode() -> bool:
-    """
-    Detect whether configuration loading should treat the environment as a test context.
+    """Check if settings are loaded in a test context.
 
-    Returns:
-        bool: `True` if the `PYTEST_CURRENT_TEST` environment variable is present or
-        if `ZAMMAD_AI_DISABLE_YAML` is set to `"1"`, `"true"`, or `"yes"` (case-insensitive),
-        `False` otherwise.
+    YAML should only be disabled for pytest runs or when explicitly requested.
     """
     import os
-    import sys
 
     if os.getenv("PYTEST_CURRENT_TEST"):
-        return True
-
-    argv_str = " ".join(sys.argv).lower()
-    if "pytest" in sys.modules or any(indicator in argv_str for indicator in ["pytest", "py.test", "unittest"]):
         return True
 
     if os.getenv("ZAMMAD_AI_DISABLE_YAML", "").lower() in {"1", "true", "yes"}:
@@ -40,12 +28,7 @@ def _is_test_mode() -> bool:
 
 
 def _should_enable_cli() -> bool:
-    """
-    Determine whether command-line argument parsing should be enabled.
-
-    Returns:
-        bool: `True` if no test runner indicators are detected in the environment or argv (allowing CLI parsing), `False` otherwise.
-    """
+    """Check if CLI parsing should be enabled based on sys.argv."""
     import sys
 
     if "pytest" in sys.modules:
@@ -56,19 +39,17 @@ def _should_enable_cli() -> bool:
     return not any(indicator in argv_str for indicator in test_indicators)
 
 
-class ZammadAISettings(BaseSettings):
+class ZammadAIIndexSettings(BaseSettings):
     """
     Application settings for Zammad AI integration.
     This class aggregates all configuration settings for the application, including GenAI, Langfuse, Zammad, Qdrant, Kafka, and triage settings.
     """
 
-    usecase: UseCaseSettings = Field(
-        description="Use case settings defining the specific AI application scenario.",
-        default_factory=lambda: UseCaseSettings(
-            name="default",
-            description="Default use case",
-        ),
+    index: IndexJobSettings = Field(
+        description="Settings for the indexing job, including configuration for fetching and processing knowledge base answers.",
+        default_factory=lambda: IndexJobSettings(),
     )
+
     genai: GenAISettings = Field(
         description="Settings for GenAI integration, including model selection and configuration.",
         default_factory=lambda: GenAISettings(),
@@ -79,34 +60,16 @@ class ZammadAISettings(BaseSettings):
         discriminator="type",
     )
 
-    kafka: KafkaSettings = Field(
-        description="Settings for Kafka integration, including broker URL, topic, and security configuration.",
-        default_factory=lambda: KafkaSettings(),
-    )
-
-    triage: TriageSettings = Field(
-        description="Settings for triage step, including categories, actions, and rules.",
-    )
-
-    frontend: FrontendSettings = Field(
-        description="Settings for optional mounted frontend, including auth and runtime behavior.",
-        default_factory=lambda: FrontendSettings(),
-    )
-
-    answer: AnswerSettings = Field(
-        description="Settings for answer generation step, including prompts and configuration.",
-        default_factory=lambda: AnswerSettings(),
-    )
-
     log: LoggingSettings = Field(
         description="Settings for logging configuration, including format selection.",
         default_factory=lambda: LoggingSettings(),
     )
 
-    valid_request_types: list[str] = Field(
-        min_length=1,
-        description="List of valid request types to be processed",
+    qdrant: QdrantSettings = Field(
+        description="Settings for Qdrant vector database integration, including host URL, API key, collection name, and vector configuration.",
+        default_factory=lambda: QdrantSettings(),
     )
+
     langfuse_enabled: bool = Field(
         description="Whether to enable Langfuse integration for logging and prompt fetching.",
         default=True,
@@ -115,22 +78,6 @@ class ZammadAISettings(BaseSettings):
         description="Application mode, affecting logging and other behavior.",
         default="production",
     )
-
-    @model_validator(mode="after")
-    def set_log_defaults(self) -> "ZammadAISettings":
-        """
-        Set default logging format and level when they are not explicitly configured.
-
-        If `log.format` or `log.level` is unset, populate them based on `mode`: use `"plain"` and `"DEBUG"` when mode is `"development"`, otherwise use `"json"` and `"INFO"`.
-
-        Returns:
-            ZammadAISettings: The settings instance with `log.format` and `log.level` set when they were previously `None`.
-        """
-        if self.log.format is None:
-            self.log.format = "plain" if self.mode == "development" else "json"
-        if self.log.level is None:
-            self.log.level = "DEBUG" if self.mode == "development" else "INFO"
-        return self
 
     model_config = SettingsConfigDict(
         env_prefix="ZAMMAD_AI_",
@@ -185,12 +132,12 @@ class ZammadAISettings(BaseSettings):
 
 
 @lru_cache(maxsize=1)
-def get_settings() -> ZammadAISettings:
+def get_settings() -> ZammadAIIndexSettings:
     """
     Provide the application's cached settings.
 
     Returns:
-        ZammadAISettings: The cached settings instance used by the application.
+        ZammadAIIndexSettings: The cached settings instance used by the application.
     """
 
-    return ZammadAISettings()  # type: ignore
+    return ZammadAIIndexSettings()  # type: ignore
