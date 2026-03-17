@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, CliSettingsSource, PydanticBaseSetti
 
 from .genai import GenAISettings
 from .index import IndexJobSettings
+from .logging import LoggingSettings
 from .qdrant import QdrantSettings
 from .zammad import ZammadAPISettings, ZammadEAISettings
 
@@ -57,6 +58,11 @@ class ZammadAIIndexSettings(BaseSettings):
     zammad: ZammadAPISettings | ZammadEAISettings = Field(
         description="Settings for Zammad integration, including API details and knowledge base configuration.",
         discriminator="type",
+    )
+
+    log: LoggingSettings = Field(
+        description="Settings for logging configuration, including format selection.",
+        default_factory=lambda: LoggingSettings(),
     )
 
     qdrant: QdrantSettings = Field(
