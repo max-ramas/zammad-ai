@@ -178,9 +178,18 @@ def fetch_attachments_for_answer(
     attachment_data: dict[int, tuple[str, str | None]] = {}
 
     for attachment in answer.attachments:
+        data: str | None = None
+
         if attachment.contentType.startswith("text/"):
-            data = client.fetch_kb_attachment_data(attachment.id)
-            attachment_data[attachment.id] = (attachment.filename, data)
+            try:
+                data: str | None = client.fetch_kb_attachment_data(attachment.id)
+            except Exception:
+                logger.error(
+                    "Failed to fetch attachment %d for answer ID %d",
+                    attachment.id,
+                    answer.id,
+                    exc_info=True,
+                )
         else:
             logger.info(
                 "Skipping non-text attachment %s (ID: %d) for answer ID %d due to unsupported content type: %s",
@@ -189,7 +198,8 @@ def fetch_attachments_for_answer(
                 answer.id,
                 attachment.contentType,
             )
-            attachment_data[attachment.id] = (attachment.filename, None)
+
+        attachment_data[attachment.id] = (attachment.filename, data)
 
     return attachment_data
 
@@ -208,27 +218,38 @@ def retrieve_deleted_answer_ids(all_points: list[Record], client: ZammadAPIClien
 
     """
 
+    deleted_ids: list[UUID] = []
     try:
-        deleted_ids: list[UUID] = []
         for point in all_points:
-            payload: dict[str, Any] | None = point.payload
-            if not payload:
-                logger.warning("Point with ID %s has no payload, skipping deletion check.", point.id)
-                continue
+            answer_id: int | None = None
+            try:
+                payload: dict[str, Any] | None = point.payload
+                if not payload:
+                    logger.warning("Point with ID %s has no payload, skipping deletion check.", point.id)
+                    continue
 
-            metadata = payload.get("metadata")
-            if not metadata:
-                logger.warning("Point with ID %s has no metadata, skipping deletion check.", point.id)
-                continue
+                metadata = payload.get("metadata")
+                if not metadata:
+                    logger.warning("Point with ID %s has no metadata, skipping deletion check.", point.id)
+                    continue
 
-            answer_id: int | None = metadata.get("answer_id")
-            if answer_id is not None:
-                if not client.check_if_answer_exists(int(answer_id)):
-                    logger.debug("Answer ID %d no longer exists in knowledge base, marking for deletion.", answer_id)
-                    deleted_ids.append(UUID(str(point.id)))
+                answer_id = metadata.get("answer_id")
+                if answer_id is not None:
+                    answer_id = int(answer_id)
+                    if not client.check_if_answer_exists(answer_id):
+                        logger.debug("Answer ID %d no longer exists in knowledge base, marking for deletion.", answer_id)
+                        deleted_ids.append(UUID(str(point.id)))
+            except Exception:
+                logger.error(
+                    "Failed to process point ID %s for deletion check (answer ID: %s).",
+                    point.id,
+                    answer_id,
+                    exc_info=True,
+                )
+                continue
 
         logger.info("Retrieved %d deleted answer IDs.", len(deleted_ids))
-        return deleted_ids
     except Exception:
         logger.error("Failed to retrieve deleted answer IDs.", exc_info=True)
-        return []
+
+    return deleted_ids

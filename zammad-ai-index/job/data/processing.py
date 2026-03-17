@@ -146,10 +146,22 @@ def filter_for_changed_data(new_qdrant_data: list[QdrantDocumentItem], all_point
         return []
 
     # Get vector IDs for batch lookup
-    vector_ids: list[UUID] = [item.vector_id for item in new_qdrant_data]
+    vector_ids: set[UUID] = {item.vector_id for item in new_qdrant_data}
 
     # Get all existing documents in one batch call for efficiency
-    qdrant_documents: dict[UUID, Record] = {UUID(str(point.id)): point for point in all_points if UUID(str(point.id)) in vector_ids}
+    qdrant_documents: dict[UUID, Record] = {}
+    for point in all_points:
+        try:
+            point_id = UUID(str(point.id))
+        except (TypeError, ValueError):
+            logger.warning(
+                "Skipping Qdrant point with non-UUID id %s during change detection.",
+                point.id,
+                exc_info=True,
+            )
+            continue
+        if point_id in vector_ids:
+            qdrant_documents[point_id] = point
 
     if not qdrant_documents:
         logger.info("No existing documents found in Qdrant, including all %d items for indexing.", len(new_qdrant_data))
