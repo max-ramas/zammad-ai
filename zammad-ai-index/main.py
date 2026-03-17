@@ -1,7 +1,14 @@
+# ruff: noqa: E402 (no import at top level) suppressed on this file as we need to inject the truststore before importing the other modules
+
+from dotenv import load_dotenv
+from truststore import inject_into_ssl
+
+inject_into_ssl()
+load_dotenv()
+
 from logging import Logger
 from uuid import UUID
 
-from dotenv import load_dotenv
 from job.data.processing import filter_for_changed_data, prepare_qdrant_data
 from job.data.retrieval import get_answers_data, retrieve_answer_ids, retrieve_deleted_answer_ids
 from job.models.qdrant import QdrantDocumentItem
@@ -13,11 +20,6 @@ from job.utils.logging import getLogger
 from job.zammad.api import ZammadAPIClient
 from job.zammad.eai import ZammadEAIClient
 from qdrant_client.models import Record
-from truststore import inject_into_ssl
-
-# Enable system trust store for SSL connections
-inject_into_ssl()
-load_dotenv()
 
 settings: ZammadAIIndexSettings = get_settings()
 logger: Logger = getLogger("zammad-ai-index")
