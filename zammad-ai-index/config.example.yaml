@@ -20,9 +20,9 @@ index:
 # ---------------------------------------------------------------------------
 # Logging configuration
 # ---------------------------------------------------------------------------
-logging:
-  # Log format style. Options: "json" for structured logging, "text" for human-readable logs.
-  format: text
+log:
+  # Log format style. Options: "json" for structured logging, "plain" for human-readable logs.
+  format: plain
   # Log level for the application. Options: DEBUG, INFO, WARNING, ERROR, CRITICAL.
   level: DEBUG
 
@@ -88,10 +88,12 @@ zammad:
   max_retries: 3
   # Optional HTTP proxy URL (e.g. http://proxy.example.com:3128).
   http_proxy_url: null
-  # Zammad API token — override via env or .env file.
+  # Required for incremental indexing when `type: api` and `full_indexing: false`.
   auth_token: CHANGE_ME
   # Optional RSS feed token for webhook-driven updates.
   rss_feed_token: null
+  # Optional locale for RSS feed (e.g., 'de-de').
+  rss_feed_locale: de-de
 
 # --- Option B: Zammad EAI (OAuth 2.0 Client Credentials) ---
 # Secrets: ZAMMAD_AI_ZAMMAD__OAUTH2_CLIENT_SECRET
