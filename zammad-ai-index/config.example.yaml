@@ -1,0 +1,110 @@
+# Application mode. Affects log verbosity and behavior.
+# Options: production | development | unittest
+mode: development
+
+# Enable Langfuse integration for LLM tracing and prompt management.
+langfuse_enabled: false
+
+# ---------------------------------------------------------------------------
+# Indexing job
+# ---------------------------------------------------------------------------
+index:
+  # Set to true to re-index all knowledge base answers regardless of age.
+  # Set to false to only index answers updated within the last `interval` days.
+  full_indexing: false
+  # Look-back window in days when full_indexing is false.
+  interval: 7
+  # Number of documents sent to Qdrant per upsert batch.
+  batch_size: 50
+
+# ---------------------------------------------------------------------------
+# Logging configuration
+# ---------------------------------------------------------------------------
+logging:
+  # Log format style. Options: "json" for structured logging, "text" for human-readable logs.
+  format: text
+  # Log level for the application. Options: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+  level: DEBUG
+
+# ---------------------------------------------------------------------------
+# GenAI / LLM
+# ---------------------------------------------------------------------------
+# Secrets (API key, base URL) must be provided via environment variables:
+#   ZAMMAD_AI_GENAI__API_KEY, ZAMMAD_AI_GENAI__BASE_URL
+genai:
+  # SDK backend to use. Currently only "openai" is supported.
+  sdk: openai
+  # Maximum number of retry attempts for LLM calls.
+  max_retries: 3
+  # Default model for all LLM tasks unless overridden below.
+  chat_model: gpt-4.1-mini
+  # Per-task model overrides (falls back to chat_model when null).
+  triage_model: null
+  answer_model: null
+  judge_model: null
+  # Reasoning effort for models that support extended thinking.
+  # Options: minimal | low | medium | high | null (disabled)
+  reasoning_effort: null
+  # Sampling temperature (0.0 = deterministic, 2.0 = very creative).
+  temperature: 0.0
+  # Model used to generate vector embeddings.
+  embedding_model: text-embedding-3-large
+
+# ---------------------------------------------------------------------------
+# Qdrant vector database
+# ---------------------------------------------------------------------------
+# Secret: ZAMMAD_AI_QDRANT__API_KEY
+qdrant:
+  # URL of the Qdrant instance.
+  url: http://localhost:6333
+  # API key for Qdrant; always set in production.
+  api_key: null
+  # Name of the Qdrant collection to store embeddings in.
+  collection_name: zammad-ai_default
+  # Optional vector namespace within the collection.
+  vector_name: ""
+  # Must match the output dimension of the configured embedding_model.
+  vector_dimension: 1024
+  # HTTP timeout in seconds for Qdrant client operations.
+  timeout: 60
+  # Number of nearest-neighbour documents to retrieve per search query.
+  retrieval_num_documents: 5
+
+# ---------------------------------------------------------------------------
+# Zammad connection — choose exactly one type (api or eai).
+# ---------------------------------------------------------------------------
+
+# --- Option A: direct Zammad REST API ---
+# Secrets: ZAMMAD_AI_ZAMMAD__AUTH_TOKEN, ZAMMAD_AI_ZAMMAD__RSS_FEED_TOKEN
+zammad:
+  type: api
+  # Base URL of your Zammad instance.
+  base_url: https://my-zammad.example.com
+  # ID of the knowledge base to index.
+  knowledge_base_id: 1
+  # HTTP timeout in seconds for Zammad requests (minimum 5).
+  timeout: 30
+  # Maximum retry attempts for failed HTTP requests.
+  max_retries: 3
+  # Optional HTTP proxy URL (e.g. http://proxy.example.com:3128).
+  http_proxy_url: null
+  # Zammad API token — override via env or .env file.
+  auth_token: CHANGE_ME
+  # Optional RSS feed token for webhook-driven updates.
+  rss_feed_token: null
+
+# --- Option B: Zammad EAI (OAuth 2.0 Client Credentials) ---
+# Secrets: ZAMMAD_AI_ZAMMAD__OAUTH2_CLIENT_SECRET
+# zammad:
+#   type: eai
+#   base_url: https://my-zammad.example.com
+#   knowledge_base_id: 1
+#   timeout: 30
+#   max_retries: 3
+#   http_proxy_url: null
+#   eai_url: https://my-zammad-eai.example.com/api/v1
+#   oauth2_client_id: CHANGE_ME
+#   oauth2_client_secret: CHANGE_ME
+#   oauth2_token_url: https://my-zammad-eai.example.com/oauth/token
+#   # Optional OAuth 2.0 scope string (leave null for server default).
+#   oauth2_scope: null
