@@ -2,6 +2,7 @@ from logging import Logger
 from typing import Any
 from uuid import NAMESPACE_DNS, UUID, uuid5
 
+from job.models.qdrant import QdrantDocumentItem
 from job.settings.genai import GenAISettings
 from job.settings.settings import QdrantSettings, ZammadAIIndexSettings
 from job.utils.logging import getLogger
@@ -109,35 +110,26 @@ class QdrantKBClient:
         snapshot_description: SnapshotDescription | None = self.client.create_snapshot(collection_name=self.collection_name, wait=True)
         return snapshot_description is not None
 
-    def add_documents(self, content: list[str], metadata: list[dict[str, Any]], id: list[UUID | None] = []) -> None:
-        """Add multiple documents to the Qdrant collection with the given content, metadata, and optional IDs.
+    def add_documents(self, items: list[QdrantDocumentItem]) -> None:
+        """Add multiple Qdrant document items to the collection.
 
         Args:
-            content (list[str]): A list of textual content for the documents to be added.
-            metadata (list[dict[str, Any]]): A list of dictionaries containing metadata associated with each document.
-            id (list[UUID | None], optional): A list of optional unique identifiers for the documents. If not provided or None for an item, a UUID will be generated based on the document title. Defaults to empty list.
+            items: List of QdrantDocumentItem objects containing vector id,
+                page content and metadata for each document.
 
         Returns:
             None
         """
-        ids: list[UUID | None] | list[None] = id
-        if len(metadata) != len(content):
-            raise ValueError("Length of 'metadata' and 'content' lists must match")
-        if id == []:
-            ids = [None] * len(content)
-        if not len(ids) == len(metadata) == len(content):
-            raise ValueError("Length of 'id' list must either match length of 'metadata' and 'content' lists or be an empty list")
+        if not items:
+            self.logger.debug("No documents provided to add_documents")
+            return
 
         documents_to_add: list[Document] = []
         ids_to_add: list[str] = []
-        for content_item, metadata_item, id_item in zip(content, metadata, ids):
-            if id_item is None:
-                answer_id: str | None = metadata_item.get("answer_id")
-                kb_id: int = self.settings.zammad.knowledge_base_id
-                if answer_id is None or kb_id is None:
-                    raise ValueError("ID is not provided and required metadata is missing, cannot generate UUID for document")
-                id_item: UUID = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=f"KB-{kb_id}-Answer-{answer_id}")
-            document = Document(page_content=content_item, metadata=metadata_item)
+        for item in items:
+            metadata_item: dict[str, Any] = item.metadata.model_dump(mode="json")
+            id_item: UUID = item.vector_id
+            document = Document(page_content=item.page_content, metadata=metadata_item)
             documents_to_add.append(document)
             ids_to_add.append(str(id_item))
         self.vectorstore.add_documents(documents=documents_to_add, ids=ids_to_add)

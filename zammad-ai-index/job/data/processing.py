@@ -4,10 +4,10 @@ from datetime import datetime, timezone
 from logging import Logger
 from uuid import UUID, uuid5
 
+from job.data.retrieval import fetch_attachments_for_answer
 from job.models.qdrant import QdrantDocumentItem, QdrantVectorMetadata
 from job.models.zammad import KnowledgeBaseAnswer
 from job.qdrant.qdrant import ZAMMAD_AI_NAMESPACE
-from job.services.data_retrieval import fetch_attachments_for_answer
 from job.settings.settings import ZammadAIIndexSettings, get_settings
 from job.utils.hash import hash_content, normalize_content
 from job.utils.logging import getLogger

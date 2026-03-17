@@ -2,12 +2,11 @@ from logging import Logger
 from uuid import UUID
 
 from dotenv import load_dotenv
+from job.data.processing import filter_for_changed_data, prepare_qdrant_data
+from job.data.retrieval import get_answers_data, retrieve_answer_ids, retrieve_deleted_answer_ids
 from job.models.qdrant import QdrantDocumentItem
 from job.models.zammad import KnowledgeBaseAnswer
 from job.qdrant.qdrant import QdrantKBClient
-from job.services.data_processing import filter_for_changed_data, prepare_qdrant_data
-from job.services.data_retrieval import get_answers_data, retrieve_answer_ids, retrieve_deleted_answer_ids
-from job.services.indexing import add_documents_to_qdrant
 from job.settings.settings import ZammadAIIndexSettings, get_settings
 from job.settings.zammad import ZammadAPISettings, ZammadEAISettings
 from job.utils.logging import getLogger
@@ -61,7 +60,7 @@ def run_indexing(qdrant_client: QdrantKBClient, zammad_client: ZammadAPIClient |
         else:
             logger.info("Fetched data for %d answers.", len(answers))
 
-        # Step3: Get all points from Qdrant
+        # Step 3: Get all points from Qdrant
         all_points: list[Record] = qdrant_client.get_all_points()
 
         # Step 4: Prepare and filter data for Qdrant
@@ -147,6 +146,47 @@ def _prepare_and_filter_data(
     )
 
     return filtered_items
+
+
+def add_documents_to_qdrant(qdrant_items: list[QdrantDocumentItem], qdrant_client: QdrantKBClient) -> bool:
+    """Add documents to Qdrant in batches for optimal performance.
+
+    Args:
+        qdrant_items: List of QdrantDocumentItem objects containing id, content, and metadata for indexing
+        qdrant_client: Instance of QdrantKBClient for interacting with Qdrant
+
+
+    Returns:
+        True if all documents were successfully added, False otherwise
+
+    """
+    if not qdrant_items:
+        logger.info("No documents to add to Qdrant.")
+        return True
+
+    batch_size: int = settings.index.batch_size
+
+    total_batches: int = (len(qdrant_items) + batch_size - 1) // batch_size
+    successful_batches: int = 0
+
+    logger.info("Starting to add %d documents to Qdrant in %d batches.", len(qdrant_items), total_batches)
+
+    for i in range(0, len(qdrant_items), batch_size):
+        batch_number: int = i // batch_size + 1
+        batch: list[QdrantDocumentItem] = qdrant_items[i : i + batch_size]
+
+        try:
+            logger.info("Processing batch %d/%d with %d documents", batch_number, total_batches, len(batch))
+
+            qdrant_client.add_documents(batch)
+
+            logger.debug("Successfully added batch %d/%d to Qdrant", batch_number, total_batches)
+            successful_batches += 1
+        except Exception:
+            logger.error("Exception occurred while processing batch %d/%d", batch_number, total_batches, exc_info=True)
+
+    logger.info("Successfully processed %d/%d batches.", successful_batches, total_batches)
+    return successful_batches == total_batches
 
 
 def cleanup(zammad_client, qdrant_client) -> None:
