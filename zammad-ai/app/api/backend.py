@@ -1,10 +1,13 @@
 import asyncio
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from logging import Logger
+from time import perf_counter
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
+from prometheus_client import CONTENT_TYPE_LATEST, REGISTRY, Counter, Histogram, generate_latest
+from starlette.responses import Response
 
 from app.answer import get_answer_service
 from app.frontend import mount_frontend
@@ -18,6 +21,18 @@ from .v1.answer import answer_router
 from .v1.triage import triage_router
 
 logger: Logger = getLogger("zammad-ai.api.backend")
+
+HTTP_REQUESTS_TOTAL = Counter(
+    name="zammad_ai_http_requests_total",
+    documentation="Total HTTP requests processed by FastAPI.",
+    labelnames=("method", "path", "status"),
+)
+
+HTTP_REQUEST_DURATION_SECONDS = Histogram(
+    name="zammad_ai_http_request_duration_seconds",
+    documentation="HTTP request processing duration in seconds.",
+    labelnames=("method", "path", "status"),
+)
 
 
 @asynccontextmanager
@@ -55,6 +70,38 @@ backend = FastAPI(
     docs_url="/api/docs" if settings.mode == "development" else None,
     redoc_url="/api/redoc" if settings.mode == "development" else None,
 )
+
+
+@backend.middleware("http")
+async def prometheus_http_metrics_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    start_time: float = perf_counter()
+    method: str = request.method
+
+    try:
+        response: Response = await call_next(request)
+        status_code: int = response.status_code
+        route = request.scope.get("route")
+        route_path: str = route.path if route is not None and hasattr(route, "path") else request.url.path
+    except Exception:
+        status_code = 500
+        route_path = request.url.path
+        HTTP_REQUESTS_TOTAL.labels(method=method, path=route_path, status=str(status_code)).inc()
+        HTTP_REQUEST_DURATION_SECONDS.labels(method=method, path=route_path, status=str(status_code)).observe(perf_counter() - start_time)
+        raise
+
+    HTTP_REQUESTS_TOTAL.labels(method=method, path=route_path, status=str(status_code)).inc()
+    HTTP_REQUEST_DURATION_SECONDS.labels(method=method, path=route_path, status=str(status_code)).observe(perf_counter() - start_time)
+
+    return response
+
+
+@backend.get("/metrics", include_in_schema=False)
+async def prometheus_metrics() -> Response:
+    return Response(content=generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
+
 
 # Include Kafka router (this handles broker lifecycle automatically)
 backend.include_router(

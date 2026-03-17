@@ -4,7 +4,9 @@ from logging import Logger
 from faststream import AckPolicy
 from faststream.exceptions import AckMessage, NackMessage
 from faststream.kafka.fastapi import KafkaRouter
+from faststream.kafka.prometheus import KafkaPrometheusMiddleware
 from faststream.security import BaseSecurity
+from prometheus_client import REGISTRY
 
 from app.models.kafka import Event
 from app.models.triage import TriageResult
@@ -37,6 +39,13 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
     router = KafkaRouter(
         bootstrap_servers=settings.kafka.broker_url,
         security=security,
+        middlewares=(
+            KafkaPrometheusMiddleware(
+                registry=REGISTRY,
+                app_name="zammad-ai",
+                metrics_prefix="zammad_ai_kafka",
+            ),
+        ),
     )
 
     @router.subscriber(
