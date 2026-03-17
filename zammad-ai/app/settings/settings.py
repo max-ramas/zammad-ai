@@ -24,8 +24,13 @@ def _is_test_mode() -> bool:
         `False` otherwise.
     """
     import os
+    import sys
 
     if os.getenv("PYTEST_CURRENT_TEST"):
+        return True
+
+    argv_str = " ".join(sys.argv).lower()
+    if "pytest" in sys.modules or any(indicator in argv_str for indicator in ["pytest", "py.test", "unittest"]):
         return True
 
     if os.getenv("ZAMMAD_AI_DISABLE_YAML", "").lower() in {"1", "true", "yes"}:
