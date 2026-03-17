@@ -48,6 +48,10 @@ class ZammadAPISettings(BaseZammadSettings):
         description="RSS feed token",
         default=None,
     )
+    rss_feed_locale: str = Field(
+        description="Locale for RSS feed (e.g., 'de-de')",
+        default="de-de",
+    )
 
 
 class ZammadEAISettings(BaseZammadSettings):

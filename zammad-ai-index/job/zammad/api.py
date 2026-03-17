@@ -42,6 +42,7 @@ class ZammadAPIClient(BaseZammadClient):
 
         self.kb_id = settings.knowledge_base_id
         self.rss_token = settings.rss_feed_token
+        self.rss_feed_locale = settings.rss_feed_locale
 
     @override
     def kb_info(self) -> ZammadKnowledgebase | None:
@@ -69,7 +70,7 @@ class ZammadAPIClient(BaseZammadClient):
             logger.warning("Knowledge base ID or RSS feed token is not set. Cannot parse RSS feed.")
             return None
 
-        url = f"/api/v1/knowledge_bases/{self.kb_id}/de-de/feed"
+        url = f"/api/v1/knowledge_bases/{self.kb_id}/{self.rss_feed_locale}/feed"
         text = self._request("GET", url, params={"token": self.rss_token.get_secret_value()})
 
         try:
