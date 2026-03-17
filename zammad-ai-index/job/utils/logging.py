@@ -125,10 +125,8 @@ class JsonFormatter(logging.Formatter):
             log_data["exception"] = self.formatException(record.exc_info)
 
         # Add any extra fields that were passed via the extra parameter
-
-        # Add any attributes that aren't standard LogRecord attributes
         for key, value in record.__dict__.items():
             if key not in self.STANDARD_ATTRIBUTES and not key.startswith("_"):
                 log_data[key] = value
 
-        return json.dumps(log_data, ensure_ascii=False)
+        return json.dumps(log_data, ensure_ascii=False, default=str)
