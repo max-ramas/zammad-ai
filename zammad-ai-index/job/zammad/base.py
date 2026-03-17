@@ -5,9 +5,9 @@ from base64 import b64encode
 from typing import Any
 
 from feedparser import FeedParserDict
-from httpx import AsyncClient, ConnectError, HTTPStatusError, ReadTimeout, TimeoutException
-from src.models.zammad import KnowledgeBaseAnswer, ZammadKnowledgebase
-from src.utils.logging import getLogger
+from httpx import Client, ConnectError, HTTPStatusError, ReadTimeout, TimeoutException
+from job.models.zammad import KnowledgeBaseAnswer, ZammadKnowledgebase
+from job.utils.logging import getLogger
 from stamina import retry_context
 
 logger = getLogger("zammad-ai.base")
@@ -17,7 +17,7 @@ class BaseZammadClient(ABC):
     """Abstract base class for Zammad API clients."""
 
     @abstractmethod
-    async def parse_rss_feed(self) -> FeedParserDict | None:
+    def parse_rss_feed(self) -> FeedParserDict | None:
         """Parse RSS feed from the knowledge base.
 
         Returns:
@@ -27,7 +27,7 @@ class BaseZammadClient(ABC):
         ...
 
     @abstractmethod
-    async def kb_info(self) -> ZammadKnowledgebase | None:
+    def kb_info(self) -> ZammadKnowledgebase | None:
         """Fetch knowledge base information.
 
         Returns:
@@ -37,7 +37,7 @@ class BaseZammadClient(ABC):
         ...
 
     @abstractmethod
-    async def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
+    def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
         """Fetch a knowledge base answer by its ID.
 
         Args:
@@ -50,7 +50,7 @@ class BaseZammadClient(ABC):
         ...
 
     @abstractmethod
-    async def fetch_kb_attachment_data(self, id: int) -> str | None:
+    def fetch_kb_attachment_data(self, id: int) -> str | None:
         """Fetch an attachment and return its content as text or base64.
 
         Args:
@@ -64,7 +64,7 @@ class BaseZammadClient(ABC):
         ...
 
     @abstractmethod
-    async def check_if_answer_exists(self, answer_id: int) -> bool:
+    def check_if_answer_exists(self, answer_id: int) -> bool:
         """Check if a knowledge base answer still exists.
 
         Args:
@@ -86,10 +86,10 @@ class BaseZammadClient(ABC):
             proxy_url: Optional HTTP proxy URL
 
         """
-        self.client = AsyncClient(base_url=base_url, timeout=timeout, proxy=proxy_url)
+        self.client = Client(base_url=base_url, timeout=timeout, proxy=proxy_url)
         self.http_attempts = max_retries + 1
 
-    async def _request(self, method: str, url: str, **kwargs) -> Any:
+    def _request(self, method: str, url: str, **kwargs) -> Any:
         """Make HTTP request and return JSON or text."""
         try:
             safe_methods = {"GET", "HEAD", "OPTIONS"}
@@ -101,7 +101,7 @@ class BaseZammadClient(ABC):
             ):
                 with attempt:
                     try:
-                        response = await self.client.request(method, url, **kwargs)
+                        response = self.client.request(method, url, **kwargs)
                         response.raise_for_status()
                     except HTTPStatusError as e:
                         # Only retry HTTPStatusError for transient status codes and safe methods
@@ -123,9 +123,9 @@ class BaseZammadClient(ABC):
             logger.error(f"Failed to execute {method} {url} after {self.http_attempts} attempts.", exc_info=True)
             raise ZammadConnectionError(f"Failed to execute {method} {url} after {self.http_attempts} attempts.") from e
 
-    async def close(self) -> None:
+    def close(self) -> None:
         """Close HTTP client."""
-        await self.client.aclose()
+        self.client.close()
 
 
 class ZammadConnectionError(Exception):

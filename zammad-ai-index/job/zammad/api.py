@@ -7,13 +7,13 @@ from typing import override
 from feedparser import FeedParserDict
 from feedparser import parse as feedparser
 from httpx import HTTPStatusError
-from src.models.zammad import (
+from job.models.zammad import (
     KnowledgeBaseAnswer,
     KnowledgeBaseAttachment,
     ZammadKnowledgebase,
 )
-from src.settings.zammad import ZammadAPISettings
-from src.utils.logging import getLogger
+from job.settings.zammad import ZammadAPISettings
+from job.utils.logging import getLogger
 
 from .base import BaseZammadClient, ZammadConnectionError
 
@@ -44,12 +44,12 @@ class ZammadAPIClient(BaseZammadClient):
         self.rss_token = settings.rss_feed_token
 
     @override
-    async def kb_info(self) -> ZammadKnowledgebase | None:
+    def kb_info(self) -> ZammadKnowledgebase | None:
         if not self.kb_id:
             logger.warning("Knowledge base ID is not set. Cannot fetch KB info.")
             return None
 
-        data = await self._request("GET", f"/api/v1/knowledge_bases/{self.kb_id}")
+        data = self._request("GET", f"/api/v1/knowledge_bases/{self.kb_id}")
         return (
             ZammadKnowledgebase(
                 id=data["id"],
@@ -64,13 +64,13 @@ class ZammadAPIClient(BaseZammadClient):
         )
 
     @override
-    async def parse_rss_feed(self) -> FeedParserDict | None:
+    def parse_rss_feed(self) -> FeedParserDict | None:
         if not self.kb_id or not self.rss_token:
             logger.warning("Knowledge base ID or RSS feed token is not set. Cannot parse RSS feed.")
             return None
 
         url = f"/api/v1/knowledge_bases/{self.kb_id}/de-de/feed"
-        text = await self._request("GET", url, params={"token": self.rss_token.get_secret_value()})
+        text = self._request("GET", url, params={"token": self.rss_token.get_secret_value()})
 
         try:
             decoded_text = b64decode(text).decode("utf-8")
@@ -79,13 +79,13 @@ class ZammadAPIClient(BaseZammadClient):
             return feedparser(text)
 
     @override
-    async def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
+    def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
         if not self.kb_id:
             logger.warning("Knowledge base ID is not set. Cannot fetch KB answer.")
             return None
 
         try:
-            response = await self._request(
+            response = self._request(
                 "GET",
                 f"/api/v1/knowledge_bases/{self.kb_id}/answers/{answer_id}?include_contents={answer_id}",
             )
@@ -115,10 +115,10 @@ class ZammadAPIClient(BaseZammadClient):
         )
 
     @override
-    async def fetch_kb_attachment_data(self, id: int) -> str | None:
-        return await self._request("GET", f"/api/v1/attachments/{id}") if id else None
+    def fetch_kb_attachment_data(self, id: int) -> str | None:
+        return self._request("GET", f"/api/v1/attachments/{id}") if id else None
 
     @override
-    async def check_if_answer_exists(self, answer_id: int) -> bool:
-        answer: KnowledgeBaseAnswer | None = await self.get_kb_answer_by_id(answer_id)
+    def check_if_answer_exists(self, answer_id: int) -> bool:
+        answer: KnowledgeBaseAnswer | None = self.get_kb_answer_by_id(answer_id)
         return answer is not None

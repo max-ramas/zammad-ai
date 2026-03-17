@@ -2,18 +2,18 @@ from logging import Logger
 from typing import Any
 from uuid import NAMESPACE_DNS, UUID, uuid5
 
+from job.settings.genai import GenAISettings
+from job.settings.settings import QdrantSettings, ZammadAIIndexSettings
+from job.utils.logging import getLogger
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_qdrant import QdrantVectorStore
-from qdrant_client import AsyncQdrantClient, QdrantClient
+from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import ApiException
 from qdrant_client.http.models import CollectionInfo
 from qdrant_client.http.models.models import Record
 from qdrant_client.models import SnapshotDescription
-from src.settings.genai import GenAISettings
-from src.settings.settings import QdrantSettings, ZammadAIIndexSettings
-from src.utils.logging import getLogger
 
 # Create a consistent namespace UUID for generating vector IDs based on content
 ZAMMAD_AI_NAMESPACE: UUID = uuid5(
@@ -41,12 +41,6 @@ class QdrantKBClient:
         self.genai_settings: GenAISettings = settings.genai
         # Create sync + async Qdrant client with appropriate configuration
         self.client = QdrantClient(
-            url=self.qdrant_settings.url.encoded_string(),
-            port=None,  # Port is included in the URL, so we set it to None
-            timeout=self.qdrant_settings.timeout,
-            api_key=self.qdrant_settings.api_key.get_secret_value() if self.qdrant_settings.api_key else None,
-        )
-        self.aclient = AsyncQdrantClient(
             url=self.qdrant_settings.url.encoded_string(),
             port=None,  # Port is included in the URL, so we set it to None
             timeout=self.qdrant_settings.timeout,
@@ -106,17 +100,6 @@ class QdrantKBClient:
             search_kwargs={"k": self.qdrant_settings.retrieval_num_documents},
         )
 
-    async def acreate_snapshot(self) -> bool:
-        """Create a snapshot of the Qdrant collection for backup purposes.
-
-        Returns:
-            bool: True if snapshot creation was successful, False otherwise.
-        """
-        snapshot_description: SnapshotDescription | None = await self.aclient.create_snapshot(
-            collection_name=self.collection_name, wait=True
-        )
-        return snapshot_description is not None
-
     def create_snapshot(self) -> bool:
         """Create a snapshot of the Qdrant collection for backup purposes.
 
@@ -125,38 +108,6 @@ class QdrantKBClient:
         """
         snapshot_description: SnapshotDescription | None = self.client.create_snapshot(collection_name=self.collection_name, wait=True)
         return snapshot_description is not None
-
-    async def aadd_documents(self, content: list[str], metadata: list[dict[str, Any]], id: list[UUID | None] = []) -> None:
-        """Add multiple documents to the Qdrant collection with the given content, metadata, and optional IDs.
-
-        Args:
-            content (list[str]): A list of textual content for the documents to be added.
-            metadata (list[dict[str, Any]]): A list of dictionaries containing metadata associated with each document.
-            id (list[UUID | None], optional): A list of optional unique identifiers for the documents. If not provided or None for an item, a UUID will be generated based on the document title. Defaults to empty list.
-
-        Returns:
-            None
-        """
-        ids: list[UUID | None] | list[None] = id
-        if len(metadata) != len(content):
-            raise ValueError("Length of 'metadata' and 'content' lists must match")
-        if id == []:
-            ids = [None] * len(content)
-        if not len(ids) == len(metadata) == len(content):
-            raise ValueError("Length of 'id' list must either match length of 'metadata' and 'content' lists or be an empty list")
-
-        documents_to_add: list[Document] = []
-        ids_to_add: list[str] = []
-        for content_item, metadata_item, id_item in zip(content, metadata, ids):
-            if id_item is None:
-                answer_id: str | None = metadata_item.get("answer_id")
-                kb_id: str | None = self.settings.zammad.knowledge_base_id
-                if answer_id is None or kb_id is None:
-                    raise ValueError("ID is not provided and required metadata is missing, cannot generate UUID for document")
-                id_item: UUID = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=f"KB-{kb_id}-Answer-{answer_id}")
-            documents_to_add.append(Document(page_content=content_item, metadata=metadata_item))
-            ids_to_add.append(str(id_item))
-        await self.vectorstore.aadd_documents(documents=documents_to_add, ids=ids_to_add)
 
     def add_documents(self, content: list[str], metadata: list[dict[str, Any]], id: list[UUID | None] = []) -> None:
         """Add multiple documents to the Qdrant collection with the given content, metadata, and optional IDs.
@@ -182,7 +133,7 @@ class QdrantKBClient:
         for content_item, metadata_item, id_item in zip(content, metadata, ids):
             if id_item is None:
                 answer_id: str | None = metadata_item.get("answer_id")
-                kb_id: str | None = self.settings.zammad.knowledge_base_id
+                kb_id: int = self.settings.zammad.knowledge_base_id
                 if answer_id is None or kb_id is None:
                     raise ValueError("ID is not provided and required metadata is missing, cannot generate UUID for document")
                 id_item: UUID = uuid5(namespace=ZAMMAD_AI_NAMESPACE, name=f"KB-{kb_id}-Answer-{answer_id}")
@@ -191,7 +142,7 @@ class QdrantKBClient:
             ids_to_add.append(str(id_item))
         self.vectorstore.add_documents(documents=documents_to_add, ids=ids_to_add)
 
-    async def get_documents_by_ids(self, ids: list[UUID]) -> dict[UUID, Document]:
+    def get_documents_by_ids(self, ids: list[UUID]) -> dict[UUID, Document]:
         """Retrieve a document from the Qdrant collection by its unique identifier.
 
         Args:
@@ -202,7 +153,7 @@ class QdrantKBClient:
             QdrantKBError: If there is an error during retrieval from Qdrant, a QdrantKBError will be raised with details about the failure.
         """
         try:
-            results: list[Record] = await self.aclient.retrieve(
+            results: list[Record] = self.client.retrieve(
                 collection_name=self.collection_name,
                 ids=[str(id) for id in ids],
             )
@@ -225,12 +176,11 @@ class QdrantKBClient:
             self.logger.error(f"Error retrieving documents with IDs {ids} from Qdrant", exc_info=True)
             raise QdrantKBError("Failed to retrieve documents from Qdrant") from e
 
-    async def close(self) -> None:
+    def close(self) -> None:
         """Close the Qdrant client connections."""
-        await self.aclient.close()
         self.client.close()
 
-    async def delete_points_by_ids(self, ids: list) -> None:
+    def delete_points_by_ids(self, ids: list) -> None:
         """Delete documents from the Qdrant collection by their unique identifiers.
 
         Args:
@@ -241,7 +191,7 @@ class QdrantKBClient:
             QdrantKBError: If there is an error during deletion from Qdrant, a QdrantKBError will be raised with details about the failure.
         """
         try:
-            await self.aclient.delete(
+            self.client.delete(
                 collection_name=self.collection_name,
                 points_selector=ids,
             )
@@ -250,7 +200,7 @@ class QdrantKBClient:
             self.logger.error(f"Error deleting documents with IDs {ids} from Qdrant", exc_info=True)
             raise QdrantKBError("Failed to delete documents from Qdrant") from e
 
-    async def get_all_points(self) -> list[Record]:
+    def get_all_points(self) -> list[Record]:
         """Retrieve all points from the Qdrant collection.
         Returns:
             list[Record]: A list of Record objects representing all points in the Qdrant collection. Each Record includes the point's ID, payload, and vector (if available).
@@ -263,7 +213,7 @@ class QdrantKBClient:
             next_offset = None
 
             while True:
-                points, next_offset = await self.aclient.scroll(
+                points, next_offset = self.client.scroll(
                     collection_name=self.collection_name,
                     limit=500,
                     offset=next_offset,

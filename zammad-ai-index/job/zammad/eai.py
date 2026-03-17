@@ -1,6 +1,5 @@
 """Zammad EAI client using OAuth 2.0 authentication."""
 
-import asyncio
 from base64 import b64decode
 from datetime import datetime, timedelta
 from logging import Logger
@@ -9,10 +8,10 @@ from typing import Any, override
 from feedparser import FeedParserDict
 from feedparser import parse as feedparser
 from httpx import HTTPStatusError, RequestError
+from job.models.zammad import KnowledgeBaseAnswer, ZammadKnowledgebase
+from job.settings.zammad import ZammadEAISettings
+from job.utils.logging import getLogger
 from pydantic import TypeAdapter
-from src.models.zammad import KnowledgeBaseAnswer, ZammadKnowledgebase
-from src.settings.zammad import ZammadEAISettings
-from src.utils.logging import getLogger
 
 from .base import BaseZammadClient, ZammadConnectionError
 
@@ -40,9 +39,8 @@ class ZammadEAIClient(BaseZammadClient):
         self.kb_id = settings.knowledge_base_id
         self._token = None
         self._token_expires = None
-        self._auth_lock = asyncio.Lock()
 
-    async def _ensure_auth(self) -> None:
+    def _ensure_auth(self) -> None:
         """Ensure OAuth token is valid, refreshing if needed.
 
         Uses double-checked locking to prevent OAuth token refresh stampedes
@@ -52,60 +50,54 @@ class ZammadEAIClient(BaseZammadClient):
         if self._token and self._token_expires and datetime.now() < self._token_expires - timedelta(minutes=5):
             return
 
-        # Double-checked locking to prevent OAuth stampede
-        async with self._auth_lock:
-            # Re-check token validity inside the lock
-            if self._token and self._token_expires and datetime.now() < self._token_expires - timedelta(minutes=5):
-                return
+        # Get new token
+        token_data = {
+            "grant_type": "client_credentials",
+            "client_id": self.settings.oauth2_client_id,
+            "client_secret": self.settings.oauth2_client_secret.get_secret_value(),
+        }
+        if self.settings.oauth2_scope:
+            token_data["scope"] = self.settings.oauth2_scope
 
-            # Get new token
-            token_data = {
-                "grant_type": "client_credentials",
-                "client_id": self.settings.oauth2_client_id,
-                "client_secret": self.settings.oauth2_client_secret.get_secret_value(),
-            }
-            if self.settings.oauth2_scope:
-                token_data["scope"] = self.settings.oauth2_scope
+        try:
+            response = self.client.post(
+                str(self.settings.oauth2_token_url), data=token_data, headers={"Content-Type": "application/x-www-form-urlencoded"}
+            )
+            response.raise_for_status()
+        except (HTTPStatusError, RequestError) as e:
+            raise ZammadConnectionError(f"Failed to obtain OAuth token from {self.settings.oauth2_token_url}") from e
 
-            try:
-                response = await self.client.post(
-                    str(self.settings.oauth2_token_url), data=token_data, headers={"Content-Type": "application/x-www-form-urlencoded"}
-                )
-                response.raise_for_status()
-            except (HTTPStatusError, RequestError) as e:
-                raise ZammadConnectionError(f"Failed to obtain OAuth token from {self.settings.oauth2_token_url}") from e
+        token_resp = response.json()
+        self._token = token_resp["access_token"]
+        expires_in = token_resp.get("expires_in", 3600)
+        self._token_expires = datetime.now() + timedelta(seconds=expires_in)
 
-            token_resp = response.json()
-            self._token = token_resp["access_token"]
-            expires_in = token_resp.get("expires_in", 3600)
-            self._token_expires = datetime.now() + timedelta(seconds=expires_in)
-
-    async def _request(self, method: str, url: str, **kwargs) -> Any:
+    def _request(self, method: str, url: str, **kwargs) -> Any:
         """Make authenticated request with OAuth bearer token."""
-        await self._ensure_auth()
+        self._ensure_auth()
 
         headers = kwargs.get("headers", {})
         headers["Authorization"] = f"Bearer {self._token}"
         kwargs["headers"] = headers
 
-        return await super()._request(method, url, **kwargs)
+        return super()._request(method, url, **kwargs)
 
     @override
-    async def kb_info(self) -> ZammadKnowledgebase | None:
+    def kb_info(self) -> ZammadKnowledgebase | None:
         if not self.kb_id:
             logger.warning("Knowledge base ID is not set. Cannot fetch KB info.")
             return None
 
-        data = await self._request("GET", f"/knowledgeBases/{self.kb_id}")
+        data = self._request("GET", f"/knowledgeBases/{self.kb_id}")
         return TypeAdapter(ZammadKnowledgebase).validate_python(data) if data else None
 
     @override
-    async def parse_rss_feed(self) -> FeedParserDict | None:
+    def parse_rss_feed(self) -> FeedParserDict | None:
         if not self.kb_id:
             logger.warning("Knowledge base ID is not set. Cannot parse RSS feed.")
             return None
 
-        response = await self._request("GET", f"/knowledgeBases/{self.kb_id}/rss")
+        response = self._request("GET", f"/knowledgeBases/{self.kb_id}/rss")
 
         try:
             text = b64decode(response).decode("utf-8")
@@ -116,13 +108,13 @@ class ZammadEAIClient(BaseZammadClient):
         return feedparser(text)
 
     @override
-    async def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
+    def get_kb_answer_by_id(self, answer_id: int) -> KnowledgeBaseAnswer | None:
         if not self.kb_id:
             logger.warning("Knowledge base ID is not set. Cannot fetch KB answer.")
             return None
 
         try:
-            response = await self._request("GET", f"/knowledgeBases/{self.kb_id}/answer/{answer_id}")
+            response = self._request("GET", f"/knowledgeBases/{self.kb_id}/answer/{answer_id}")
         except ZammadConnectionError as e:
             cause: BaseException | None = e.__cause__
             if isinstance(cause, HTTPStatusError) and cause.response.status_code == 404:
@@ -135,8 +127,8 @@ class ZammadEAIClient(BaseZammadClient):
         return TypeAdapter(KnowledgeBaseAnswer).validate_python(response)
 
     @override
-    async def fetch_kb_attachment_data(self, id: int) -> str | None:
-        data = await self._request("GET", f"/attachments/{id}") if id else None
+    def fetch_kb_attachment_data(self, id: int) -> str | None:
+        data = self._request("GET", f"/attachments/{id}") if id else None
         if not (id and data):
             return None
         decoded = b64decode(data)
@@ -147,13 +139,13 @@ class ZammadEAIClient(BaseZammadClient):
             return data
 
     @override
-    async def check_if_answer_exists(self, answer_id: int) -> bool:
-        answer: KnowledgeBaseAnswer | None = await self.get_kb_answer_by_id(answer_id)
+    def check_if_answer_exists(self, answer_id: int) -> bool:
+        answer: KnowledgeBaseAnswer | None = self.get_kb_answer_by_id(answer_id)
         return answer is not None
 
     @override
-    async def close(self) -> None:
+    def close(self) -> None:
         """Cleanup tokens and close client."""
         self._token = None
         self._token_expires = None
-        await super().close()
+        super().close()

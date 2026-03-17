@@ -1,8 +1,8 @@
 from datetime import datetime
 from uuid import UUID
 
+from job.models.zammad import KnowledgeBaseAttachment
 from pydantic import BaseModel
-from src.models.zammad import KnowledgeBaseAttachment
 
 
 class QdrantVectorMetadata(BaseModel):
