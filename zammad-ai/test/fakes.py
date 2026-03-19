@@ -9,72 +9,96 @@ class FakeZammadConnectionError(Exception):
 
 
 class FakeLangfuseClient:
-    def generate_session_id(self) -> str:
-        """
-        Produce a fixed session identifier used by tests.
+    """Small test double for Langfuse session handling."""
 
-        Returns:
-            session_id (str): The constant string "session-id".
-        """
+    class _FakeLangfuse:
+        def update_current_trace(self, *, session_id: str) -> None:
+            del session_id
+            return None
+
+    def __init__(self) -> None:
+        self.langfuse = self._FakeLangfuse()
+
+    def build_config(self, *, session_id: str) -> dict:
+        del session_id
+        return {}
+
+    def generate_session_id(self) -> str:
+        """Return a stable session id for deterministic tests."""
         return "session-id"
 
 
 class FakeGenAIHandler:
-    def __init__(self, genai_settings: GenAISettings, prompts: dict[str, str]) -> None:
-        """
-        Initialize the fake GenAI handler with settings and prompt templates, and prepare default response placeholders.
+    """Test double for GenAI handler calls used in triage tests."""
 
-        Parameters:
-                genai_settings (GenAISettings): Configuration for GenAI behavior (kept for parity with real handler).
-                prompts (dict[str, str]): Mapping of prompt names to prompt text used by the handler.
+    REQUIRED_PROMPT_KEYS = {"categorization", "days_since_request", "processing_id"}
+
+    def __init__(self, genai_settings: GenAISettings, prompts: dict[str, str]) -> None:
+        """Initialize fake handler state and validate prompt configuration.
+
+        Args:
+            genai_settings: GenAI configuration kept for constructor parity.
+            prompts: Mapping of prompt keys to prompt templates.
+
+        Raises:
+            ValueError: If prompts are empty, contain empty values, or miss
+                required keys.
         """
+        del genai_settings
+
+        if not prompts:
+            raise ValueError("Prompts dictionary cannot be empty.")
+
+        empty_keys = [key for key, value in prompts.items() if not value]
+        if empty_keys:
+            raise ValueError(f"Empty prompt values for keys: {', '.join(empty_keys)}. All prompts must be non-empty strings.")
+
+        missing_keys = self.REQUIRED_PROMPT_KEYS - set(prompts)
+        if missing_keys:
+            raise ValueError(f"Missing required prompt keys: {', '.join(sorted(missing_keys))}.")
+
         self.prompts = prompts
         self.langfuse_client = FakeLangfuseClient()
+        self._categorization_chain = self._build_chain(prompt_key="categorization", schema=CategorizationResult)
+        self._days_since_request_chain = self._build_chain(prompt_key="days_since_request", schema=DaysSinceRequestResponse)
+        self._processing_id_chain = self._build_chain(prompt_key="processing_id", schema=ProcessingIdResponse)
         self.categorization_result: CategorizationResult | None = None
         self.days_since_request_response: DaysSinceRequestResponse | None = None
         self.processing_id_response: ProcessingIdResponse | None = None
 
-    async def _invoke(
-        self,
-        prompt_key: str,
-        input: dict,
-        *,
-        session_id: str | None = None,
-        schema: type | None = None,
-    ) -> CategorizationResult | DaysSinceRequestResponse | ProcessingIdResponse:
-        """
-        Invoke the fake GenAI handler, returning preset or default responses based on the prompt key and schema.
+    def _build_chain(self, prompt_key: str, schema: type) -> type:
+        """Build a lightweight fake chain descriptor.
 
-        Parameters:
-            prompt_key (str): The prompt key (e.g., "categories", "days_since_request", "processing_id").
-            input (dict): Input payload for the prompt.
-            session_id (str | None): Optional session identifier for tracing.
-            schema (type | None): Optional Pydantic schema for structured output.
+        Args:
+            prompt_key: Prompt key identifying the configured prompt.
+            schema: Structured output schema associated with the chain.
 
         Returns:
-            CategorizationResult | DaysSinceRequestResponse | ProcessingIdResponse: The configured response
-            or a default response based on the schema type.
+            The schema type used as fake chain descriptor.
+
         Raises:
-            ValueError: If an unsupported schema type is provided.
+            KeyError: If prompt_key is missing from configured prompts.
         """
-        if schema == CategorizationResult:
-            if self.categorization_result is None:
-                return CategorizationResult(
-                    category=None,
-                    reasoning="no result",
-                    confidence=0.0,
-                )
-            return self.categorization_result
-        elif schema == DaysSinceRequestResponse:
-            if self.days_since_request_response is None:
-                return DaysSinceRequestResponse(days_since_request=0, reason="default")
-            return self.days_since_request_response
-        elif schema == ProcessingIdResponse:
-            if self.processing_id_response is None:
-                return ProcessingIdResponse(processing_id="")
-            return self.processing_id_response
-        else:
-            raise ValueError(f"Unsupported schema type: {schema}")
+        if prompt_key not in self.prompts:
+            raise KeyError(f"Prompt key '{prompt_key}' not found in prompts dictionary.")
+        return schema
+
+    def _build_runnable_config(self, session_id: str | None) -> tuple[str, dict]:
+        """Resolve session id and return a fake runnable config.
+
+        Args:
+            session_id: Optional external session identifier.
+
+        Returns:
+            Tuple of resolved session id and fake runnable config.
+        """
+        resolved_session_id: str | None = session_id.strip() if session_id is not None else None
+        if not resolved_session_id:
+            resolved_session_id = self.langfuse_client.generate_session_id()
+
+        self.langfuse_client.langfuse.update_current_trace(session_id=resolved_session_id)
+        config = self.langfuse_client.build_config(session_id=resolved_session_id)
+        return resolved_session_id, config
 
     async def categorize_ticket(
         self,
@@ -86,14 +110,17 @@ class FakeGenAIHandler:
         examples: str,
         session_id: str | None = None,
     ) -> CategorizationResult:
-        del message, role_description, categories, categories_prompt, examples, session_id
-        result = await self._invoke(
-            prompt_key="categories",
-            input={},
-            schema=CategorizationResult,
-        )
-        assert isinstance(result, CategorizationResult)
-        return result
+        """Return a fake categorization result for tests."""
+        del message, role_description, categories, categories_prompt, examples
+        _, config = self._build_runnable_config(session_id=session_id)
+        del config
+
+        if self._categorization_chain is not CategorizationResult:
+            raise ValueError("Unsupported schema type for categorization chain")
+
+        if self.categorization_result is None:
+            return CategorizationResult(category=None, reasoning="no result", confidence=0.0)
+        return self.categorization_result
 
     async def extract_days_since_request(
         self,
@@ -102,14 +129,17 @@ class FakeGenAIHandler:
         today: str,
         session_id: str | None = None,
     ) -> DaysSinceRequestResponse:
-        del message, today, session_id
-        result = await self._invoke(
-            prompt_key="days_since_request",
-            input={},
-            schema=DaysSinceRequestResponse,
-        )
-        assert isinstance(result, DaysSinceRequestResponse)
-        return result
+        """Return a fake days-since-request extraction result for tests."""
+        del message, today
+        _, config = self._build_runnable_config(session_id=session_id)
+        del config
+
+        if self._days_since_request_chain is not DaysSinceRequestResponse:
+            raise ValueError("Unsupported schema type for days-since-request chain")
+
+        if self.days_since_request_response is None:
+            return DaysSinceRequestResponse(days_since_request=0, reason="default")
+        return self.days_since_request_response
 
     async def extract_processing_id(
         self,
@@ -117,14 +147,17 @@ class FakeGenAIHandler:
         message: str,
         session_id: str | None = None,
     ) -> ProcessingIdResponse:
-        del message, session_id
-        result = await self._invoke(
-            prompt_key="processing_id",
-            input={},
-            schema=ProcessingIdResponse,
-        )
-        assert isinstance(result, ProcessingIdResponse)
-        return result
+        """Return a fake processing-id extraction result for tests."""
+        del message
+        _, config = self._build_runnable_config(session_id=session_id)
+        del config
+
+        if self._processing_id_chain is not ProcessingIdResponse:
+            raise ValueError("Unsupported schema type for processing-id chain")
+
+        if self.processing_id_response is None:
+            return ProcessingIdResponse(processing_id="")
+        return self.processing_id_response
 
 
 class FakeZammadClient:
