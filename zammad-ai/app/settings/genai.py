@@ -66,7 +66,7 @@ class GenAISettings(BaseModel):
         """Constructs a reasoning configuration dictionary for LLM interactions based on the configured reasoning effort."""
         if self.reasoning_effort is not None:
             return {
-                "reasoning_effort": self.reasoning_effort,
+                "effort": self.reasoning_effort,
                 "summary": "detailed",
             }
         return None
