@@ -79,8 +79,10 @@ qdrant:
 # ============================================================================
 # Kafka Configuration
 # ============================================================================
+# For local development with docker compose, use broker_url: "localhost:29092"
+# For production or direct docker network access, use "kafka:9092"
 kafka:
-  broker_url: "localhost:9092" # Kafka broker URL
+  broker_url: "localhost:29092" # Kafka broker URL (compose stack)
   topic: "ticket-events" # Kafka topic to consume from
   group_id: null # Consumer group ID (defaults to null)
 
@@ -163,31 +165,27 @@ triage:
   prompts:
     type: "langfuse" # Options: "langfuse", "string", or "file"
 
-    # For type: "langfuse" (requires Langfuse credentials in .env)
-    prompt_map:
-      categories:
-        label: "latest" # Prompt version label
-        name: "your-usecase/categories" # Prompt name in Langfuse
-      examples:
-        label: "latest"
-        name: "your-usecase/examples"
-      role:
-        label: "latest"
-        name: "your-usecase/role"
+    categories:
+      label: "latest" # Prompt version label
+      name: "your-usecase/categories" # Prompt name in Langfuse
+    examples:
+      label: "latest"
+      name: "your-usecase/examples"
+    role:
+      label: "latest"
+      name: "your-usecase/role"
 
     # For type: "string" (inline prompts), use:
     # type: "string"
-    # prompt_map:
-    #   categories: "Your inline categories prompt..."
-    #   examples: "Your inline examples prompt..."
-    #   role: "Your inline role prompt..."
+    # categories: "Your inline categories prompt..."
+    # examples: "Your inline examples prompt..."
+    # role: "Your inline role prompt..."
 
     # For type: "file" (prompts from files), use:
     # type: "file"
-    # prompt_map:
-    #   categories: "/path/to/categories.txt"
-    #   examples: "/path/to/examples.txt"
-    #   role: "/path/to/role.txt"
+    # categories: "/path/to/categories.txt"
+    # examples: "/path/to/examples.txt"
+    # role: "/path/to/role.txt"
 
 # ============================================================================
 # Optional Settings
@@ -195,7 +193,26 @@ triage:
 
 # Frontend settings (optional web interface)
 frontend:
-  enabled: false # Set to true to enable frontend
+  enabled: false # Set to true to mount Gradio UI at '/'
+  request_timeout_seconds: 30.0 # API timeout for frontend requests
+  auth_username: "admin" # Basic auth username for local development
+  auth_password: "change-me" # Basic auth password for local development
+
+# Logging configuration
+log:
+  format: "json" # Options: "json", "plain"
+  # Default: "plain" for development mode, "json" for production mode
+  # "json": Structured JSON logs for production/log aggregation
+  # "plain": Human-readable logs for development/debugging
+
+  level: "INFO" # Options: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+  # Default: "DEBUG" for development mode, "INFO" for production mode
+  # Applies to the zammad-ai logger only
+  # "DEBUG": Most verbose, logs everything
+  # "INFO": Standard information messages
+  # "WARNING": Warnings and errors
+  # "ERROR": Errors only
+  # "CRITICAL": Critical errors only
 
 # Langfuse integration toggle
 langfuse_enabled: true # Set to false to disable Langfuse integration

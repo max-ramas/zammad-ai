@@ -1,11 +1,11 @@
-name: dbs-ticketing-eventing-stack
+name: zammad-ai
 
 services:
   #
   # ============= Kafka =============
   #
   kafka:
-    image: confluentinc/cp-kafka:8.1.1@sha256:d20bd62f01826c454e88530efc6d73654cb4697182f37206742b96c7b947236e
+    image: confluentinc/cp-kafka:8.2.0@sha256:acbbf674f2ed40e5d0a8ca51beb0f00692c866fc22b5ce06f8cadbdc54cd4436
     ports:
       - "9092:9092"
       - "29092:29092"
@@ -25,8 +25,15 @@ services:
     networks:
       - internal
     healthcheck: &healthcheck
-      test: nc -z localhost 9092 || exit -1
-      start_period: 15s
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions",
+          "--bootstrap-server",
+          "localhost:9092",
+          "--version",
+        ]
+      start_period: 10s
       interval: 5s
       timeout: 10s
       retries: 10
@@ -55,7 +62,7 @@ services:
     security_opt: *security_settings
 
   init-kafka:
-    image: confluentinc/cp-kafka:8.1.1@sha256:d20bd62f01826c454e88530efc6d73654cb4697182f37206742b96c7b947236e
+    image: confluentinc/cp-kafka:8.2.0@sha256:acbbf674f2ed40e5d0a8ca51beb0f00692c866fc22b5ce06f8cadbdc54cd4436
     depends_on:
       kafka:
         condition: service_healthy
@@ -78,11 +85,72 @@ services:
   # ============= Mail =============
   #
   mailpit:
-    image: axllent/mailpit:v1.29.2@sha256:030f06031ce5c60913ac9363da1ab0d4be6fd2a78147dd0e1ca0fcac665d6b34
+    image: axllent/mailpit:v1.29.3@sha256:fdaf09bd71dc0829ce8b62e4bfb5180bc5c0674c3e444283fc90681853f5a3c0
     ports:
       - "1025:1025" # SMTP Server
       - "8025:8025" # UI
     security_opt: *security_settings
+
+  #
+  # ============= Qdrant Vector DB =============
+  #
+  qdrant:
+    image: qdrant/qdrant:v1.16.3@sha256:0425e3e03e7fd9b3dc95c4214546afe19de2eb2e28ca621441a56663ac6e1f46
+    restart: always
+    ports:
+      - 6333:6333
+      - 6334:6334
+    expose:
+      - 6333
+      - 6334
+      - 6335
+    configs:
+      - source: qdrant_config
+        target: /qdrant/config/production.yaml
+    networks:
+      - internal
+    volumes:
+      - ./qdrant_data:/qdrant/storage
+    security_opt: *security_settings
+
+  init-qdrant:
+    image: curlimages/curl:8.16.0
+    depends_on:
+      - qdrant
+    entrypoint: ["/bin/sh", "-ceu"]
+    command:
+      - |
+        QDRANT_URL="http://qdrant:6333"
+        COLLECTION_NAME="zammad-ai_default"
+        VECTOR_DIMENSION="1024"
+
+        echo "Waiting for Qdrant API..."
+        until curl -fsS "$${QDRANT_URL}/collections" >/dev/null; do
+          sleep 2
+        done
+
+        echo "Checking collection '$${COLLECTION_NAME}'..."
+        EXISTS="$$(curl -fsS "$${QDRANT_URL}/collections/$${COLLECTION_NAME}/exists" | tr -d '\n' | sed -n 's/.*"exists":\(true\|false\).*/\1/p')"
+
+        if [ "$${EXISTS}" = "true" ]; then
+          echo "Collection '$${COLLECTION_NAME}' already exists."
+          exit 0
+        fi
+
+        echo "Creating collection '$${COLLECTION_NAME}'..."
+        curl -fsS -X PUT "$${QDRANT_URL}/collections/$${COLLECTION_NAME}" \
+          -H "Content-Type: application/json" \
+          -d "{\"vectors\":{\"size\":$${VECTOR_DIMENSION},\"distance\":\"Cosine\"}}"
+
+        echo "Collection '$${COLLECTION_NAME}' created."
+    networks:
+      - internal
+    security_opt: *security_settings
+
+configs:
+  qdrant_config:
+    content: |
+      log_level: INFO
 
 networks:
   internal:

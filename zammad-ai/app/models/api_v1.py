@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 
+from .answer import DocumentDict
 from .triage import TriageResult
 
 
@@ -17,6 +18,11 @@ class AnswerInput(BaseModel):
     text: str
     session_id: str | None = None
     category: str | None = None
+
+
+class AnswerOutput(BaseModel):
+    response: str = Field(description="The final answer to the user's question.")
+    documents: list[DocumentDict] = Field(description="List of documents supporting the answer.")
 
 
 class HealthCheckResponse(BaseModel):

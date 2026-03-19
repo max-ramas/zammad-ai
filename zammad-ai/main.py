@@ -1,4 +1,6 @@
 # ruff: noqa: E402
+import asyncio
+
 from dotenv import load_dotenv
 from truststore import inject_into_ssl
 
@@ -11,8 +13,8 @@ from logging import Logger
 import uvicorn
 
 from app.api.backend import backend
-from app.core.settings import ZammadAISettings, get_settings
-from app.utils.logging import getLogger
+from app.settings import ZammadAISettings, get_settings
+from app.utils.logging import get_log_config, getLogger
 
 if __name__ == "__main__":
     logger: Logger = getLogger()
@@ -28,4 +30,9 @@ if __name__ == "__main__":
         "production": "0.0.0.0",
     }
 
-    uvicorn.run(app=backend, host=hosts[settings.mode], port=8080, log_config="logconf.yaml")
+    try:
+        uvicorn.run(app=backend, host=hosts[settings.mode], port=8080, log_config=get_log_config())
+    except KeyboardInterrupt:
+        logger.info(msg="Shutdown signal received. Stopping Zammad AI Backend.")
+    except asyncio.CancelledError:
+        logger.info(msg="Async shutdown cancelled. Exiting.")

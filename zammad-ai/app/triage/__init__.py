@@ -1,5 +1,6 @@
-# Triage module
+from .triage import TriageService, get_triage_service
 
-from .triage import Triage
-
-__all__ = ["Triage"]
+__all__: list[str] = [
+    "get_triage_service",
+    "TriageService",
+]

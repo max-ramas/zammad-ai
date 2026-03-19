@@ -11,10 +11,9 @@ class BaseZammadSettings(BaseModel, ABC):
     Base settings for Zammad integration, including common configuration options for both API and EAI integrations.
     """
 
-    knowledge_base_id: str | None = Field(
-        description="The ID of the knowledge base to use for retrieving documents. If set to None, the knowledge base functionality will be disabled.",
-        examples=["1"],
-        default=None,
+    knowledge_base_id: int = Field(
+        description="The ID of the knowledge base to use for retrieving documents.",
+        examples=[1],
     )
     timeout: int = Field(
         description="HTTP timeout in seconds for requests to Zammad.",
@@ -29,6 +28,10 @@ class BaseZammadSettings(BaseModel, ABC):
         description="Optional proxy URL for routing HTTP requests to Zammad through a proxy server.",
         default=None,
     )
+    base_url: HttpUrl = Field(
+        description="Zammad base URL",
+        examples=["https://my-zammad.example.com"],
+    )
 
 
 class ZammadAPISettings(BaseZammadSettings):
@@ -38,16 +41,16 @@ class ZammadAPISettings(BaseZammadSettings):
 
     type: Literal["api"] = "api"
 
-    base_url: HttpUrl = Field(
-        description="Zammad base URL",
-        examples=["https://my-zammad.example.com"],
-    )
     auth_token: SecretStr = Field(
         description="Zammad API authentication token",
     )
     rss_feed_token: SecretStr | None = Field(
         description="RSS feed token",
         default=None,
+    )
+    rss_feed_locale: str = Field(
+        description="Locale for RSS feed (e.g., 'de-de')",
+        default="de-de",
     )
 
 

@@ -84,7 +84,7 @@ uv run ty check
 
 ```python
 # ✅ Good - use pydantic-settings with nested models
-from app.core.settings import get_settings
+from app.settings import get_settings
 
 settings = get_settings()
 broker_url = settings.kafka.broker_url

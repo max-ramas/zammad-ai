@@ -4,28 +4,52 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, CliSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict, YamlConfigSettingsSource
 
-from .frontend import FrontendSettings
 from .genai import GenAISettings
-from .kafka import KafkaSettings
+from .index import IndexJobSettings
+from .logging import LoggingSettings
 from .qdrant import QdrantSettings
-from .triage import TriageSettings
-from .usecase import UseCaseSettings
 from .zammad import ZammadAPISettings, ZammadEAISettings
 
 
-class ZammadAISettings(BaseSettings):
+def _is_test_mode() -> bool:
+    """Check if settings are loaded in a test context.
+
+    YAML should only be disabled for pytest runs or when explicitly requested.
+    """
+    import os
+
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return True
+
+    if os.getenv("ZAMMAD_AI_DISABLE_YAML", "").lower() in {"1", "true", "yes"}:
+        return True
+
+    return False
+
+
+def _should_enable_cli() -> bool:
+    """Check if CLI parsing should be enabled based on sys.argv."""
+    import sys
+
+    if "pytest" in sys.modules:
+        return False
+
+    argv_str = " ".join(sys.argv).lower()
+    test_indicators = ["pytest", "py.test", "unittest"]
+    return not any(indicator in argv_str for indicator in test_indicators)
+
+
+class ZammadAIIndexSettings(BaseSettings):
     """
     Application settings for Zammad AI integration.
     This class aggregates all configuration settings for the application, including GenAI, Langfuse, Zammad, Qdrant, Kafka, and triage settings.
     """
 
-    usecase: UseCaseSettings = Field(
-        description="Use case settings defining the specific AI application scenario.",
-        default_factory=lambda: UseCaseSettings(
-            name="default",
-            description="Default use case",
-        ),
+    index: IndexJobSettings = Field(
+        description="Settings for the indexing job, including configuration for fetching and processing knowledge base answers.",
+        default_factory=lambda: IndexJobSettings(),
     )
+
     genai: GenAISettings = Field(
         description="Settings for GenAI integration, including model selection and configuration.",
         default_factory=lambda: GenAISettings(),
@@ -36,28 +60,16 @@ class ZammadAISettings(BaseSettings):
         discriminator="type",
     )
 
+    log: LoggingSettings = Field(
+        description="Settings for logging configuration, including format selection.",
+        default_factory=lambda: LoggingSettings(),
+    )
+
     qdrant: QdrantSettings = Field(
-        description="Settings for Qdrant integration, including host, API key, and collection details.",
+        description="Settings for Qdrant vector database integration, including host URL, API key, collection name, and vector configuration.",
+        default_factory=lambda: QdrantSettings(),
     )
 
-    kafka: KafkaSettings = Field(
-        description="Settings for Kafka integration, including broker URL, topic, and security configuration.",
-        default_factory=lambda: KafkaSettings(),
-    )
-
-    triage: TriageSettings = Field(
-        description="Settings for triage step, including categories, actions, and rules.",
-    )
-
-    frontend: FrontendSettings = Field(
-        description="Settings for optional frontend.",
-        default_factory=lambda: FrontendSettings(),
-    )
-
-    valid_request_types: list[str] = Field(
-        min_length=1,
-        description="List of valid request types to be processed",
-    )
     langfuse_enabled: bool = Field(
         description="Whether to enable Langfuse integration for logging and prompt fetching.",
         default=True,
@@ -76,7 +88,7 @@ class ZammadAISettings(BaseSettings):
         nested_model_default_partial_update=True,
         yaml_file="config.yaml",
         yaml_file_encoding="utf-8",
-        cli_parse_args=True,
+        cli_parse_args=_should_enable_cli(),
         cli_kebab_case=True,
         cli_prog_name="zammad-ai",
         extra="ignore",
@@ -98,27 +110,34 @@ class ZammadAISettings(BaseSettings):
         """
         Define the precedence and ordering of configuration sources for the settings class.
 
-        The returned tuple lists settings sources in precedence order (highest priority first): initialization values, CLI arguments, environment variables, dotenv (.env) file, and YAML configuration file.
+        The returned tuple lists settings sources in precedence order (highest priority first): initialization values, CLI arguments (if enabled), environment variables, dotenv (.env) file, and YAML configuration file.
 
         Returns:
             tuple[PydanticBaseSettingsSource, ...]: Settings sources in priority order.
         """
-        return (
-            init_settings,
-            CliSettingsSource(settings_cls),
-            env_settings,
-            dotenv_settings,
-            YamlConfigSettingsSource(settings_cls),
-        )
+        sources = [init_settings]
+
+        # Only add CLI source if CLI parsing is enabled
+        if _should_enable_cli():
+            sources.append(CliSettingsSource(settings_cls))
+
+        sources.extend([env_settings, dotenv_settings])
+
+        if _is_test_mode():
+            sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=[]))
+        else:
+            sources.append(YamlConfigSettingsSource(settings_cls))
+
+        return tuple(sources)
 
 
 @lru_cache(maxsize=1)
-def get_settings() -> ZammadAISettings:
+def get_settings() -> ZammadAIIndexSettings:
     """
     Provide the application's cached settings.
 
     Returns:
-        ZammadAISettings: The cached settings instance used by the application.
+        ZammadAIIndexSettings: The cached settings instance used by the application.
     """
 
-    return ZammadAISettings()  # type: ignore
+    return ZammadAIIndexSettings()  # type: ignore

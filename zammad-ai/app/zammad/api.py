@@ -9,7 +9,6 @@ from feedparser import parse as feedparser
 from httpx import HTTPStatusError
 from pydantic import TypeAdapter
 
-from app.core.settings.zammad import ZammadAPISettings
 from app.models.zammad import (
     KnowledgeBaseAnswer,
     KnowledgeBaseAttachment,
@@ -21,6 +20,7 @@ from app.models.zammad import (
     ZammadTagAdd,
     ZammadTicket,
 )
+from app.settings.zammad import ZammadAPISettings
 from app.utils.logging import getLogger
 
 from .base import BaseZammadClient, ZammadConnectionError
