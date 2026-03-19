@@ -1,10 +1,12 @@
 from logging import Logger
+from time import perf_counter
 
 from langchain.agents.middleware.types import AgentState
 from langchain.messages import HumanMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
+from prometheus_client import Gauge, Histogram
 
 from app.observe import LangfuseClient, LangfuseError
 from app.settings import ZammadAISettings
@@ -18,6 +20,17 @@ from .dlf import DLFClient
 from .knowledgebase import QdrantKBClient
 
 logger: Logger = getLogger("zammad-ai.answer.service")
+
+ANSWER_RUN_DURATION_SECONDS = Histogram(
+    name="zammad_ai_answer_run_duration_seconds",
+    documentation="Duration of answer service runs in seconds.",
+    labelnames=("outcome",),
+)
+
+ANSWER_RUNS_IN_PROGRESS = Gauge(
+    name="zammad_ai_answer_runs_in_progress",
+    documentation="Number of answer runs currently in progress.",
+)
 
 
 class AnswerService:
@@ -107,25 +120,33 @@ class AnswerService:
         Returns:
             StructuredAgentResponse: The agent's structured response containing the answer and associated metadata (for example retrieval context and tracing information).
         """
+        start_time: float = perf_counter()
+        outcome: str = "error"
+        ANSWER_RUNS_IN_PROGRESS.inc()
         logger.debug(f"Answer generation with payload:\nuser_text: {user_text}\ncategory: {category}")
-        if session_id is None and self.langfuse_client is not None:
-            session_id = self.langfuse_client.generate_session_id()
-        user_message = HumanMessage(
-            content=self.user_message_template.format(
-                user_text=user_text,
-                category=category,
+        try:
+            if session_id is None and self.langfuse_client is not None:
+                session_id = self.langfuse_client.generate_session_id()
+            user_message = HumanMessage(
+                content=self.user_message_template.format(
+                    user_text=user_text,
+                    category=category,
+                )
             )
-        )
-        config: RunnableConfig = (
-            self.langfuse_client.build_config(session_id=session_id) if self.langfuse_client is not None else RunnableConfig()
-        )
-        agent_result: dict = await self.agent.ainvoke(
-            input={"messages": [user_message]},
-            config=config,
-            context=self.agent_context,
-        )
-        logger.debug(f"Agent raw result:\n{agent_result}")
-        return agent_result["structured_response"]
+            config: RunnableConfig = (
+                self.langfuse_client.build_config(session_id=session_id) if self.langfuse_client is not None else RunnableConfig()
+            )
+            agent_result: dict = await self.agent.ainvoke(
+                input={"messages": [user_message]},
+                config=config,
+                context=self.agent_context,
+            )
+            logger.debug(f"Agent raw result:\n{agent_result}")
+            outcome = "success"
+            return agent_result["structured_response"]
+        finally:
+            ANSWER_RUN_DURATION_SECONDS.labels(outcome=outcome).observe(perf_counter() - start_time)
+            ANSWER_RUNS_IN_PROGRESS.dec()
 
     async def cleanup(self) -> None:
         """
