@@ -1,16 +1,18 @@
-"""GenAI handler for language model operations.
+"""GenAI handler for all LangChain-based triage model interactions.
 
-This module contains all LangChain/GenAI logic for invoking language models.
-Chains are constructed on-demand based on prompt keys and optional response schemas.
+This module centralizes language-model invocation for triage-related workflows.
+It validates prompt configuration, builds durable structured-output chains, and
+executes calls with Langfuse tracing metadata.
 """
 
 from logging import Logger
-from typing import Any, TypeVar, overload
+from typing import Any, TypeVar
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig, RunnableSequence
 from langfuse import observe
 
+from app.models.triage import CategorizationResult, DaysSinceRequestResponse, ProcessingIdResponse
 from app.observe import LangfuseClient
 from app.settings.genai import GenAISettings
 from app.utils.logging import getLogger
@@ -21,34 +23,51 @@ T = TypeVar("T")
 
 
 class GenAIError(Exception):
-    """Exception raised for errors in the GenAI handler."""
+    """Raised when a GenAI operation fails."""
 
 
 class GenAIHandler:
-    """Handles all GenAI/LangChain operations for language model invocation.
+    """Execute triage-related GenAI operations via reusable LangChain chains.
 
-    Dynamically builds chains based on provided prompts and response schemas.
-    Provides async methods for invoking chains with observability support.
+    The handler validates required prompts at initialization time, configures the
+    selected chat model, and pre-builds structured-output chains for each triage
+    operation to avoid rebuilding chain objects on every request.
     """
 
-    def __init__(self, genai_settings: GenAISettings, prompts: dict[str, str]) -> None:
-        """
-        Initialize the GenAIHandler and configure the chat model.
+    REQUIRED_PROMPT_KEYS = {"categorization", "days_since_request", "processing_id"}
 
-        Parameters:
-            genai_settings (GenAISettings): GenAI configuration including `sdk`, model name, temperature, max_retries.
-            prompts (dict[str, str]): Mapping of prompt keys to their template strings. All values must be non-empty strings.
+    def __init__(self, genai_settings: GenAISettings, prompts: dict[str, str]) -> None:
+        """Initialize model configuration and durable operation chains.
+
+        Args:
+            genai_settings: GenAI settings containing SDK, model, retry, and
+                reasoning configuration.
+            prompts: Mapping of prompt keys to prompt template strings.
 
         Raises:
-            ValueError: If an unsupported GenAI SDK is specified or if prompts is empty/contains empty values.
+            ValueError: If prompts are missing/empty or the configured SDK is
+                not supported.
         """
-        self.prompts = prompts
-        self._chains: dict[str, RunnableSequence[Any, Any]] = {}  # Cache for built chains
         # TODO: Refactor langfuse client as optional argument, if not passed there is no tracing and no handler is passed to the chains
         self.langfuse_client = LangfuseClient()
 
         # Validate that prompts are properly configured
-        self._validate_prompts()
+        if not prompts:
+            error_msg = "Prompts dictionary cannot be empty."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        empty_keys: list[str] = [key for key, value in prompts.items() if not isinstance(value, str) or not value.strip()]
+        if empty_keys:
+            error_msg = f"Empty prompt values for keys: {', '.join(empty_keys)}. All prompts must be non-empty strings."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        missing_keys = self.REQUIRED_PROMPT_KEYS - set(prompts)
+        if missing_keys:
+            error_msg = f"Missing required prompt keys: {', '.join(sorted(missing_keys))}."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
         # Initialize LLM based on configured SDK
         match genai_settings.sdk:
@@ -65,130 +84,149 @@ class GenAIHandler:
             case _:
                 raise ValueError(f"Unsupported GenAI SDK: {genai_settings.sdk}")
 
+        # Build durable chains once so each operation reuses the same chain instance.
+        self._categorization_chain = self._build_chain(prompt=prompts["categorization"], output_schema=CategorizationResult)
+        self._days_since_request_chain = self._build_chain(prompt=prompts["days_since_request"], output_schema=DaysSinceRequestResponse)
+        self._processing_id_chain = self._build_chain(prompt=prompts["processing_id"], output_schema=ProcessingIdResponse)
+
         logger.info("GenAI handler initialized successfully")
 
-    def _validate_prompts(self) -> None:
-        """
-        Validate that prompts dictionary is properly configured.
-
-        Ensures that:
-        - The prompts dictionary is not empty
-        - All prompt values are non-empty strings
-
-        Raises:
-            ValueError: If prompts is empty or contains empty values.
-        """
-        if not self.prompts:
-            error_msg = "Prompts dictionary cannot be empty."
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-
-        empty_keys = [key for key, value in self.prompts.items() if not value]
-        if empty_keys:
-            error_msg = f"Empty prompt values for keys: {', '.join(empty_keys)}. All prompts must be non-empty strings."
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-
-    def _build_or_get_chain(self, prompt_key: str, schema: type[T] | None = None) -> RunnableSequence[Any, T | dict[str, Any]]:
-        """
-        Build or retrieve a cached chain for the given prompt key and optional schema.
-
-        Chains are cached with a key combining the prompt_key and schema (if provided) to support
-        the same prompt being used with different output schemas.
-
-        Parameters:
-            prompt_key (str): The key in self.prompts identifying which prompt to use.
-            schema (type[T] | None): Optional Pydantic schema for structured output.
-
-        Returns:
-            RunnableSequence: A chain ready to invoke with input data.
-        """
-        cache_key = f"{prompt_key}_{schema.__name__ if schema else 'raw'}"
-
-        if cache_key not in self._chains:
-            prompt_template = ChatPromptTemplate(
-                messages=[
-                    ("system", self.prompts[prompt_key]),
-                    ("user", "{text}"),
-                ]
-            )
-
-            if schema is not None:
-                chain = RunnableSequence(
-                    prompt_template,
-                    self.chat_model.with_structured_output(schema=schema, strict=True),
-                )
-            else:
-                chain = RunnableSequence(prompt_template, self.chat_model)
-
-            self._chains[cache_key] = chain
-
-        return self._chains[cache_key]
-
-    @overload
-    async def invoke(
-        self,
-        prompt_key: str,
-        input: dict,
-        *,
-        session_id: str | None = None,
-        schema: type[T],
-    ) -> T: ...
-
-    @overload
-    async def invoke(
-        self,
-        prompt_key: str,
-        input: dict,
-        *,
-        session_id: str | None = None,
-        schema: None = None,
-    ) -> dict[str, Any]: ...
-
     @observe(as_type="span")
-    async def invoke(
+    async def categorize_ticket(
         self,
-        prompt_key: str,
-        input: dict,
         *,
+        message: str,
+        role_description: str,
+        categories: list[Any],
+        categories_prompt: str,
+        examples: str,
         session_id: str | None = None,
-        schema: type[T] | None = None,
-    ) -> T | dict[str, Any]:
-        """
-        Invoke the language model using a specified prompt and optional output schema.
+    ) -> CategorizationResult:
+        """Categorize a ticket message into one of the configured categories.
 
-        Chains are cached based on prompt_key and schema, so repeated invocations with the same
-        prompt_key/schema combination reuse the built chain without rebuilding.
-
-        Parameters:
-            prompt_key (str): The key in self.prompts identifying which prompt to use.
-            input (dict): Input variables for the prompt template (must include "text" key).
-            session_id (str | None): Optional Langfuse session ID for tracing. Generated if not provided.
-            schema (type[T] | None): Optional Pydantic schema for structured output. If provided, model output
-                will be parsed into this schema. If None, raw model output is returned.
+        Args:
+            message: Incoming ticket message text.
+            role_description: Role description used by the categorization prompt.
+            categories: Available categories passed into the prompt context.
+            categories_prompt: Additional category-specific prompt fragment.
+            examples: In-context examples for the categorization prompt.
+            session_id: Optional trace session id.
 
         Returns:
-            T | dict[str, Any]: Either a structured object matching the schema (if provided) or raw dict output.
-
-        Raises:
-            GenAIError: If the language model invocation fails.
-            KeyError: If the prompt_key doesn't exist in prompts.
+            Structured categorization result from the model.
         """
-        if prompt_key not in self.prompts:
-            error_msg = f"Prompt key '{prompt_key}' not found in prompts dictionary."
-            logger.error(error_msg)
-            raise KeyError(error_msg)
-
-        if session_id is None:
-            session_id = self.langfuse_client.generate_session_id()
-
-        self.langfuse_client.langfuse.update_current_trace(session_id=session_id)
-        config: RunnableConfig = self.langfuse_client.build_config(session_id=session_id)
+        _, config = self._build_runnable_config(session_id=session_id)
 
         try:
-            chain = self._build_or_get_chain(prompt_key=prompt_key, schema=schema)
-            response: T | dict[str, Any] = await chain.ainvoke(input=input, config=config)
+            response: CategorizationResult = await self._categorization_chain.ainvoke(
+                input={
+                    "text": message,
+                    "role_description": role_description,
+                    "categories": categories,
+                    "categories_prompt": categories_prompt,
+                    "examples": examples,
+                },
+                config=config,
+            )
             return response
         except Exception as e:
-            logger.error("Error during GenAI invocation", exc_info=True)
+            logger.error("Error during GenAI invocation for categorization", exc_info=True)
             raise GenAIError("GenAI operation failed") from e
+
+    @observe(as_type="span")
+    async def extract_days_since_request(self, *, message: str, today: str, session_id: str | None = None) -> DaysSinceRequestResponse:
+        """Extract days-since-request information from a ticket message.
+
+        Args:
+            message: Incoming ticket message text.
+            today: Current date representation used for date-relative extraction.
+            session_id: Optional trace session id.
+
+        Returns:
+            Structured response containing extracted day offset information.
+        """
+        _, config = self._build_runnable_config(session_id=session_id)
+
+        try:
+            response: DaysSinceRequestResponse = await self._days_since_request_chain.ainvoke(
+                input={
+                    "text": message,
+                    "today": today,
+                },
+                config=config,
+            )
+            return response
+        except Exception as e:
+            logger.error("Error during GenAI invocation for days since request extraction", exc_info=True)
+            raise GenAIError("GenAI operation failed") from e
+
+    @observe(as_type="span")
+    async def extract_processing_id(self, *, message: str, session_id: str | None = None) -> ProcessingIdResponse:
+        """Extract a processing identifier from a ticket message.
+
+        Args:
+            message: Incoming ticket message text.
+            session_id: Optional trace session id.
+
+        Returns:
+            Structured response containing the extracted processing id.
+        """
+        _, config = self._build_runnable_config(session_id=session_id)
+
+        try:
+            response: ProcessingIdResponse = await self._processing_id_chain.ainvoke(
+                input={
+                    "text": message,
+                },
+                config=config,
+            )
+            return response
+        except Exception as e:
+            logger.error("Error during GenAI invocation for processing id extraction", exc_info=True)
+            raise GenAIError("GenAI operation failed") from e
+
+    def _build_chain(self, prompt: str, output_schema: type[T] | None = None) -> RunnableSequence[Any, T]:
+        """Create a reusable structured-output chain for one prompt.
+
+        Args:
+            prompt: The prompt to use.
+            output_schema: Pydantic model used for strict structured output parsing.
+
+        Returns:
+            A runnable sequence that accepts invocation input and returns a value
+            parsed as the provided schema.
+
+        Raises:
+            KeyError: If prompt_key is not present in configured prompts.
+        """
+        if not prompt.strip():
+            raise ValueError("Prompt template cannot be empty.")
+
+        prompt_template = ChatPromptTemplate(
+            messages=[
+                ("system", prompt),
+                ("user", "{text}"),
+            ]
+        )
+
+        return RunnableSequence(
+            prompt_template,
+            self.chat_model.with_structured_output(schema=output_schema, strict=True) if output_schema else self.chat_model,
+        )
+
+    def _build_runnable_config(self, session_id: str | None) -> tuple[str, RunnableConfig]:
+        """Resolve session id and build runnable tracing configuration.
+
+        Args:
+            session_id: Optional external session identifier.
+
+        Returns:
+            Tuple of resolved session id and LangChain runnable configuration.
+        """
+        resolved_session_id: str | None = session_id.strip() if session_id is not None else None
+        if not resolved_session_id:
+            resolved_session_id = self.langfuse_client.generate_session_id()
+
+        self.langfuse_client.langfuse.update_current_trace(session_id=resolved_session_id)
+        config: RunnableConfig = self.langfuse_client.build_config(session_id=resolved_session_id)
+        return resolved_session_id, config

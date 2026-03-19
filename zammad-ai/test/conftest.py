@@ -34,6 +34,9 @@ DEFAULT_GENAI_PROMPTS = {
     "categories": "List of categories: {{categories}}",
     "examples": "Examples: {{examples}}",
     "role": "You are a helpful assistant that categorizes support requests into the above categories based on the content of the request.",
+    "categorization": "Given the following support request, determine the most appropriate category from the provided list.",
+    "days_since_request": "Given the following support request and the current date, determine how many days have passed since the request was made. ",
+    "processing_id": "Given the following support request, determine a unique processing identifier that can be used to group related requests together.",
 }
 
 
