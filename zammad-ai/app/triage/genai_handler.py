@@ -58,7 +58,7 @@ class GenAIHandler:
             logger.error(error_msg)
             raise ValueError(error_msg)
 
-        empty_keys = [key for key, value in self.prompts.items() if not value]
+        empty_keys: list[str] = [key for key, value in self.prompts.items() if not isinstance(value, str) or not value.strip()]
         if empty_keys:
             error_msg = f"Empty prompt values for keys: {', '.join(empty_keys)}. All prompts must be non-empty strings."
             logger.error(error_msg)
