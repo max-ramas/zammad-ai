@@ -32,8 +32,7 @@ class GenAIHandler:
     """
 
     def __init__(self, genai_settings: GenAISettings, prompts: dict[str, str]) -> None:
-        """
-        Initialize the GenAIHandler and configure the chat model.
+        """Initialize the GenAIHandler and configure the chat model.
 
         Parameters:
             genai_settings (GenAISettings): GenAI configuration including `sdk`, model name, temperature, max_retries.
@@ -68,8 +67,7 @@ class GenAIHandler:
         logger.info("GenAI handler initialized successfully")
 
     def _validate_prompts(self) -> None:
-        """
-        Validate that prompts dictionary is properly configured.
+        """Validate that prompts dictionary is properly configured.
 
         Ensures that:
         - The prompts dictionary is not empty
@@ -89,9 +87,10 @@ class GenAIHandler:
             logger.error(error_msg)
             raise ValueError(error_msg)
 
-    def _build_or_get_chain(self, prompt_key: str, schema: type[T] | None = None) -> RunnableSequence[Any, T | dict[str, Any]]:
-        """
-        Build or retrieve a cached chain for the given prompt key and optional schema.
+    def _build_or_get_chain(
+        self, prompt_key: str, schema: type[T] | None = None
+    ) -> RunnableSequence[Any, T | dict[str, Any]]:
+        """Build or retrieve a cached chain for the given prompt key and optional schema.
 
         Chains are cached with a key combining the prompt_key and schema (if provided) to support
         the same prompt being used with different output schemas.
@@ -154,8 +153,7 @@ class GenAIHandler:
         session_id: str | None = None,
         schema: type[T] | None = None,
     ) -> T | dict[str, Any]:
-        """
-        Invoke the language model using a specified prompt and optional output schema.
+        """Invoke the language model using a specified prompt and optional output schema.
 
         Chains are cached based on prompt_key and schema, so repeated invocations with the same
         prompt_key/schema combination reuse the built chain without rebuilding.

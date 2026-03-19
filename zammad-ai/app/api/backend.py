@@ -1,3 +1,5 @@
+"""FastAPI backend wiring for Zammad AI services and routes."""
+
 import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -22,8 +24,7 @@ logger: Logger = getLogger("zammad-ai.api.backend")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """
-    Manage application startup and shutdown by initializing and cleaning shared services.
+    """Manage application startup and shutdown by initializing and cleaning shared services.
 
     On startup, attaches `triage_service` and `answer_service` to `app.state` using current settings. On shutdown, awaits each service's `cleanup()` method; `asyncio.CancelledError` raised during cleanup is caught.
     """
@@ -80,8 +81,7 @@ if not settings.frontend.enabled and settings.mode == "development":
 
     @backend.get("/", include_in_schema=False)
     async def reroute_to_docs() -> RedirectResponse:
-        """
-        Redirect root requests to the API documentation page.
+        """Redirect root requests to the API documentation page.
 
         Returns:
             RedirectResponse: A response that redirects the client to "/api/docs".
@@ -91,8 +91,7 @@ if not settings.frontend.enabled and settings.mode == "development":
 
 @backend.get("/api/v1/health", tags=["health"])
 async def health_check() -> HealthCheckResponse:
-    """
-    Provide a basic application health check response.
+    """Provide a basic application health check response.
 
     Returns:
         HealthCheckResponse: An instance containing the application's default health status.
