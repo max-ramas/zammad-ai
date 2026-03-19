@@ -48,23 +48,22 @@ class GenAIHandler:
             ValueError: If prompts are missing/empty or the configured SDK is
                 not supported.
         """
-        self.prompts: dict[str, str] = prompts
         # TODO: Refactor langfuse client as optional argument, if not passed there is no tracing and no handler is passed to the chains
         self.langfuse_client = LangfuseClient()
 
         # Validate that prompts are properly configured
-        if not self.prompts:
+        if not prompts:
             error_msg = "Prompts dictionary cannot be empty."
             logger.error(error_msg)
             raise ValueError(error_msg)
 
-        empty_keys: list[str] = [key for key, value in self.prompts.items() if not isinstance(value, str) or not value.strip()]
+        empty_keys: list[str] = [key for key, value in prompts.items() if not isinstance(value, str) or not value.strip()]
         if empty_keys:
             error_msg = f"Empty prompt values for keys: {', '.join(empty_keys)}. All prompts must be non-empty strings."
             logger.error(error_msg)
             raise ValueError(error_msg)
 
-        missing_keys = self.REQUIRED_PROMPT_KEYS - set(self.prompts)
+        missing_keys = self.REQUIRED_PROMPT_KEYS - set(prompts)
         if missing_keys:
             error_msg = f"Missing required prompt keys: {', '.join(sorted(missing_keys))}."
             logger.error(error_msg)
@@ -86,9 +85,9 @@ class GenAIHandler:
                 raise ValueError(f"Unsupported GenAI SDK: {genai_settings.sdk}")
 
         # Build durable chains once so each operation reuses the same chain instance.
-        self._categorization_chain = self._build_chain(prompt_key="categorization", schema=CategorizationResult)
-        self._days_since_request_chain = self._build_chain(prompt_key="days_since_request", schema=DaysSinceRequestResponse)
-        self._processing_id_chain = self._build_chain(prompt_key="processing_id", schema=ProcessingIdResponse)
+        self._categorization_chain = self._build_chain(prompt=prompts["categorization"], output_schema=CategorizationResult)
+        self._days_since_request_chain = self._build_chain(prompt=prompts["days_since_request"], output_schema=DaysSinceRequestResponse)
+        self._processing_id_chain = self._build_chain(prompt=prompts["processing_id"], output_schema=ProcessingIdResponse)
 
         logger.info("GenAI handler initialized successfully")
 
@@ -186,12 +185,12 @@ class GenAIHandler:
             logger.error("Error during GenAI invocation for processing id extraction", exc_info=True)
             raise GenAIError("GenAI operation failed") from e
 
-    def _build_chain(self, prompt_key: str, schema: type[T]) -> RunnableSequence[Any, T]:
+    def _build_chain(self, prompt: str, output_schema: type[T] | None = None) -> RunnableSequence[Any, T]:
         """Create a reusable structured-output chain for one prompt.
 
         Args:
-            prompt_key: Key identifying the prompt template in configured prompts.
-            schema: Pydantic model used for strict structured output parsing.
+            prompt: The prompt to use.
+            output_schema: Pydantic model used for strict structured output parsing.
 
         Returns:
             A runnable sequence that accepts invocation input and returns a value
@@ -200,21 +199,19 @@ class GenAIHandler:
         Raises:
             KeyError: If prompt_key is not present in configured prompts.
         """
-        if prompt_key not in self.prompts:
-            error_msg = f"Prompt key '{prompt_key}' not found in prompts dictionary."
-            logger.error(error_msg)
-            raise KeyError(error_msg)
+        if not prompt.strip():
+            raise ValueError("Prompt template cannot be empty.")
 
         prompt_template = ChatPromptTemplate(
             messages=[
-                ("system", self.prompts[prompt_key]),
+                ("system", prompt),
                 ("user", "{text}"),
             ]
         )
 
         return RunnableSequence(
             prompt_template,
-            self.chat_model.with_structured_output(schema=schema, strict=True),
+            self.chat_model.with_structured_output(schema=output_schema, strict=True) if output_schema else self.chat_model,
         )
 
     def _build_runnable_config(self, session_id: str | None) -> tuple[str, RunnableConfig]:
