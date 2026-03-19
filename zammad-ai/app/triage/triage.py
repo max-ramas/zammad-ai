@@ -243,17 +243,13 @@ class TriageService:
             )
 
         try:
-            cat_result: CategorizationResult = await self.genai_handler.invoke(
-                prompt_key="triage",
-                input={
-                    "text": message,
-                    "role_description": self.prompts.get("role", ""),
-                    "categories": self.categories,
-                    "categories_prompt": self.prompts.get("categories", ""),
-                    "examples": self.prompts.get("examples", ""),
-                },
+            cat_result: CategorizationResult = await self.genai_handler.categorize_ticket(
+                message=message,
+                role_description=self.prompts.get("role", ""),
+                categories=self.categories,
+                categories_prompt=self.prompts.get("categories", ""),
+                examples=self.prompts.get("examples", ""),
                 session_id=session_id,
-                schema=CategorizationResult,
             )
 
             if not cat_result.category or cat_result.category.id not in [c.id for c in self.categories]:
@@ -309,14 +305,10 @@ class TriageService:
                         for condition in conditions:
                             if condition.field == "days_since_request":
                                 if days_since_request is None:
-                                    days_result: DaysSinceRequestResponse = await self.genai_handler.invoke(
-                                        prompt_key="days_since_request",
-                                        input={
-                                            "text": message,
-                                            "today": date.today().isoformat(),  # TODO: Mpck date for benchmarks with old tickets
-                                        },
+                                    days_result: DaysSinceRequestResponse = await self.genai_handler.extract_days_since_request(
+                                        message=message,
+                                        today=date.today().isoformat(),  # TODO: Mpck date for benchmarks with old tickets
                                         session_id=session_id,
-                                        schema=DaysSinceRequestResponse,
                                     )
                                     days_since_request = days_result.days_since_request
                                 if (get_operator_function(operator=condition.operator))(
@@ -326,17 +318,11 @@ class TriageService:
 
                             if condition.field == "processing_id":
                                 if processing_id is None:
-                                    condition_str: str = (
-                                        "Processing id " + condition.operator + " " + str(condition.value)
-                                    )
-                                    processing_result: ProcessingIdResponse = await self.genai_handler.invoke(
-                                        prompt_key="processing_id",
-                                        input={
-                                            "text": message,
-                                            "condition": condition_str,
-                                        },
-                                        session_id=session_id,
-                                        schema=ProcessingIdResponse,
+                                    processing_result: ProcessingIdResponse = (
+                                        await self.genai_handler.extract_processing_id(
+                                            message=message,
+                                            session_id=session_id,
+                                        )
                                     )
                                     processing_id = processing_result.processing_id
                                 if get_operator_function(operator=condition.operator)(processing_id, condition.value):

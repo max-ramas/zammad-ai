@@ -45,4 +45,3 @@ class ProcessingIdResponse(BaseModel):
     """Structured response for processing-id extraction."""
 
     processing_id: str = Field(description="Extracted processing ID from the text")
-    condition_met: bool = Field(description="Whether the extracted processing ID meets the specified condition")

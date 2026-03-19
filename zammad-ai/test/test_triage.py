@@ -235,7 +235,7 @@ async def test_predict_category_handles_genai_exception(patched_triage: TriageSe
         """
         raise RuntimeError("LLM exploded")
 
-    patched_triage.genai_handler.invoke = _boom  # type: ignore
+    patched_triage.genai_handler.categorize_ticket = _boom  # type: ignore
     with pytest.raises(TriageError) as excinfo:
         await patched_triage.predict_category(message="trigger error", session_id="session-id")
     assert "unexpected error" in str(excinfo.value)
