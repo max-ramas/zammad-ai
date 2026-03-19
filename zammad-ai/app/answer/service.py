@@ -142,8 +142,9 @@ class AnswerService:
                 context=self.agent_context,
             )
             logger.debug(f"Agent raw result:\n{agent_result}")
+            structured_response = agent_result["structured_response"]
             outcome = "success"
-            return agent_result["structured_response"]
+            return structured_response
         finally:
             ANSWER_RUN_DURATION_SECONDS.labels(outcome=outcome).observe(perf_counter() - start_time)
             ANSWER_RUNS_IN_PROGRESS.dec()
