@@ -16,6 +16,7 @@ from app.models.api_v1 import HealthCheckResponse
 from app.settings import ZammadAISettings, get_settings
 from app.triage import get_triage_service
 from app.utils.logging import getLogger
+from app.utils.status import set_status, track_activity
 
 from .v1.answer import answer_router
 from .v1.triage import triage_router
@@ -43,14 +44,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     On startup, attaches `triage_service` and `answer_service` to `app.state` using current settings. On shutdown, awaits each service's `cleanup()` method; `asyncio.CancelledError` raised during cleanup is caught.
     """
     # Startup: Initialize shared Triage instance
+    set_status("startup")
     settings: ZammadAISettings = get_settings()
 
     logger.info("Initializing shared Triage instance")
     app.state.triage_service = get_triage_service(settings=settings)
     app.state.answer_service = get_answer_service(settings=settings)
+    set_status("ready")
 
     yield
     logger.info("Shutting down shared Triage instance")
+    set_status("shutdown")
     try:
         await app.state.triage_service.cleanup()
         await app.state.answer_service.cleanup()
@@ -81,8 +85,9 @@ async def prometheus_http_metrics_middleware(
     method: str = request.method
     status_code = 500
     try:
-        response: Response = await call_next(request)
-        status_code = response.status_code
+        async with track_activity():
+            response: Response = await call_next(request)
+            status_code = response.status_code
     except Exception:
         raise
     finally:
