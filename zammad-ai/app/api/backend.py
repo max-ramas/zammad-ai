@@ -85,8 +85,12 @@ async def prometheus_http_metrics_middleware(
     method: str = request.method
     status_code = 500
     try:
-        async with track_activity():
-            response: Response = await call_next(request)
+        if request.url.path in ("/triage", "/answer"):
+            async with track_activity():
+                response: Response = await call_next(request)
+                status_code = response.status_code
+        else:
+            response = await call_next(request)
             status_code = response.status_code
     except Exception:
         raise
