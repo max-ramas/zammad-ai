@@ -78,8 +78,6 @@ def getLogger(name: str = "zammad-ai") -> logging.Logger:
 class JsonFormatter(logging.Formatter):
     """Format log records as JSON objects."""
 
-    """A custom JSON formatter for logging."""
-
     # Standard LogRecord attributes to exclude
     STANDARD_ATTRIBUTES: set[str] = {
         "name",
