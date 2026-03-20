@@ -179,7 +179,7 @@ async def test_perform_triage_in_progress_gauge_returns_to_baseline_on_success(p
         articles=[ZammadArticle(id=1, ticket_id=42, text="My printer is broken")],
     )
     patched_triage.genai_handler.categorization_result = CategorizationResult(  # type: ignore
-        category=Category(name="General", id=1),
+        category=Category(name="General"),
         reasoning="hardware issue",
         confidence=0.9,
     )
@@ -204,7 +204,7 @@ async def test_perform_triage_in_progress_gauge_increments_while_running(patched
 
     patched_triage.zammad_client.get_ticket = _get_ticket_and_assert_in_progress  # type: ignore
     patched_triage.genai_handler.categorization_result = CategorizationResult(  # type: ignore
-        category=Category(name="General", id=1),
+        category=Category(name="General"),
         reasoning="hardware issue",
         confidence=0.9,
     )
