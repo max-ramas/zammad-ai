@@ -163,6 +163,7 @@ class TriageService:
         if len(ticket.articles) == 0:
             logger.warning(f"No articles found for ticket {id}, returning no_category and no_action")
             return TriageResult(
+                user_text="",
                 category=self.no_category,
                 reasoning="Keine Artikel gefunden",
                 confidence=1.0,
@@ -190,6 +191,7 @@ class TriageService:
             action: Action = self.actions_by_name.get(action_name, self.no_action)
             # Step 6: Return the triage result
             return TriageResult(
+                user_text=customer_message,
                 category=categorization.category if categorization.category else self.no_category,
                 action=action,
                 reasoning=categorization.reasoning,
@@ -199,6 +201,7 @@ class TriageService:
         except TriageError:
             logger.warning(f"Processing failed for ticket {id}, returning fallback TriageResult.")
             return TriageResult(
+                user_text=customer_message,
                 category=self.no_category,
                 action=self.no_action,
                 reasoning="Fehler bei der Triage-Verarbeitung",

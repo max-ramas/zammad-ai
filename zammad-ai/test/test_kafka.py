@@ -105,6 +105,7 @@ def mock_triage() -> MagicMock:
     # Make perform_triage return an async mock that returns a TriageResult
     triage.perform_triage = AsyncMock(
         return_value=TriageResult(
+            user_text="",
             category=Category(name="Test"),
             action=Action(name="Keine_Aktion", description="No action", type=ActionTypes.No_Action),
             reasoning="Test reasoning",

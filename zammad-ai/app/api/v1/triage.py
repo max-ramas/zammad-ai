@@ -56,6 +56,7 @@ async def triage(
 
     return TriageOutput(
         triage=TriageResult(
+            user_text=text,
             category=final_category,
             action=action,
             reasoning=categorization.reasoning,
