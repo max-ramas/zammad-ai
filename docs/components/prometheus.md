@@ -6,7 +6,7 @@ Zammad-AI exposes Prometheus metrics for the backend API, triage flow, answer ge
 
 The application exports metrics on the standard Prometheus `/metrics` endpoint.
 
-The metrics server is started during application startup when `prometheus.enabled` is set to `true`. 
+The metrics server is started during application startup when `prometheus.enabled` is set to `true`.
 
 The port is configured via settings but default to `9090`.
 
