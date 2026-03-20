@@ -119,8 +119,11 @@ triage:
   # Each category requires only a unique name.
   categories:
     - name: "General Questions"
+      auto_publish: true # Optional: automatically publish AI response for this category
     - name: "Status Inquiries"
+      auto_publish: false # Optional: do not automatically publish AI response for this category. Post Shared Draft instead for manual review.
     - name: "Cannot Categorize"
+      auto_publish: false
 
   # Fallback category name when classification fails (must match a category name above)
   no_category_name: "Cannot Categorize"

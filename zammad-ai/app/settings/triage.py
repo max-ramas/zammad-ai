@@ -43,6 +43,7 @@ class TriageSettings(BaseModel):
 
 class Category(BaseModel):
     name: str
+    auto_publish: bool = False
 
 
 class ActionTypes(str, Enum):
