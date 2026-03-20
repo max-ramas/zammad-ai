@@ -9,6 +9,7 @@ from .frontend import FrontendSettings
 from .genai import GenAISettings
 from .kafka import KafkaSettings
 from .logging import LoggingSettings
+from .prometheus import PrometheusSettings
 from .triage import TriageSettings
 from .usecase import UseCaseSettings
 from .zammad import ZammadAPISettings, ZammadEAISettings
@@ -107,13 +108,20 @@ class ZammadAISettings(BaseSettings):
         min_length=1,
         description="List of valid request types to be processed",
     )
+
     langfuse_enabled: bool = Field(
         description="Whether to enable Langfuse integration for logging and prompt fetching.",
         default=True,
     )
+
     mode: Literal["production", "development", "unittest"] = Field(
         description="Application mode, affecting logging and other behavior.",
         default="production",
+    )
+
+    prometheus: PrometheusSettings = Field(
+        description="Settings for Prometheus metrics exposure, including endpoint and port configuration.",
+        default_factory=lambda: PrometheusSettings(),
     )
 
     @model_validator(mode="after")

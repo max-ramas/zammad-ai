@@ -201,3 +201,8 @@ langfuse_enabled: true # Set to false to disable Langfuse integration
 
 # Application mode
 mode: "production" # Options: "production", "development", "unittest"
+
+# Prometheus metrics configuration
+prometheus:
+  enabled: true # Set to true to enable Prometheus metrics endpoint
+  port: 9090 # Port for Prometheus metrics server
