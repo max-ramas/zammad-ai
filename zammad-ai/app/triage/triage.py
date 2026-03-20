@@ -271,7 +271,7 @@ class TriageService:
             raise TriageError("Categorization failed due to GenAI error") from e
         except Exception as e:
             logger.error("Unexpected error during categorization", exc_info=True)
-            raise TriageError(f"Categorization failed due to unexpected error: {str(e)}") from e
+            raise TriageError("Categorization failed due to unexpected error") from e
 
     async def get_action_id(
         self, categorization_result: CategorizationResult, message: str = "", session_id: str | None = None

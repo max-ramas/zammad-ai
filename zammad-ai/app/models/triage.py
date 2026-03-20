@@ -10,7 +10,7 @@ class CategorizationResult(BaseModel):
 
     category: Category | None = Field(description=("The predicted category for the text."))
     reasoning: str = Field(
-        description="A single sentence explaining why the text fits the chosen category.Translate the text in german."
+        description="A single sentence explaining why the text fits the chosen category. Translate the text in german."
     )
     confidence: float = Field(
         description="Value from 0.0 to 1.0 on how sure / confident you are in your categorisation",

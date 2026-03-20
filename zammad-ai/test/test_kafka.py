@@ -50,7 +50,7 @@ async def test_event_handler_valid_message(
 ) -> None:
     """Verifies that a valid Kafka message causes the triage service to be invoked with the ticket ID from the message.
 
-    Publishes a message to the router's broker configured with a single allowed request type and asserts that `perform_triage` is called once with `id="3720"`.
+    Publishes a message to the router's broker configured with a single allowed request type and asserts that `perform_triage` is called once with `id=3720`.
     """
     settings = settings_factory(valid_request_types=["technischer Bürgersupport"])
     router, event_handler = build_router(settings=settings)
@@ -133,7 +133,7 @@ async def test_event_handler_with_multiple_valid_request_types(
 ) -> None:
     """Verify the event handler invokes triage when the message's request type matches any of multiple allowed types.
 
-    Publishes a Kafka message with `anliegenart` set to "general support" while the settings allow ["technischer Bürgersupport", "general support", "other"], and asserts `perform_triage` was called with `id="3720"`.
+    Publishes a Kafka message with `anliegenart` set to "general support" while the settings allow ["technischer Bürgersupport", "general support", "other"], and asserts `perform_triage` was called with `id=3720`.
     """
     settings = settings_factory(valid_request_types=["technischer Bürgersupport", "general support", "other"])
     router, event_handler = build_router(settings=settings)
