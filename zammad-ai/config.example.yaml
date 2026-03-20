@@ -129,15 +129,15 @@ triage:
   no_category_name: "Cannot Categorize"
 
   # Action setup: Define automated actions
-  # type options: "KI_Antwort" (AI response), "Keine_Aktion" (no action), "Standardantwort" (standard answer)
-  # answer: optional static answer text (used with type "Standardantwort")
+  # type options: "AI_Answer" (generate AI response), "No_Action" (do nothing), "Standard_Answer" (post predefined answer)
+  # answer: optional static answer text (used with type "Standard_Answer")
   actions:
     - name: "no_action"
       description: "No automated action"
-      type: "Keine_Aktion"
+      type: "No_Action"
     - name: "ai_response"
       description: "Generate AI-powered response"
-      type: "KI_Antwort"
+      type: "AI_Answer"
 
   # Fallback action name when no rule matches (must match an action name above)
   no_action_name: "no_action"

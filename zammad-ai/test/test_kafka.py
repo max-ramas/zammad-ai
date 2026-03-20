@@ -121,6 +121,15 @@ def mock_get_triage(monkeypatch: pytest.MonkeyPatch, mock_triage: MagicMock) -> 
     monkeypatch.setattr("app.kafka.broker.get_triage_service", lambda *args, **kwargs: mock_triage)
 
 
+@pytest.fixture(autouse=True)
+def mock_get_answer_service(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Patch Kafka router answer lookup to return a mocked answer service."""
+    answer_service = MagicMock()
+    answer_service.generate_answer = AsyncMock()
+    monkeypatch.setattr("app.kafka.broker.get_answer_service", lambda *args, **kwargs: answer_service)
+    return answer_service
+
+
 @pytest.mark.asyncio
 async def test_event_handler_valid_message(
     kafka_message_factory: Callable[..., dict[str, str]],

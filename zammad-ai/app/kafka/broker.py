@@ -6,13 +6,14 @@ from faststream.exceptions import AckMessage, NackMessage
 from faststream.kafka.fastapi import KafkaRouter
 from faststream.security import BaseSecurity
 
+from app.action.service import ActionService
+from app.answer.service import AnswerService, get_answer_service
 from app.models.kafka import Event
 from app.models.triage import TriageResult
 from app.settings import ZammadAISettings
-from app.triage.triage import get_triage_service
+from app.triage.triage import TriageService, get_triage_service
 from app.utils.logging import getLogger
 
-from ..triage.triage import TriageService
 from .security import setup_security
 
 logger: Logger = getLogger(name="zammad-ai")
@@ -37,6 +38,13 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
     router = KafkaRouter(
         bootstrap_servers=settings.kafka.broker_url,
         security=security,
+    )
+
+    triage_service: TriageService = get_triage_service(settings=settings)
+    answer_service: AnswerService = get_answer_service(settings=settings)
+    action_service: ActionService = ActionService(
+        answer_service=answer_service,
+        settings=settings,
     )
 
     @router.subscriber(
@@ -64,10 +72,10 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
         if False:  # TODO: Replace with error handlers
             raise NackMessage()
         try:
-            triage: TriageService = get_triage_service(settings=settings)
             id: int = int(event.ticket)
-            result: TriageResult = await triage.perform_triage(id=id)
+            result: TriageResult = await triage_service.perform_triage(id=id)
             logger.debug(f"Triage result for ticket {id}: {result}")
+            await action_service.execute_action(ticket_id=id, triage=result)
         except Exception:
             logger.error(f"Error processing event for ticket {event.ticket}.", exc_info=True)
             raise NackMessage()
