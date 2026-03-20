@@ -14,6 +14,14 @@ from app.triage.triage import TriageError, TriageService
 from test.fakes import FakeGenAIHandler, FakeZammadClient, FakeZammadConnectionError
 
 
+def _get_triage_runs_in_progress_value() -> float:
+    for metric in triage_module.TRIAGE_RUNS_IN_PROGRESS.collect():
+        for sample in metric.samples:
+            if sample.name == "zammad_ai_triage_runs_in_progress":
+                return sample.value
+    raise AssertionError("triage runs in-progress gauge sample not found")
+
+
 @pytest.fixture
 def patched_triage(
     monkeypatch: pytest.MonkeyPatch,
@@ -162,6 +170,50 @@ async def test_perform_triage_happy_path(patched_triage: TriageService) -> None:
     assert result.confidence == 0.9
 
 
+@pytest.mark.asyncio
+async def test_perform_triage_in_progress_gauge_returns_to_baseline_on_success(patched_triage: TriageService) -> None:
+    """The in-progress gauge should return to baseline after a successful run."""
+    baseline = _get_triage_runs_in_progress_value()
+    patched_triage.zammad_client.ticket = ZammadTicket(  # type: ignore
+        id=42,
+        articles=[ZammadArticle(id=1, ticket_id=42, text="My printer is broken")],
+    )
+    patched_triage.genai_handler.categorization_result = CategorizationResult(  # type: ignore
+        category=Category(name="General", id=1),
+        reasoning="hardware issue",
+        confidence=0.9,
+    )
+
+    await patched_triage.perform_triage(id=42)
+
+    assert _get_triage_runs_in_progress_value() == baseline
+
+
+@pytest.mark.asyncio
+async def test_perform_triage_in_progress_gauge_increments_while_running(patched_triage: TriageService) -> None:
+    """The in-progress gauge should be incremented while perform_triage is executing."""
+    baseline = _get_triage_runs_in_progress_value()
+    expected = baseline + 1
+
+    async def _get_ticket_and_assert_in_progress(id: int) -> ZammadTicket:
+        assert _get_triage_runs_in_progress_value() == expected
+        return ZammadTicket(
+            id=id,
+            articles=[ZammadArticle(id=1, ticket_id=id, text="My printer is broken")],
+        )
+
+    patched_triage.zammad_client.get_ticket = _get_ticket_and_assert_in_progress  # type: ignore
+    patched_triage.genai_handler.categorization_result = CategorizationResult(  # type: ignore
+        category=Category(name="General", id=1),
+        reasoning="hardware issue",
+        confidence=0.9,
+    )
+
+    await patched_triage.perform_triage(id=42)
+
+    assert _get_triage_runs_in_progress_value() == baseline
+
+
 # ---------------------------------------------------------------------------
 # perform_triage: Zammad connection error → TriageError
 # ---------------------------------------------------------------------------
@@ -228,7 +280,7 @@ async def test_predict_category_handles_genai_exception(patched_triage: TriageSe
         """
         raise RuntimeError("LLM exploded")
 
-    patched_triage.genai_handler.invoke = _boom  # type: ignore
+    patched_triage.genai_handler.categorize_ticket = _boom  # type: ignore
     with pytest.raises(TriageError) as excinfo:
         await patched_triage.predict_category(message="trigger error", session_id="session-id")
     assert "unexpected error" in str(excinfo.value)

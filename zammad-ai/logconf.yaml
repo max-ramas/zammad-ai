@@ -7,11 +7,16 @@ formatters:
     datefmt: "%Y-%m-%d %H:%M:%S"
   json:
     class: app.utils.logging.JsonFormatter
+filters:
+  metrics_filter:
+    (): app.utils.logging.MetricsFilter
 handlers:
   console:
     class: logging.StreamHandler
     level: DEBUG
     formatter: json
+    filters:
+      - metrics_filter
     stream: ext://sys.stdout
   httpx:
     class: logging.StreamHandler

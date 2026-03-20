@@ -6,3 +6,4 @@
 - [Zammad Integration](zammad.md)
 - [Qdrant Vector Database](qdrant.md)
 - [Observability (Langfuse)](observability.md)
+- [Prometheus Metrics](prometheus.md)

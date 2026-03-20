@@ -76,6 +76,10 @@ export default defineConfig({
             text: "Observability (Langfuse)",
             link: "/components/observability",
           },
+          {
+            text: "Prometheus Metrics",
+            link: "/components/prometheus",
+          },
         ],
       },
     ],

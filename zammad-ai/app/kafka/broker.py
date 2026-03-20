@@ -4,7 +4,9 @@ from logging import Logger
 from faststream import AckPolicy
 from faststream.exceptions import AckMessage, NackMessage
 from faststream.kafka.fastapi import KafkaRouter
+from faststream.kafka.prometheus import KafkaPrometheusMiddleware
 from faststream.security import BaseSecurity
+from prometheus_client import REGISTRY
 
 from app.action.service import ActionService
 from app.answer.service import AnswerService, get_answer_service
@@ -13,6 +15,7 @@ from app.models.triage import TriageResult
 from app.settings import ZammadAISettings
 from app.triage.triage import TriageService, get_triage_service
 from app.utils.logging import getLogger
+from app.utils.status import track_activity
 
 from .security import setup_security
 
@@ -38,6 +41,13 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
     router = KafkaRouter(
         bootstrap_servers=settings.kafka.broker_url,
         security=security,
+        middlewares=(
+            KafkaPrometheusMiddleware(
+                registry=REGISTRY,
+                app_name="zammad-ai",
+                metrics_prefix="zammad_ai_kafka",
+            ),
+        ),
     )
 
     triage_service: TriageService = get_triage_service(settings=settings)
@@ -62,23 +72,24 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
             AckMessage: If the event is successfully processed or intentionally skipped due to unsupported request type.
             NackMessage: If processing fails.
         """
-        logger.debug(f"Received event: {event}")
+        async with track_activity():
+            logger.debug(f"Received event: {event}")
 
-        # Filter here because information from body is needed
-        if event.request_type not in settings.valid_request_types:
-            logger.info(f"Skipping event with request type: {event.request_type}")
+            # Filter here because information from body is needed
+            if event.request_type not in settings.valid_request_types:
+                logger.info(f"Skipping event with request type: {event.request_type}")
+                raise AckMessage()
+
+            if False:  # TODO: Replace with error handlers
+                raise NackMessage()
+            try:
+                id: int = int(event.ticket)
+                result: TriageResult = await triage_service.perform_triage(id=id)
+                logger.debug(f"Triage result for ticket {id}: {result}")
+                await action_service.execute_action(ticket_id=id, triage=result)
+            except Exception:
+                logger.error(f"Error processing event for ticket {event.ticket}.", exc_info=True)
+                raise NackMessage()
             raise AckMessage()
-
-        if False:  # TODO: Replace with error handlers
-            raise NackMessage()
-        try:
-            id: int = int(event.ticket)
-            result: TriageResult = await triage_service.perform_triage(id=id)
-            logger.debug(f"Triage result for ticket {id}: {result}")
-            await action_service.execute_action(ticket_id=id, triage=result)
-        except Exception:
-            logger.error(f"Error processing event for ticket {event.ticket}.", exc_info=True)
-            raise NackMessage()
-        raise AckMessage()
 
     return router, event_handler

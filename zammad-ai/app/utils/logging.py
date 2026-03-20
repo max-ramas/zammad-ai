@@ -132,3 +132,8 @@ class JsonFormatter(logging.Formatter):
                 log_data[key] = value
 
         return json.dumps(log_data, ensure_ascii=False)
+
+
+class MetricsFilter(logging.Filter):
+    def filter(self, record):
+        return record.getMessage().find("/metrics") == -1
