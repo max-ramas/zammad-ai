@@ -108,7 +108,7 @@ async def test_get_action_id_uses_days_since_request_condition(triage_factory: C
                     field="days_since_request",
                     operator="greater_equals",
                     value=10,
-                    action_name="KI_Antwort",
+                    action_name="AI_Answer",
                 )
             ],
         )
@@ -123,7 +123,7 @@ async def test_get_action_id_uses_days_since_request_condition(triage_factory: C
 
     action_name = await triage.get_action_name(categorization_result=categorization, message="message", session_id="session-id")
 
-    assert action_name == "KI_Antwort"
+    assert action_name == "AI_Answer"
 
 
 @pytest.mark.asyncio
@@ -272,7 +272,7 @@ async def test_perform_triage_handles_processing_triage_error(patched_triage: Tr
 async def test_get_action_id_rule_without_conditions(triage_factory: Callable[[list[ActionRule] | None], TriageService]) -> None:
     """A rule with no conditions directly returns the rule's action_id."""
     action_rules = [
-        ActionRule(category_name="General", action_name="KI_Antwort", conditions=None),
+        ActionRule(category_name="General", action_name="AI_Answer", conditions=None),
     ]
     triage = triage_factory(action_rules)
     categorization = CategorizationResult(
@@ -282,7 +282,7 @@ async def test_get_action_id_rule_without_conditions(triage_factory: Callable[[l
     )
 
     action_name = await triage.get_action_name(categorization_result=categorization, message="msg", session_id="s")
-    assert action_name == "KI_Antwort"
+    assert action_name == "AI_Answer"
 
 
 # ---------------------------------------------------------------------------
@@ -298,7 +298,7 @@ async def test_get_action_id_condition_not_met_falls_through(triage_factory: Cal
             category_name="General",
             action_name="Keine_Aktion",
             conditions=[
-                Condition(priority=1, field="days_since_request", operator="greater_equals", value=10, action_name="KI_Antwort"),
+                Condition(priority=1, field="days_since_request", operator="greater_equals", value=10, action_name="AI_Answer"),
             ],
         ),
     ]
@@ -324,7 +324,7 @@ async def test_get_action_id_processing_id_condition(triage_factory: Callable[[l
             category_name="General",
             action_name="Keine_Aktion",
             conditions=[
-                Condition(priority=1, field="processing_id", operator="equals", value="ABC", action_name="KI_Antwort"),
+                Condition(priority=1, field="processing_id", operator="equals", value="ABC", action_name="AI_Answer"),
             ],
         ),
     ]
@@ -333,7 +333,7 @@ async def test_get_action_id_processing_id_condition(triage_factory: Callable[[l
     categorization = CategorizationResult(category=Category(name="General"), reasoning="ok", confidence=0.8)
 
     action_name = await triage.get_action_name(categorization_result=categorization, message="msg", session_id="s")
-    assert action_name == "KI_Antwort"
+    assert action_name == "AI_Answer"
 
 
 # ---------------------------------------------------------------------------
@@ -346,7 +346,7 @@ async def test_get_action_id_no_matching_rule(triage_factory: Callable[[list[Act
     """When no action rule matches the category, no_action is returned."""
     # Rule only for different category name, but our categorization has category "General"
     action_rules = [
-        ActionRule(category_name="Other", action_name="KI_Antwort", conditions=None),
+        ActionRule(category_name="Other", action_name="AI_Answer", conditions=None),
     ]
     triage = triage_factory(action_rules)
     categorization = CategorizationResult(category=Category(name="General"), reasoning="ok", confidence=0.8)
@@ -390,7 +390,7 @@ async def test_get_action_id_respects_condition_priority(triage_factory: Callabl
                 # priority=2 should be evaluated second
                 Condition(priority=2, field="days_since_request", operator="greater_equals", value=1, action_name="Standardantwort"),
                 # priority=1 should be evaluated first and match
-                Condition(priority=1, field="days_since_request", operator="greater_equals", value=5, action_name="KI_Antwort"),
+                Condition(priority=1, field="days_since_request", operator="greater_equals", value=5, action_name="AI_Answer"),
             ],
         ),
     ]
@@ -400,7 +400,7 @@ async def test_get_action_id_respects_condition_priority(triage_factory: Callabl
 
     action_name = await triage.get_action_name(categorization_result=categorization, message="msg", session_id="s")
     # priority=1 condition (>=5, action_name=KI_Antwort) fires first
-    assert action_name == "KI_Antwort"
+    assert action_name == "AI_Answer"
 
 
 # ---------------------------------------------------------------------------

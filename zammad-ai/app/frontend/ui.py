@@ -99,7 +99,7 @@ async def process_ticket(text: str, *, api_base_url: str, timeout_seconds: float
     """
     Process ticket text through triage and, if the triage action indicates, request an AI-generated answer.
 
-    Sends the ticket text to the triage endpoint and extracts category, action, reasoning, and confidence. If the triage action is "KI_Antwort" or "ai_response", requests an answer and any supporting documents from the answer endpoint and formats them for the frontend.
+    Sends the ticket text to the triage endpoint and extracts category, action, reasoning, and confidence. If the triage action is "AI_Answer" or "ai_response", requests an answer and any supporting documents from the answer endpoint and formats them for the frontend.
 
     Parameters:
         api_base_url (str): Base URL of the backend API (e.g., "http://localhost:8080").
@@ -147,7 +147,7 @@ async def process_ticket(text: str, *, api_base_url: str, timeout_seconds: float
         answer = ""
         answer_documents = ""
 
-        if action in {"KI_Antwort", "ai_response"}:
+        if action in {"AI_Answer", "ai_response"}:
             try:
                 answer_data = await _request_json(
                     client=client,

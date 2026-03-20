@@ -25,7 +25,7 @@ _TEST_ENV_DEFAULTS: dict[str, str] = {
     "ZAMMAD_AI_ZAMMAD__TYPE": "api",
     "ZAMMAD_AI_ZAMMAD__BASE_URL": "https://example.com",
     "ZAMMAD_AI_ZAMMAD__AUTH_TOKEN": "test-token",
-    "ZAMMAD_AI_TRIAGE": '{"categories":[{"name":"Unknown"}],"no_category_name":"Unknown","actions":[{"name":"Keine_Aktion","description":"No action","type":"Keine_Aktion"}],"no_action_name":"Keine_Aktion","action_rules":[],"prompts":{"type":"string","prompt_map":{"categories":"List of categories: {{categories}}","examples":"Examples: {{examples}}","role":"You are a helpful assistant that categorizes support requests into the above categories based on the content of the request."}}}',
+    "ZAMMAD_AI_TRIAGE": '{"categories":[{"name":"Unknown"}],"no_category_name":"Unknown","actions":[{"name":"Keine_Aktion","description":"No action","type":"No_Action"}],"no_action_name":"Keine_Aktion","action_rules":[],"prompts":{"type":"string","prompt_map":{"categories":"List of categories: {{categories}}","examples":"Examples: {{examples}}","role":"You are a helpful assistant that categorizes support requests into the above categories based on the content of the request."}}}',
     "ZAMMAD_AI_VALID_REQUEST_TYPES": '["support"]',
     "ZAMMAD_AI_QDRANT__API_KEY": "test-key",
 }

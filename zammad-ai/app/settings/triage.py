@@ -47,9 +47,9 @@ class Category(BaseModel):
 
 
 class ActionTypes(str, Enum):
-    AI_Answer = "KI_Antwort"
-    No_Action = "Keine_Aktion"
-    Standard_Answer = "Standardantwort"
+    AI_Answer = "AI_Answer"
+    No_Action = "No_Action"
+    Standard_Answer = "Standard_Answer"
 
 
 class Action(BaseModel):
