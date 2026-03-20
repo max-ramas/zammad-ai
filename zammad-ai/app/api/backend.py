@@ -6,7 +6,7 @@ from time import perf_counter
 
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
-from prometheus_client import CONTENT_TYPE_LATEST, REGISTRY, Counter, Histogram, generate_latest
+from prometheus_client import Counter, Histogram
 from starlette.responses import Response
 
 from app.answer import get_answer_service
@@ -43,24 +43,50 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     On startup, attaches `triage_service` and `answer_service` to `app.state` using current settings. On shutdown, awaits each service's `cleanup()` method; `asyncio.CancelledError` raised during cleanup is caught.
     """
-    # Startup: Initialize shared Triage instance
     set_status("startup")
     settings: ZammadAISettings = get_settings()
+    metrics_server = None
+    metrics_thread = None
 
-    logger.info("Initializing shared Triage instance")
-    app.state.triage_service = get_triage_service(settings=settings)
-    app.state.answer_service = get_answer_service(settings=settings)
-    set_status("ready")
-
-    yield
-    logger.info("Shutting down shared Triage instance")
-    set_status("shutdown")
     try:
-        await app.state.triage_service.cleanup()
-        await app.state.answer_service.cleanup()
+        if settings.prometheus.enabled:
+            from prometheus_client import start_http_server
 
-    except asyncio.CancelledError:
-        logger.info("Cleanup cancelled during shutdown.")
+            logger.info(msg=f"Starting Prometheus metrics server on port {settings.prometheus.port}")
+            try:
+                metrics_server, metrics_thread = start_http_server(port=settings.prometheus.port)
+            except OSError as e:
+                logger.warning(
+                    f"Prometheus metrics server could not be started; continuing without metrics export. Error type: {type(e).__name__}",
+                    exc_info=True,
+                )
+
+        logger.info("Initializing shared Triage instance")
+        app.state.triage_service = get_triage_service(settings=settings)
+        app.state.answer_service = get_answer_service(settings=settings)
+
+        yield
+
+        logger.info("Shutting down shared Triage instance")
+        set_status("shutdown")
+        try:
+            await app.state.triage_service.cleanup()
+            await app.state.answer_service.cleanup()
+
+        except asyncio.CancelledError:
+            logger.info("Cleanup cancelled during shutdown.")
+    except Exception as e:
+        logger.error(
+            f"Error during application lifespan management. Error type: {type(e).__name__}",
+            exc_info=True,
+        )
+        raise
+    finally:
+        if metrics_server is not None and metrics_thread is not None:
+            metrics_server.shutdown()
+            metrics_server.server_close()
+            metrics_thread.join()
+            logger.info("Prometheus metrics server shutdown complete.")
 
 
 settings: ZammadAISettings = get_settings()
@@ -103,15 +129,17 @@ async def prometheus_http_metrics_middleware(
     return response
 
 
-@backend.get("/metrics", include_in_schema=False)
-async def prometheus_metrics() -> Response:
-    return Response(content=generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
-
-
 # Include Kafka router (this handles broker lifecycle automatically)
 backend.include_router(
     router=kafka_router,
 )
+
+
+@kafka_router.after_startup
+async def mark_ready(_app: FastAPI) -> None:
+    set_status("ready")
+    logger.info("Kafka broker connected and application startup completed.")
+
 
 # Mount API routers
 backend.include_router(
