@@ -80,12 +80,10 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
             if False:  # TODO: Replace with error handlers
                 raise NackMessage()
             try:
-                id: int = int(event.ticket)
-                result: TriageResult = await triage_service.perform_triage(id=id)
-                logger.debug(
-                    f"Triage result for ticket {id}: category: {result.category.name if result.category else 'No category'}, action: {result.action.name if result.action else 'No action'}"
-                )
-                await action_service.execute_action(ticket_id=id, triage=result)
+                ticket_id: int = int(event.ticket)
+                result: TriageResult = await triage_service.perform_triage(id=ticket_id)
+                logger.debug(f"Triage result for ticket {ticket_id}: category: {result.category.name}, action: {result.action.name}")
+                await action_service.execute_action(ticket_id=ticket_id, triage=result)
             except Exception:
                 logger.error(f"Error processing event for ticket {event.ticket}.", exc_info=True)
                 raise NackMessage()
