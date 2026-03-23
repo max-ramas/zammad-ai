@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from faststream.kafka import TestKafkaBroker
 from pydantic import HttpUrl, SecretStr
 
-from app.settings import GenAISettings, KafkaSettings, TriageSettings, ZammadAISettings, ZammadAPISettings
+from app.settings import AnswerSettings, GenAISettings, KafkaSettings, TriageSettings, ZammadAISettings, ZammadAPISettings
 from app.settings.triage import Action, ActionRule, ActionTypes, Category, StringTriagePrompts
 from test.fakes import FakeGenAIHandler, FakeLangfuseClient, FakeZammadClient
 
@@ -132,6 +132,9 @@ def base_settings() -> ZammadAISettings:
                     "role": DEFAULT_GENAI_PROMPTS["role"],
                 },
             ),
+        ),
+        answer=AnswerSettings(
+            ai_answer_disclaimer="",
         ),
         valid_request_types=["support", "technischer Bürgersupport"],
     )
