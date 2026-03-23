@@ -42,8 +42,12 @@ async def process_item(key: str, value: dict) -> tuple[str, str, str, str]:
             triage_response = await client.post(f"{API_BASE_URL}/api/v1/triage", json={"text": value["text"]})
             triage_response.raise_for_status()
             result = triage_response.json()
-        except Exception as e:
-            logger.error(f"Error occurred while processing item {key}: {e}")
+        except Exception:
+            logger.error(
+                "Error occurred while processing benchmark item.",
+                exc_info=True,
+                extra={"item_key": key},
+            )
             return key, expected_category, "Fehler", ""
     predicted_category = result["triage"]["category"]["name"]
     predicted_action = result["triage"]["action"]["name"]

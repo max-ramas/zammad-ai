@@ -1,7 +1,7 @@
 from logging import Logger
 
-from app.answer.service import AnswerService
-from app.models.answer import StructuredAgentResponse
+from app.answer.service import AnswerService, get_answer_service
+from app.models.answer import DocumentDict, StructuredAgentResponse
 from app.models.triage import Action
 from app.settings.settings import ZammadAISettings
 from app.settings.triage import ActionTypes
@@ -30,27 +30,21 @@ class ActionService:
         else:
             raise ValueError("Invalid type for Zammad settings in configuration")
 
-    async def execute_action(self, ticket_id: int, triage: TriageResult) -> None:
+    async def execute_action(self, ticket_id: int, triage: TriageResult, session_id: str | None = None) -> None:
         category_name: str = triage.category.name
         action: Action = triage.action
 
-        if action.type == ActionTypes.No_Action:
-            self.logger.info(f"No action taken for ticket {ticket_id} with category {category_name}")
+        answer, documents = await self.get_answer(  # TODO what to do with documents here? Internal Note?
+            ticket_id=ticket_id,
+            category_name=category_name,
+            action_name=action.name,
+            user_text=triage.user_text,
+            session_id=session_id,
+        )
+
+        if answer is None:
+            self.logger.info(f"No answer generated for ticket {ticket_id} with category {category_name}; skipping action execution.")
             return
-        elif action.type == ActionTypes.AI_Answer:
-            response: StructuredAgentResponse = await self.answer_service.generate_answer(
-                user_text=triage.user_text, category=category_name
-            )
-            answer: str = response.response
-        elif action.type == ActionTypes.Standard_Answer:
-            if not action.answer:
-                self.logger.warning(
-                    f"Action {action.name} is of type Standard_Answer but has no answer defined. No answer will be posted for ticket {ticket_id}."
-                )
-                return
-            answer: str = action.answer
-        else:
-            raise ValueError(f"Unknown action type: {action.type}")
 
         if triage.category.auto_publish:
             await self.zammad_client.post_answer(
@@ -66,3 +60,75 @@ class ActionService:
                 text=answer,
             )
             self.logger.info(f"Posted shared draft for ticket {ticket_id} with category {category_name}")
+
+    async def get_answer(
+        self,
+        ticket_id: int | None,
+        category_name: str,
+        action_name: str,
+        user_text: str,
+        session_id: str | None,
+    ) -> tuple[str | None, list[DocumentDict]]:
+        action: Action | None = next((action for action in self.settings.triage.actions if action.name == action_name), None)
+        answer: str | None = None
+        documents: list[DocumentDict] = []
+        if action is None:
+            raise ValueError(f"No action found with name: {action_name}")
+        elif action.type == ActionTypes.No_Action:
+            self.logger.info(
+                f"Action {action.name} is of type No_Action. No answer will be generated for ticket {ticket_id if ticket_id is not None else 'unknown'}."
+            )
+        elif action.type == ActionTypes.AI_Answer:
+            response: StructuredAgentResponse = await self.answer_service.generate_answer(
+                user_text=user_text, category=category_name, session_id=session_id
+            )
+            answer = response.response
+            documents = response.documents
+        elif action.type == ActionTypes.Standard_Answer:
+            if not action.answer:
+                raise ValueError(f"Standard_Answer action {action.name} has no configured answer")
+            else:
+                answer = action.answer
+        else:
+            raise ValueError(f"Unknown action type: {action.type}")
+        return answer, documents
+
+    async def cleanup(self) -> None:
+        """
+        Close internal clients and reset the module-level service reference.
+
+        Attempts to close the Qdrant KB client and, if present, the DLF client. Always resets the module-level `_service` reference to `None` so the service can be recreated.
+        """
+        try:
+            await self.zammad_client.close()
+        finally:
+            global _service
+            _service = None
+
+
+_service: ActionService | None = None
+
+
+def get_action_service(settings: ZammadAISettings | None = None, answer_service: AnswerService | None = None) -> ActionService:
+    """
+    Get or create the shared ActionService instance.
+
+    Args:
+        settings: Optional settings to initialize the ActionService instance.
+                 If not provided, uses get_settings().
+        answer_service: Optional AnswerService instance to use.
+                        If not provided, a new one will be created.
+
+    Returns:
+        ActionService: The shared ActionService instance.
+    """
+    global _service
+    if _service is None:
+        if settings is None:
+            from app.settings import get_settings
+
+            settings = get_settings()
+        if answer_service is None:
+            answer_service = get_answer_service(settings)
+        _service = ActionService(settings=settings, answer_service=answer_service)
+    return _service

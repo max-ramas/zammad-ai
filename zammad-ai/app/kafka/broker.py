@@ -85,7 +85,9 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
             try:
                 id: int = int(event.ticket)
                 result: TriageResult = await triage_service.perform_triage(id=id)
-                logger.debug(f"Triage result for ticket {id}: {result}")
+                logger.debug(
+                    f"Triage result for ticket {id}: category: {result.category.name if result.category else 'No category'}, action: {result.action.name if result.action else 'No action'}"
+                )
                 await action_service.execute_action(ticket_id=id, triage=result)
             except Exception:
                 logger.error(f"Error processing event for ticket {event.ticket}.", exc_info=True)

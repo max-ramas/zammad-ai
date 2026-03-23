@@ -147,34 +147,34 @@ async def process_ticket(text: str, *, api_base_url: str, timeout_seconds: float
         answer = ""
         answer_documents = ""
 
-        if action in {"AI_Answer", "ai_response"}:
-            try:
-                answer_data = await _request_json(
-                    client=client,
-                    url=answer_url,
-                    payload={
-                        "text": text,
-                        "id": session_id,
-                        "category": category,
-                    },
-                )
-                answer = str(answer_data.get("response", ""))
-                documents = answer_data.get("documents", [])
-                if isinstance(documents, list):
-                    answer_documents = _format_documents(documents=documents)
-            except httpx.ConnectError:
-                gr.Warning(f"Verbindungsfehler bei Answer: Backend läuft nicht auf {api_base_url}")
-                answer = "Fehler bei Answer-Generierung"
-            except httpx.TimeoutException:
-                gr.Warning("Timeout: Answer-Generierung dauert zu lange")
-                answer = "Fehler bei Answer-Generierung"
-            except httpx.HTTPStatusError as e:
-                gr.Warning(f"HTTP-Fehler {e.response.status_code}: {e.response.text}")
-                answer = "Fehler bei Answer-Generierung"
-            except Exception as e:
-                logger.error("Failed to process answer request.", exc_info=True, extra={"exception_type": type(e).__name__})
-                gr.Warning("Fehler bei Answer-Generierung")
-                answer = "Fehler bei Answer-Generierung"
+        try:
+            answer_data = await _request_json(
+                client=client,
+                url=answer_url,
+                payload={
+                    "text": text,
+                    "category": category,
+                    "session_id": session_id,
+                    "action": action,
+                },
+            )
+            answer = str(answer_data.get("response", ""))
+            documents = answer_data.get("documents", [])
+            if isinstance(documents, list):
+                answer_documents = _format_documents(documents=documents)
+        except httpx.ConnectError:
+            gr.Warning(f"Verbindungsfehler bei Answer: Backend läuft nicht auf {api_base_url}")
+            answer = "Fehler bei Answer-Generierung"
+        except httpx.TimeoutException:
+            gr.Warning("Timeout: Answer-Generierung dauert zu lange")
+            answer = "Fehler bei Answer-Generierung"
+        except httpx.HTTPStatusError as e:
+            gr.Warning(f"HTTP-Fehler {e.response.status_code}: {e.response.text}")
+            answer = "Fehler bei Answer-Generierung"
+        except Exception as e:
+            logger.error("Failed to process answer request.", exc_info=True, extra={"exception_type": type(e).__name__})
+            gr.Warning("Fehler bei Answer-Generierung")
+            answer = "Fehler bei Answer-Generierung"
 
     confidence_str = f"{confidence * 100:.1f}%"
     return category, action, reasoning, confidence_str, answer, answer_documents
