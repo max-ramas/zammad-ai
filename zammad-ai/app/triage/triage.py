@@ -16,7 +16,6 @@ from app.settings import ZammadAISettings
 from app.settings.triage import (
     Action,
     ActionRule,
-    ActionTypes,
     Category,
     Condition,
     FileTriagePrompts,
@@ -72,24 +71,8 @@ class TriageService:
         self.actions: list[Action] = settings.triage.actions
         self.actions_by_name: dict[str, Action] = {a.name: a for a in settings.triage.actions}
 
-        self.no_category: Category = self.categories_by_name.get(
-            settings.triage.no_category_name,
-            settings.triage.categories[0]
-            if settings.triage.categories
-            else Category(
-                name="Unknown",
-            ),
-        )
-        self.no_action: Action = self.actions_by_name.get(
-            settings.triage.no_action_name,
-            settings.triage.actions[0]
-            if settings.triage.actions
-            else Action(
-                description="",
-                name="Unknown",
-                type=ActionTypes.No_Action,
-            ),
-        )
+        self.no_category: Category = self.categories_by_name[settings.triage.no_category_name]
+        self.no_action: Action = self.actions_by_name[settings.triage.no_action_name]
 
         self.action_rules: list[ActionRule] = settings.triage.action_rules
 

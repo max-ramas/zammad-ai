@@ -1,6 +1,9 @@
 from collections.abc import Callable, Generator
+from pathlib import Path
+from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from app.models.triage import CategorizationResult, DaysSinceRequestResponse, ProcessingIdResponse
 from app.models.zammad import ZammadArticle, ZammadTicket
@@ -8,10 +11,124 @@ from app.settings.triage import (
     ActionRule,
     Category,
     Condition,
+    LangfusePrompt,
+    LangfuseTriagePrompts,
+    TriageSettings,
 )
 from app.triage import triage as triage_module
 from app.triage.triage import TriageError, TriageService
 from test.fakes import FakeGenAIHandler, FakeZammadClient, FakeZammadConnectionError
+
+
+def test_triage_settings_rejects_invalid_references_and_missing_standard_answer() -> None:
+    payload = {
+        "categories": [{"name": "General"}, {"name": "Other"}],
+        "no_category_name": "Unknown",
+        "actions": [
+            {"name": "Keine_Aktion", "description": "No action", "type": "No_Action"},
+            {"name": "Escalate", "description": "Escalate", "type": "Standard_Answer"},
+        ],
+        "no_action_name": "UnknownAction",
+        "action_rules": [
+            {
+                "category_name": "MissingCategory",
+                "action_name": "MissingAction",
+                "conditions": [
+                    {
+                        "priority": 1,
+                        "field": "days_since_request",
+                        "operator": "greater_equals",
+                        "value": 1,
+                        "action_name": "MissingConditionAction",
+                    }
+                ],
+            }
+        ],
+        "prompts": {
+            "type": "string",
+            "prompt_map": {
+                "categories": "List of categories: {{categories}}",
+                "examples": "Examples: {{examples}}",
+                "role": "Role prompt",
+            },
+        },
+    }
+
+    with pytest.raises(ValidationError) as excinfo:
+        TriageSettings.model_validate(payload)
+
+    message = str(excinfo.value)
+    assert "no_category_name 'Unknown'" in message
+    assert "no_action_name 'UnknownAction'" in message
+    assert "ActionRule.category_name 'MissingCategory'" in message
+    assert "ActionRule.action_name 'MissingAction'" in message
+    assert "Condition.action_name 'MissingConditionAction'" in message
+    assert "Action 'Escalate' has type Standard_Answer but answer is None" in message
+
+
+@pytest.mark.parametrize(
+    ("prompts", "expected_type"),
+    [
+        (
+            {
+                "type": "string",
+                "prompt_map": {
+                    "categories": "List of categories: {{categories}}",
+                    "examples": "Examples: {{examples}}",
+                },
+            },
+            "string",
+        ),
+        (
+            {
+                "type": "file",
+                "prompt_map": {
+                    "categories": str(Path("categories.prompt.md")),
+                    "examples": str(Path("examples.prompt.md")),
+                },
+            },
+            "file",
+        ),
+        (
+            {
+                "type": "langfuse",
+                "prompt_map": {
+                    "categories": {"name": "drivers-licence/categories", "label": "latest"},
+                    "examples": {"name": "drivers-licence/examples", "label": "latest"},
+                },
+            },
+            "langfuse",
+        ),
+    ],
+)
+def test_triage_settings_rejects_prompt_maps_missing_required_keys(
+    prompts: dict[str, Any],
+    expected_type: str,
+    tmp_path: Path,
+) -> None:
+    payload: dict[str, Any] = {
+        "categories": [{"name": "General"}],
+        "no_category_name": "General",
+        "actions": [{"name": "Keine_Aktion", "description": "No action", "type": "No_Action"}],
+        "no_action_name": "Keine_Aktion",
+        "action_rules": [],
+        "prompts": prompts,
+    }
+
+    if expected_type == "file":
+        prompt_map = payload["prompts"]["prompt_map"]
+        assert isinstance(prompt_map, dict)
+        for key in ("categories", "examples"):
+            prompt_path = tmp_path / f"{key}.prompt.md"
+            prompt_path.write_text(f"{key} prompt", encoding="utf-8")
+            prompt_map[key] = str(prompt_path)
+
+    with pytest.raises(ValidationError) as excinfo:
+        TriageSettings.model_validate(payload)
+
+    message = str(excinfo.value)
+    assert "missing required keys" in message
+    assert "role" in message
 
 
 def _get_triage_runs_in_progress_value() -> float:
@@ -408,8 +525,6 @@ async def test_get_action_id_no_matching_rule(triage_factory: Callable[[list[Act
 
 
 def test_langfuse_prompt_map_values_are_typed() -> None:
-    from app.settings.triage import LangfusePrompt, LangfuseTriagePrompts
-
     prompts = LangfuseTriagePrompts.model_validate(
         {
             "type": "langfuse",
