@@ -64,17 +64,26 @@ zammad:
   # oauth2_scope: null # Optional: OAuth 2.0 scope
 
 # ============================================================================
-# Qdrant Configuration
+# Answer Configuration
 # ============================================================================
 # Set secret in .env file:
-#   ZAMMAD_AI_QDRANT__API_KEY (required)
-
-qdrant:
-  host: "https://your-qdrant-instance.example.com"
-  api_key: null # Set via ZAMMAD_AI_QDRANT__API_KEY env var (recommended)
-  collection_name: "your_collection_name"
-  vector_name: null # Optional: specify vector name if needed (for namespacing)
-  vector_dimension: 1024 # Dimension of embedding vectors
+#   ZAMMAD_AI_Answer_QDRANT__API_KEY (required)
+answer:
+  qdrant:
+    url: "https://your-qdrant-instance.example.com"
+    api_key: null # Set in .env: ZAMMAD_AI_ANSWER__QDRANT__API_KEY
+    collection_name: "your-collection-name"
+    vector_name: null # Optional: name of the vector field in Qdrant
+    vector_dimension: 1024
+    timeout: 10 # Request timeout in seconds
+    retrieval_num_documents: 5 # Number of documents to retrieve from Qdrant for context
+  dlf:
+    url: "https://your-dlf-backend.example.com/api"
+    filter_categories: [] # Optional: list of categories to filter DLF results, or null for no filtering
+    timeout: 10 # Request timeout in seconds
+    max_retries: 3 # Maximum number of retries for DLF API calls
+  agent_prompt: "" # Optional: custom prompt for the agent (overrides default prompt if set)
+  ai_answer_disclaimer: "" # Optional: disclaimer text for AI-generated answers
 
 # ============================================================================
 # Kafka Configuration
