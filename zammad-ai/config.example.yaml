@@ -67,7 +67,7 @@ zammad:
 # Answer Configuration
 # ============================================================================
 # Set secret in .env file:
-#   ZAMMAD_AI_Answer_QDRANT__API_KEY (required)
+#   ZAMMAD_AI_ANSWER__QDRANT__API_KEY (required)
 answer:
   qdrant:
     url: "https://your-qdrant-instance.example.com"
