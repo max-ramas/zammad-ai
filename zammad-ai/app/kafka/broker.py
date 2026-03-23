@@ -8,7 +8,7 @@ from faststream.kafka.prometheus import KafkaPrometheusMiddleware
 from faststream.security import BaseSecurity
 from prometheus_client import REGISTRY
 
-from app.action.service import ActionService
+from app.action.service import ActionService, get_action_service
 from app.answer.service import AnswerService, get_answer_service
 from app.models.kafka import Event
 from app.models.triage import TriageResult
@@ -19,7 +19,7 @@ from app.utils.status import track_activity
 
 from .security import setup_security
 
-logger: Logger = getLogger(name="zammad-ai")
+logger: Logger = getLogger(name="zammad-ai.kafka.broker")
 
 
 def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
@@ -52,10 +52,7 @@ def build_router(settings: ZammadAISettings) -> tuple[KafkaRouter, Callable]:
 
     triage_service: TriageService = get_triage_service(settings=settings)
     answer_service: AnswerService = get_answer_service(settings=settings)
-    action_service: ActionService = ActionService(
-        answer_service=answer_service,
-        settings=settings,
-    )
+    action_service: ActionService = get_action_service(settings=settings, answer_service=answer_service)
 
     @router.subscriber(
         settings.kafka.topic,

@@ -183,12 +183,12 @@ class TriageService:
                 )
 
                 # Step 5: Determine action based on predicted category and conditions
-                action_id: str = await self.get_action_name(
+                action_name: str = await self.get_action_name(
                     categorization_result=categorization,
                     message=customer_message,
                     session_id=session_id,
                 )
-                action: Action = self.actions_by_name.get(action_id, self.no_action)
+                action: Action = self.actions_by_name.get(action_name, self.no_action)
                 # Step 6: Return the triage result
                 outcome = "success"
                 return TriageResult(

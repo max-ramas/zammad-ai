@@ -71,14 +71,14 @@ class TriageSettings(BaseModel):
         else:
             category_names, duplicate_category_names = self._collect_named_items(self.categories)
             if duplicate_category_names:
-                errors.append("Category names must be unique")
+                errors.append(f"Category names must be unique. Duplicates found: {duplicate_category_names}")
 
         if not self.actions:
             errors.append("At least one action must be provided")
         else:
             action_names, duplicate_action_names = self._collect_named_items(self.actions)
             if duplicate_action_names:
-                errors.append("Action names must be unique")
+                errors.append(f"Action names must be unique. Duplicates found: {duplicate_action_names}")
 
         category_names = {category.name for category in self.categories}
         action_names = {action.name for action in self.actions}
