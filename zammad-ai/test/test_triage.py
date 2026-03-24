@@ -354,7 +354,7 @@ async def test_predict_category_empty_message(patched_triage: TriageService) -> 
     """An empty (or whitespace-only) message returns no_category immediately."""
     result = await patched_triage.predict_category(message="   ", session_id="session-id")
     assert result.category == patched_triage.no_category
-    assert "Leere Nachricht" in result.reasoning
+    assert "Empty message cannot be categorized" in result.reasoning
     assert result.confidence == 1.0
 
 
@@ -428,7 +428,7 @@ async def test_perform_triage_handles_processing_triage_error(patched_triage: Tr
 
     assert result.category == patched_triage.no_category
     assert result.action == patched_triage.no_action
-    assert "Fehler bei der Triage-Verarbeitung" in result.reasoning
+    assert "Error during triage processing" in result.reasoning
     assert result.confidence == 1.0
 
 
