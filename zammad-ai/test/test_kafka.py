@@ -56,7 +56,7 @@ def create_mock_settings() -> ZammadAISettings:
             triage=TriageSettings(
                 categories=[Category(name="Test")],
                 no_category_name="Test",
-                actions=[Action(name="Keine_Aktion", description="No action", type=ActionTypes.No_Action)],
+                actions=[Action(name="Keine_Aktion", description="No action", type=ActionTypes.NoAction)],
                 no_action_name="Keine_Aktion",
                 action_rules=[],
                 prompts=StringTriagePrompts(),
@@ -107,7 +107,7 @@ def mock_triage() -> MagicMock:
         return_value=TriageResult(
             user_text="",
             category=Category(name="Test"),
-            action=Action(name="Keine_Aktion", description="No action", type=ActionTypes.No_Action),
+            action=Action(name="Keine_Aktion", description="No action", type=ActionTypes.NoAction),
             reasoning="Test reasoning",
             confidence=0.95,
         )

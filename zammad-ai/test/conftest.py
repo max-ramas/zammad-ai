@@ -25,7 +25,7 @@ _TEST_ENV_DEFAULTS: dict[str, str] = {
     "ZAMMAD_AI_ZAMMAD__TYPE": "api",
     "ZAMMAD_AI_ZAMMAD__BASE_URL": "https://example.com",
     "ZAMMAD_AI_ZAMMAD__AUTH_TOKEN": "test-token",
-    "ZAMMAD_AI_TRIAGE": '{"categories":[{"name":"Unknown"}],"no_category_name":"Unknown","actions":[{"name":"Keine_Aktion","description":"No action","type":"No_Action"}],"no_action_name":"Keine_Aktion","action_rules":[],"prompts":{"type":"string","prompt_map":{"categories":"List of categories: {{categories}}","examples":"Examples: {{examples}}","role":"You are a helpful assistant that categorizes support requests into the above categories based on the content of the request."}}}',
+    "ZAMMAD_AI_TRIAGE": '{"categories":[{"name":"Unknown"}],"no_category_name":"Unknown","actions":[{"name":"No Action","description":"No action","type":"NoAction"}],"no_action_name":"No Action","action_rules":[],"prompts":{"type":"string","prompt_map":{"categories":"List of categories: {{categories}}","examples":"Examples: {{examples}}","role":"You are a helpful assistant that categorizes support requests into the above categories based on the content of the request."}}}',
     "ZAMMAD_AI_VALID_REQUEST_TYPES": '["support"]',
     "ZAMMAD_AI_QDRANT__API_KEY": "test-key",
 }
@@ -47,10 +47,10 @@ class _ApiTriageStub:
 
         Attributes:
             no_category (Category): A fallback Category named "Unknown".
-            no_action (Action): A fallback Action named "Keine_Aktion".
+            no_action (Action): A fallback Action named "No Action".
         """
         self.no_category = Category(name="Unknown")
-        self.no_action = Action(name="Keine_Aktion", description="No action", type=ActionTypes.No_Action)
+        self.no_action = Action(name="No Action", description="No action", type=ActionTypes.NoAction)
 
     async def predict_category(self, *_args, **_kwargs) -> Any:
         """
@@ -119,10 +119,10 @@ def base_settings() -> ZammadAISettings:
             categories=[Category(name="Unknown"), Category(name="General")],
             no_category_name="Unknown",
             actions=[
-                Action(name="Keine_Aktion", description="No action", type=ActionTypes.No_Action),
-                Action(name="Escalate", description="Escalate", type=ActionTypes.Standard_Answer),
+                Action(name="No Action", description="No action", type=ActionTypes.NoAction),
+                Action(name="Escalate", description="Escalate", type=ActionTypes.StaticAnswer),
             ],
-            no_action_name="Keine_Aktion",
+            no_action_name="No Action",
             action_rules=[],
             prompts=StringTriagePrompts(
                 type="string",

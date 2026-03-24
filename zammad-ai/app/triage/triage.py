@@ -165,7 +165,7 @@ class TriageService:
                 return TriageResult(
                     user_text="",
                     category=self.no_category,
-                    reasoning="Keine Artikel gefunden",
+                    reasoning="No articles found",
                     confidence=1.0,
                     action=self.no_action,
                     extracted_values=None,
@@ -206,7 +206,7 @@ class TriageService:
                     user_text=customer_message,
                     category=self.no_category,
                     action=self.no_action,
-                    reasoning="Fehler bei der Triage-Verarbeitung",
+                    reasoning="Error during triage processing",
                     confidence=1.0,
                     extracted_values=None,
                 )
@@ -232,7 +232,7 @@ class TriageService:
             logger.warning("Empty message provided for categorization")
             return CategorizationResult(
                 category=self.no_category,
-                reasoning="Leere Nachricht kann nicht kategorisiert werden",
+                reasoning="Empty message cannot be categorized",
                 confidence=1.0,
                 extracted_values=None,
             )
@@ -250,7 +250,7 @@ class TriageService:
             if not cat_result.category or cat_result.category.name not in [c.name for c in self.categories]:
                 logger.warning("Predicted category is invalid or not found, assigning no_category")
                 cat_result.category = self.no_category
-                cat_result.reasoning += " (Kategorie ungültig, 'no_category' zugewiesen)"
+                cat_result.reasoning += " (Invalid category, 'no_category' assigned)"
                 cat_result.confidence = 1.0
 
             # Log the results

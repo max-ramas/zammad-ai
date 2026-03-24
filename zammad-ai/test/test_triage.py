@@ -25,8 +25,8 @@ def test_triage_settings_rejects_invalid_references_and_missing_standard_answer(
         "categories": [{"name": "General"}, {"name": "Other"}],
         "no_category_name": "Unknown",
         "actions": [
-            {"name": "Keine_Aktion", "description": "No action", "type": "No_Action"},
-            {"name": "Escalate", "description": "Escalate", "type": "Standard_Answer"},
+            {"name": "No Action", "description": "No action", "type": "NoAction"},
+            {"name": "Escalate", "description": "Escalate", "type": "StaticAnswer"},
         ],
         "no_action_name": "UnknownAction",
         "action_rules": [
@@ -63,7 +63,7 @@ def test_triage_settings_rejects_invalid_references_and_missing_standard_answer(
     assert "ActionRule.category_name 'MissingCategory'" in message
     assert "ActionRule.action_name 'MissingAction'" in message
     assert "Condition.action_name 'MissingConditionAction'" in message
-    assert "Action 'Escalate' has type Standard_Answer but answer is None" in message
+    assert "Action 'Escalate' has type StaticAnswer but answer is None" in message
 
 
 @pytest.mark.parametrize(
@@ -109,8 +109,8 @@ def test_triage_settings_rejects_prompt_maps_missing_required_keys(
     payload: dict[str, Any] = {
         "categories": [{"name": "General"}],
         "no_category_name": "General",
-        "actions": [{"name": "Keine_Aktion", "description": "No action", "type": "No_Action"}],
-        "no_action_name": "Keine_Aktion",
+        "actions": [{"name": "No Action", "description": "No action", "type": "NoAction"}],
+        "no_action_name": "No Action",
         "action_rules": [],
         "prompts": prompts,
     }
@@ -204,7 +204,7 @@ async def test_perform_triage_returns_defaults_when_no_articles(patched_triage: 
     result = await patched_triage.perform_triage(id=123)
     assert result.category == patched_triage.no_category
     assert result.action == patched_triage.no_action
-    assert result.reasoning == "Keine Artikel gefunden"
+    assert result.reasoning == "No articles found"
     assert result.confidence == 1.0
 
 
@@ -226,7 +226,7 @@ async def test_get_action_id_uses_days_since_request_condition(triage_factory: C
     action_rules = [
         ActionRule(
             category_name="General",
-            action_name="Keine_Aktion",
+            action_name="No Action",
             conditions=[
                 Condition(
                     priority=1,
@@ -465,7 +465,7 @@ async def test_get_action_id_condition_not_met_falls_through(triage_factory: Cal
     action_rules = [
         ActionRule(
             category_name="General",
-            action_name="Keine_Aktion",
+            action_name="No Action",
             conditions=[
                 Condition(priority=1, field="days_since_request", operator="greater_equals", value=10, action_name="AI_Answer"),
             ],
@@ -477,7 +477,7 @@ async def test_get_action_id_condition_not_met_falls_through(triage_factory: Cal
     categorization = CategorizationResult(category=Category(name="General"), reasoning="ok", confidence=0.8)
 
     action_name = await triage.get_action_name(categorization_result=categorization, message="msg", session_id="s")
-    assert action_name == "Keine_Aktion"  # rule's default, not the condition's action_name
+    assert action_name == "No Action"  # rule's default, not the condition's action_name
 
 
 # ---------------------------------------------------------------------------
@@ -491,7 +491,7 @@ async def test_get_action_id_processing_id_condition(triage_factory: Callable[[l
     action_rules = [
         ActionRule(
             category_name="General",
-            action_name="Keine_Aktion",
+            action_name="No Action",
             conditions=[
                 Condition(priority=1, field="processing_id", operator="equals", value="ABC", action_name="AI_Answer"),
             ],
@@ -552,7 +552,7 @@ async def test_get_action_id_respects_condition_priority(triage_factory: Callabl
     action_rules = [
         ActionRule(
             category_name="General",
-            action_name="Keine_Aktion",
+            action_name="No Action",
             conditions=[
                 # priority=2 should be evaluated second
                 Condition(priority=2, field="days_since_request", operator="greater_equals", value=1, action_name="Standardantwort"),

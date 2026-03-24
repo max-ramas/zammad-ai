@@ -74,17 +74,17 @@ class ActionService:
         documents: list[DocumentDict] = []
         if action is None:
             raise ValueError(f"No action found with name: {action_name}")
-        elif action.type == ActionTypes.No_Action:
+        elif action.type == ActionTypes.NoAction:
             self.logger.info(
                 f"Action {action.name} is of type No_Action. No answer will be generated for ticket {ticket_id if ticket_id is not None else 'unknown'}."
             )
-        elif action.type == ActionTypes.AI_Answer:
+        elif action.type == ActionTypes.AIAnswer:
             response: StructuredAgentResponse = await self.answer_service.generate_answer(
                 user_text=user_text, category=category_name, session_id=session_id
             )
             answer = response.response
             documents = response.documents
-        elif action.type == ActionTypes.Standard_Answer:
+        elif action.type == ActionTypes.StaticAnswer:
             if not action.answer:
                 raise ValueError(f"Standard_Answer action {action.name} has no configured answer")
             else:

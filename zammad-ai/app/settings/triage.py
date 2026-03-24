@@ -95,10 +95,10 @@ class TriageSettings(BaseModel):
         # Validate that action rules reference existing category and action names, and that any conditions within the rules also reference existing action names
         errors.extend(self._validate_references(category_names=category_names, action_names=action_names, rules=self.action_rules))
 
-        # Validate that all Standard_Answer actions have a non-empty answer configured
+        # Validate that all StaticAnswer actions have a non-empty answer configured
         for action in self.actions:
-            if action.type == ActionTypes.Standard_Answer and action.answer is None:
-                errors.append(f"Action '{action.name}' has type Standard_Answer but answer is None")
+            if action.type == ActionTypes.StaticAnswer and action.answer is None:
+                errors.append(f"Action '{action.name}' has type StaticAnswer but answer is None")
 
         # Validate that prompts are properly configured based on their type
         errors.extend(self._validate_prompt_keys(self.prompts))
@@ -115,9 +115,9 @@ class Category(BaseModel):
 
 
 class ActionTypes(str, Enum):
-    AI_Answer = "AI_Answer"
-    No_Action = "No_Action"
-    Standard_Answer = "Standard_Answer"
+    AIAnswer = "AIAnswer"
+    NoAction = "NoAction"
+    StaticAnswer = "StaticAnswer"
 
 
 class Action(BaseModel):
