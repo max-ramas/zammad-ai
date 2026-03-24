@@ -97,8 +97,8 @@ class TriageSettings(BaseModel):
 
         # Validate that all StaticAnswer actions have a non-empty answer configured
         for action in self.actions:
-            if action.type == ActionTypes.StaticAnswer and action.answer is None:
-                errors.append(f"Action '{action.name}' has type StaticAnswer but answer is None")
+            if action.type == ActionTypes.StaticAnswer and (action.answer is None or not action.answer.strip()):
+                errors.append(f"Action '{action.name}' has type StaticAnswer but answer is None or empty")
 
         # Validate that prompts are properly configured based on their type
         errors.extend(self._validate_prompt_keys(self.prompts))

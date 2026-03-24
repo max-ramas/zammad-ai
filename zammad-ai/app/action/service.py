@@ -85,10 +85,8 @@ class ActionService:
             answer = response.response
             documents = response.documents
         elif action.type == ActionTypes.StaticAnswer:
-            if not action.answer:
-                raise ValueError(f"Standard_Answer action {action.name} has no configured answer")
-            else:
-                answer = action.answer
+            # The settings validator ensures that if the type is StaticAnswer, the answer field is not None, so we can safely access it here
+            answer = action.answer
         else:
             raise ValueError(f"Unknown action type: {action.type}")
         return answer, documents
