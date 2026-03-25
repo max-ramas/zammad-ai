@@ -60,6 +60,8 @@ class AnswerService:
         Notes:
             If fetching the prompt from Langfuse fails, the process exits with status code 1.
         """
+        self.settings: ZammadAISettings = settings
+
         self.langfuse_client: LangfuseClient | None = None
         if settings.langfuse_enabled:
             self.langfuse_client = LangfuseClient()
@@ -147,6 +149,8 @@ class AnswerService:
             )
             logger.debug(f"Agent raw result:\n{agent_result}")
             structured_response = agent_result["structured_response"]
+            if self.settings.answer.ai_answer_disclaimer.strip() != "":
+                structured_response.response += f"\n\n{self.settings.answer.ai_answer_disclaimer}"
             outcome = "success"
             return structured_response
         finally:
