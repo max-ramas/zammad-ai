@@ -10,7 +10,7 @@ from typing import Any, TypeVar
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig, RunnableSequence
-from langfuse import observe
+from langfuse import observe, propagate_attributes
 
 from app.models.triage import CategorizationResult, DaysSinceRequestResponse, ProcessingIdResponse
 from app.observe import LangfuseClient
@@ -34,7 +34,7 @@ class GenAIHandler:
     operation to avoid rebuilding chain objects on every request.
     """
 
-    REQUIRED_PROMPT_KEYS = {"categorization", "days_since_request", "processing_id"}
+    REQUIRED_PROMPT_KEYS = {"triage", "days_since_request", "processing_id"}
 
     def __init__(self, genai_settings: GenAISettings, prompts: dict[str, str]) -> None:
         """Initialize model configuration and durable operation chains.
@@ -85,7 +85,7 @@ class GenAIHandler:
                 raise ValueError(f"Unsupported GenAI SDK: {genai_settings.sdk}")
 
         # Build durable chains once so each operation reuses the same chain instance.
-        self._categorization_chain = self._build_chain(prompt=prompts["categorization"], output_schema=CategorizationResult)
+        self._categorization_chain = self._build_chain(prompt=prompts["triage"], output_schema=CategorizationResult)
         self._days_since_request_chain = self._build_chain(prompt=prompts["days_since_request"], output_schema=DaysSinceRequestResponse)
         self._processing_id_chain = self._build_chain(prompt=prompts["processing_id"], output_schema=ProcessingIdResponse)
 
@@ -115,19 +115,20 @@ class GenAIHandler:
         Returns:
             Structured categorization result from the model.
         """
-        _, config = self._build_runnable_config(session_id=session_id)
+        session_id, config = self._build_runnable_config(session_id=session_id)
 
         try:
-            response: CategorizationResult = await self._categorization_chain.ainvoke(
-                input={
-                    "text": message,
-                    "role_description": role_description,
-                    "categories": categories,
-                    "categories_prompt": categories_prompt,
-                    "examples": examples,
-                },
-                config=config,
-            )
+            with propagate_attributes(session_id=session_id):
+                response: CategorizationResult = await self._categorization_chain.ainvoke(
+                    input={
+                        "text": message,
+                        "role_description": role_description,
+                        "categories": categories,
+                        "categories_prompt": categories_prompt,
+                        "examples": examples,
+                    },
+                    config=config,
+                )
             return response
         except Exception as e:
             logger.error("Error during GenAI invocation for categorization", exc_info=True)
@@ -145,16 +146,17 @@ class GenAIHandler:
         Returns:
             Structured response containing extracted day offset information.
         """
-        _, config = self._build_runnable_config(session_id=session_id)
+        session_id, config = self._build_runnable_config(session_id=session_id)
 
         try:
-            response: DaysSinceRequestResponse = await self._days_since_request_chain.ainvoke(
-                input={
-                    "text": message,
-                    "today": today,
-                },
-                config=config,
-            )
+            with propagate_attributes(session_id=session_id):
+                response: DaysSinceRequestResponse = await self._days_since_request_chain.ainvoke(
+                    input={
+                        "text": message,
+                        "today": today,
+                    },
+                    config=config,
+                )
             return response
         except Exception as e:
             logger.error("Error during GenAI invocation for days since request extraction", exc_info=True)
@@ -171,15 +173,16 @@ class GenAIHandler:
         Returns:
             Structured response containing the extracted processing id.
         """
-        _, config = self._build_runnable_config(session_id=session_id)
+        session_id, config = self._build_runnable_config(session_id=session_id)
 
         try:
-            response: ProcessingIdResponse = await self._processing_id_chain.ainvoke(
-                input={
-                    "text": message,
-                },
-                config=config,
-            )
+            with propagate_attributes(session_id=session_id):
+                response: ProcessingIdResponse = await self._processing_id_chain.ainvoke(
+                    input={
+                        "text": message,
+                    },
+                    config=config,
+                )
             return response
         except Exception as e:
             logger.error("Error during GenAI invocation for processing id extraction", exc_info=True)
@@ -227,6 +230,5 @@ class GenAIHandler:
         if not resolved_session_id:
             resolved_session_id = self.langfuse_client.generate_session_id()
 
-        self.langfuse_client.langfuse.update_current_trace(session_id=resolved_session_id)
         config: RunnableConfig = self.langfuse_client.build_config(session_id=resolved_session_id)
         return resolved_session_id, config
