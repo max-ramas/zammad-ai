@@ -140,7 +140,9 @@ class AnswerService:
                 )
             )
             config: RunnableConfig = (
-                self.langfuse_client.build_config(session_id=session_id) if self.langfuse_client is not None else RunnableConfig()
+                self.langfuse_client.build_config(session_id=session_id)
+                if self.langfuse_client is not None
+                else RunnableConfig()
             )
             agent_result: dict = await self.agent.ainvoke(
                 input={"messages": [user_message]},

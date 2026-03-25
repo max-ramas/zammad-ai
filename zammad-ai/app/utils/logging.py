@@ -136,5 +136,8 @@ class JsonFormatter(logging.Formatter):
 
 
 class MetricsFilter(logging.Filter):
+    """Filter out Prometheus metrics endpoint access logs."""
+
     def filter(self, record):
+        """Return True for non-metrics records and False for /metrics requests."""
         return record.getMessage().find("/metrics") == -1

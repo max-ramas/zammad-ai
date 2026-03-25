@@ -69,8 +69,7 @@ class _ApiTriageStub:
         return CategorizationResult(category=self.no_category, reasoning="stub", confidence=1.0)
 
     async def get_action_name(self, *_args, **_kwargs) -> str:
-        """
-        Get the default action name used by the triage stub.
+        """Get the default action name used by the triage stub.
 
         @returns
             Action name of the stub's default action as a `str`.
@@ -78,8 +77,7 @@ class _ApiTriageStub:
         return self.no_action.name
 
     def _name_to_action(self, _action_name: str) -> Action:
-        """
-        Return the default stub Action regardless of the provided action name.
+        """Return the default stub Action regardless of the provided action name.
 
         Parameters:
             _action_name (str): Ignored action name.

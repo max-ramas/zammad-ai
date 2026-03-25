@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from pydantic import ValidationError
@@ -23,6 +23,7 @@ from test.fakes import FakeGenAIHandler, FakeZammadClient, FakeZammadConnectionE
 
 
 def test_triage_settings_rejects_invalid_references_and_missing_standard_answer() -> None:
+    """Invalid references and missing static answer values should fail validation."""
     payload = {
         "categories": [{"name": "General"}, {"name": "Other"}],
         "no_category_name": "Unknown",
@@ -108,6 +109,7 @@ def test_triage_settings_rejects_prompt_maps_missing_required_keys(
     expected_type: str,
     tmp_path: Path,
 ) -> None:
+    """Prompt maps missing required keys should raise a validation error."""
     payload: dict[str, Any] = {
         "categories": [{"name": "General"}],
         "no_category_name": "General",
@@ -250,7 +252,9 @@ async def test_get_action_id_uses_days_since_request_condition(
         confidence=0.8,
     )
 
-    action_name = await triage.get_action_name(categorization_result=categorization, message="message", session_id="session-id")
+    action_name = await triage.get_action_name(
+        categorization_result=categorization, message="message", session_id="session-id"
+    )
 
     assert action_name == "AI_Answer"
 
@@ -264,7 +268,9 @@ async def test_get_action_id_returns_no_action_for_no_category(patched_triage: T
         confidence=1.0,
     )
 
-    action_name = await patched_triage.get_action_name(categorization_result=categorization, message="message", session_id="session-id")
+    action_name = await patched_triage.get_action_name(
+        categorization_result=categorization, message="message", session_id="session-id"
+    )
 
     assert action_name == patched_triage.no_action.name
 
@@ -476,7 +482,9 @@ async def test_get_action_id_condition_not_met_falls_through(
             category_name="General",
             action_name="No Action",
             conditions=[
-                Condition(priority=1, field="days_since_request", operator="greater_equals", value=10, action_name="AI_Answer"),
+                Condition(
+                    priority=1, field="days_since_request", operator="greater_equals", value=10, action_name="AI_Answer"
+                ),
             ],
         ),
     ]
@@ -538,6 +546,7 @@ async def test_get_action_id_no_matching_rule(
 
 
 def test_langfuse_prompt_map_values_are_typed() -> None:
+    """Langfuse prompt-map entries should deserialize to LangfusePrompt values."""
     prompts = LangfuseTriagePrompts.model_validate(
         {
             "type": "langfuse",
@@ -570,9 +579,17 @@ async def test_get_action_id_respects_condition_priority(
             action_name="No Action",
             conditions=[
                 # priority=2 should be evaluated second
-                Condition(priority=2, field="days_since_request", operator="greater_equals", value=1, action_name="Standardantwort"),
+                Condition(
+                    priority=2,
+                    field="days_since_request",
+                    operator="greater_equals",
+                    value=1,
+                    action_name="Standardantwort",
+                ),
                 # priority=1 should be evaluated first and match
-                Condition(priority=1, field="days_since_request", operator="greater_equals", value=5, action_name="AI_Answer"),
+                Condition(
+                    priority=1, field="days_since_request", operator="greater_equals", value=5, action_name="AI_Answer"
+                ),
             ],
         ),
     ]
@@ -594,7 +611,9 @@ async def test_get_action_id_respects_condition_priority(
 async def test_get_action_id_none_category(patched_triage: TriageService) -> None:
     """A None category always returns no_action."""
     categorization = CategorizationResult(category=None, reasoning="no cat", confidence=1.0)
-    action_name = await patched_triage.get_action_name(categorization_result=categorization, message="msg", session_id="s")
+    action_name = await patched_triage.get_action_name(
+        categorization_result=categorization, message="msg", session_id="s"
+    )
     assert action_name == patched_triage.no_action.name
 
 

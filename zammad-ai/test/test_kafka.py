@@ -23,8 +23,7 @@ from app.settings.zammad import ZammadAPISettings
 
 
 def create_mock_settings() -> ZammadAISettings:
-    """
-    Builds a complete ZammadAISettings object populated with realistic test values for unit tests.
+    """Builds a complete ZammadAISettings object populated with realistic test values for unit tests.
 
     Temporarily replaces sys.argv to avoid CLI argument parsing during construction.
 
@@ -71,8 +70,7 @@ def create_mock_settings() -> ZammadAISettings:
 
 @pytest.fixture
 def valid_message() -> dict:
-    """
-    Standard valid Kafka event payload used by tests.
+    """Standard valid Kafka event payload used by tests.
 
     Returns:
         dict: Payload with keys:

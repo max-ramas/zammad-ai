@@ -7,8 +7,7 @@ from app.models.api_v1 import AnswerInput, AnswerOutput
 
 
 def action_dependency(request: Request) -> ActionService:
-    """
-    Retrieve the request-scoped ActionService instance stored on the FastAPI application state.
+    """Retrieve the request-scoped ActionService instance stored on the FastAPI application state.
 
     Parameters:
         request (Request): FastAPI request whose application state contains the ActionService instance.

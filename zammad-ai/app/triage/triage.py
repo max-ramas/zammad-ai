@@ -272,8 +272,7 @@ class TriageService:
     async def get_action_name(
         self, categorization_result: CategorizationResult, message: str = "", session_id: str | None = None
     ) -> str:
-        """
-        Selects the appropriate action name for a categorization using configured action rules and optional message-derived conditions.
+        """Selects the appropriate action name for a categorization using configured action rules and optional message-derived conditions.
 
         Evaluates action rules associated with the categorization's category. If a rule defines ordered conditions, each condition is evaluated (possibly extracting values from the provided message via the GenAI handler) and its action_name is returned when the condition matches. If a rule matches but none of its conditions match, the rule's default action_name is returned. If the categorization has no category or no rule matches, the configured fallback action name is returned.
 
@@ -336,8 +335,7 @@ class TriageService:
             raise TriageError(f"Action determination failed due to unexpected error: {str(e)}") from e
 
     def _name_to_category(self, category_name: str) -> Category:
-        """
-        Return the Category for the given name or the configured fallback when no match exists.
+        """Return the Category for the given name or the configured fallback when no match exists.
 
         Parameters:
             category_name (str): Name of the category to look up.
