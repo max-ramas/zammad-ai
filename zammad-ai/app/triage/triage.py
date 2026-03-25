@@ -1,8 +1,10 @@
 """Core triage service for ticket categorization and action selection."""
 
 from datetime import date
+from time import perf_counter
 
 from dotenv import load_dotenv
+from prometheus_client import Gauge, Histogram
 from truststore import inject_into_ssl
 
 from app.models.triage import (
@@ -35,6 +37,17 @@ from .helper import get_operator_function
 load_dotenv()
 inject_into_ssl()
 logger = getLogger("zammad-ai.triage")
+
+TRIAGE_RUN_DURATION_SECONDS = Histogram(
+    name="zammad_ai_triage_run_duration_seconds",
+    documentation="Duration of triage service runs in seconds.",
+    labelnames=("outcome",),
+)
+
+TRIAGE_RUNS_IN_PROGRESS = Gauge(
+    name="zammad_ai_triage_runs_in_progress",
+    documentation="Number of triage runs currently in progress.",
+)
 
 
 class TriageError(Exception):
@@ -161,64 +174,74 @@ class TriageService:
         Raises:
             TriageError: If the ticket cannot be retrieved from Zammad (for example, due to a connection failure).
         """
+        start_time: float = perf_counter()
+        outcome: str = "error"
+        TRIAGE_RUNS_IN_PROGRESS.inc()
         # Step 1: Fetch ticket data from Zammad
         try:
-            ticket: ZammadTicket = await self.zammad_client.get_ticket(id=id)
-        except ZammadConnectionError as e:
-            logger.error("Error connecting to Zammad", exc_info=True)
-            raise TriageError("Triage failed due to Zammad connection error") from e
+            try:
+                ticket: ZammadTicket = await self.zammad_client.get_ticket(id=id)
+            except ZammadConnectionError as e:
+                logger.error("Error connecting to Zammad", exc_info=True)
+                raise TriageError("Triage failed due to Zammad connection error") from e
 
-        # TODO: Only use the first article or concatenate all articles?
-        # Normally the `0` is the customer message, the rest are internal notes
-        # But what if there are multiple customer messages? -> edge case
+            # TODO: Only use the first article or concatenate all articles?
+            # Normally the `0` is the customer message, the rest are internal notes
+            # But what if there are multiple customer messages? -> edge case
 
-        # Step 2: Check if there are articles in the ticket
-        logger.debug(f"Number of articles in ticket {id}: {len(ticket.articles)}")
-        if len(ticket.articles) == 0:
-            logger.warning(f"No articles found for ticket {id}, returning no_category and no_action")
-            return TriageResult(
-                category=self.no_category,
-                reasoning="Keine Artikel gefunden",
-                confidence=1.0,
-                action=self.no_action,
-                extracted_values=None,
-            )
+            # Step 2: Check if there are articles in the ticket
+            logger.debug(f"Number of articles in ticket {id}: {len(ticket.articles)}")
+            if len(ticket.articles) == 0:
+                outcome = "fallback"
+                logger.warning(f"No articles found for ticket {id}, returning no_category and no_action")
+                return TriageResult(
+                    category=self.no_category,
+                    reasoning="Keine Artikel gefunden",
+                    confidence=1.0,
+                    action=self.no_action,
+                    extracted_values=None,
+                )
 
-        try:
-            # Step 3: Extract customer message and generate session ID for Langfuse
-            customer_message: str = ticket.articles[0].text
-            session_id: str = self.genai_handler.langfuse_client.generate_session_id()
+            try:
+                # Step 3: Extract customer message and generate session ID for Langfuse
+                customer_message: str = ticket.articles[0].text
+                session_id: str = self.genai_handler.langfuse_client.generate_session_id()
 
-            # Step 4: Predict category using LLM
-            categorization: CategorizationResult = await self.predict_category(
-                message=customer_message,
-                session_id=session_id,
-            )
+                # Step 4: Predict category using LLM
+                categorization: CategorizationResult = await self.predict_category(
+                    message=customer_message,
+                    session_id=session_id,
+                )
 
-            # Step 5: Determine action based on predicted category and conditions
-            action_id: int = await self.get_action_id(
-                categorization_result=categorization,
-                message=customer_message,
-                session_id=session_id,
-            )
-            action: Action = self.actions_by_id.get(action_id, self.no_action)
-            # Step 6: Return the triage result
-            return TriageResult(
-                category=categorization.category if categorization.category else self.no_category,
-                action=action,
-                reasoning=categorization.reasoning,
-                confidence=categorization.confidence,
-                extracted_values=categorization.extracted_values,
-            )
-        except TriageError:
-            logger.warning(f"Processing failed for ticket {id}, returning fallback TriageResult.")
-            return TriageResult(
-                category=self.no_category,
-                action=self.no_action,
-                reasoning="Fehler bei der Triage-Verarbeitung",
-                confidence=1.0,
-                extracted_values=None,
-            )
+                # Step 5: Determine action based on predicted category and conditions
+                action_id: int = await self.get_action_id(
+                    categorization_result=categorization,
+                    message=customer_message,
+                    session_id=session_id,
+                )
+                action: Action = self.actions_by_id.get(action_id, self.no_action)
+                # Step 6: Return the triage result
+                outcome = "success"
+                return TriageResult(
+                    category=categorization.category if categorization.category else self.no_category,
+                    action=action,
+                    reasoning=categorization.reasoning,
+                    confidence=categorization.confidence,
+                    extracted_values=categorization.extracted_values,
+                )
+            except TriageError:
+                outcome = "fallback"
+                logger.warning(f"Processing failed for ticket {id}, returning fallback TriageResult.")
+                return TriageResult(
+                    category=self.no_category,
+                    action=self.no_action,
+                    reasoning="Fehler bei der Triage-Verarbeitung",
+                    confidence=1.0,
+                    extracted_values=None,
+                )
+        finally:
+            TRIAGE_RUN_DURATION_SECONDS.labels(outcome=outcome).observe(perf_counter() - start_time)
+            TRIAGE_RUNS_IN_PROGRESS.dec()
 
     async def predict_category(self, message: str, session_id: str) -> CategorizationResult:
         """Predict the appropriate triage category for a customer message.
