@@ -1,3 +1,5 @@
+"""Settings for answer generation, knowledge base, and DLF integrations."""
+
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field, FilePath, HttpUrl, PositiveInt, SecretStr
@@ -37,9 +39,7 @@ class LangfuseAnswerPrompt(BaseModel):
 
 
 class QdrantSettings(BaseModel):
-    """
-    Settings for Qdrant vector database integration, including host URL, API key, collection name, and vector configuration.
-    """
+    """Settings for Qdrant vector database integration, including host URL, API key, collection name, and vector configuration."""
 
     url: HttpUrl = Field(
         description="Qdrant host URL",
@@ -95,6 +95,8 @@ class DLFSettings(BaseModel):
 
 
 class AnswerSettings(BaseModel):
+    """Settings for the answer-generation pipeline."""
+
     agent_prompt: StringAnswerPrompt | FileAnswerPrompt | LangfuseAnswerPrompt = Field(
         description="Prompt configuration for the answer generation agent. Can be provided as a raw string, a file path, or a Langfuse prompt reference.",
         default_factory=lambda: FileAnswerPrompt(

@@ -1,3 +1,5 @@
+"""Benchmark script for evaluating triage accuracy."""
+
 import asyncio
 import json
 
@@ -24,8 +26,7 @@ triage = TriageService(settings=settings)
 
 
 async def process_item(key: str, value: dict) -> tuple[str, str, str, str]:
-    """
-    Send an item's text to the triage API and return its expected and predicted category/action.
+    """Send an item's text to the triage API and return its expected and predicted category/action.
 
     Parameters:
         key (str): Identifier for the item.
@@ -56,6 +57,7 @@ async def process_item(key: str, value: dict) -> tuple[str, str, str, str]:
 
 
 async def run_benchmark():
+    """Run the triage benchmark and return the measured accuracy."""
     correct = {}
     incorrect = {}
     incorrect_categories = {}

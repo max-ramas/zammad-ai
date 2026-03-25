@@ -1,3 +1,5 @@
+"""Tests for answer service metrics behavior."""
+
 from collections.abc import Awaitable, Callable
 from unittest.mock import AsyncMock
 
@@ -9,15 +11,22 @@ from app.settings import ZammadAISettings
 
 
 class FakePromptTemplate:
+    """Minimal prompt template fake used by answer service tests."""
+
     def format(self, *, user_text: str, category: str) -> str:
+        """Format deterministic prompt content for assertions."""
         return f"category={category}; user_text={user_text}"
 
 
 class FakeLangfuseClient:
+    """Minimal Langfuse client fake for session/config handling."""
+
     def generate_session_id(self) -> str:
+        """Return a deterministic session id."""
         return "session-id"
 
     def build_config(self, session_id: str | None = None) -> dict:
+        """Return a deterministic config payload for LangChain invocation."""
         return {"session_id": session_id}
 
 
@@ -53,6 +62,7 @@ def _build_answer_service(
 async def test_generate_answer_in_progress_gauge_returns_to_baseline_on_success(
     settings_factory: Callable[..., ZammadAISettings],
 ) -> None:
+    """Gauge value should return to baseline after a successful answer run."""
     baseline = _get_answer_runs_in_progress_value()
 
     async def _ainvoke(*_args, **_kwargs) -> dict:
@@ -69,6 +79,7 @@ async def test_generate_answer_in_progress_gauge_returns_to_baseline_on_success(
 async def test_generate_answer_in_progress_gauge_increments_while_running(
     settings_factory: Callable[..., ZammadAISettings],
 ) -> None:
+    """Gauge should be incremented while answer generation is in progress."""
     baseline = _get_answer_runs_in_progress_value()
     expected = baseline + 1
 
